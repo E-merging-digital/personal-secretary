@@ -37,7 +37,7 @@ status = available
 workflow = .github/workflows/governance.yml
 check = governance
 authority = #5
-proof = successful real GitHub Actions run on a #5 exact candidate HEAD
+proof = successful real GitHub Actions execution on an exact candidate HEAD
 ```
 
 Le workflow minimal vise un check unique `governance` sur les branches
@@ -50,18 +50,36 @@ et l'étape de validation ont tous terminé avec succès. Chaque nouveau HEAD re
 responsable de sa propre preuve ; un succès antérieur ne valide pas un candidat
 ultérieur.
 
-## Main protection administration
+## Main protection enforcement
 
 ```text
-status = unavailable
-surface = connected GitHub repository operations
-reason = protection/ruleset reads are available but no protection/ruleset mutation is exposed
+status = available
+ruleset = protected-main
+target = default branch / main
+required_check = governance
+authority = #5
+proof = live ACTIVE GitHub ruleset enforcing the governed PR path
 ```
 
-Le check existe maintenant et est prouvé, mais aucune required check ni règle de
-protection n'est représentée comme configurée tant que GitHub live ne le prouve
-pas. Une surface d'administration autorisée est requise pour appliquer la
-protection bornée de `main`.
+La protection de `main` est prouvée par GitHub live. Le contrat durable exige
+une Pull Request, le check `governance` à jour avec `main`, la résolution des
+conversations, bloque la suppression et les mises à jour non fast-forward, et
+ne définit aucun bypass. Le nombre d'approbations requis reste à zéro pendant
+ce bootstrap afin de ne pas créer un gate auto-impossible avec le compte
+propriétaire unique.
+
+## Main protection administration routes
+
+```text
+connected_github_ruleset_mutation = unavailable
+human_github_admin_route = available_when_explicitly_human_required_and_authorized
+```
+
+La surface GitHub connectée peut lire la protection et les rulesets mais ne doit
+pas être présentée comme capable de les créer ou modifier. Une mutation de
+ruleset peut être effectuée par un administrateur humain uniquement lorsqu'elle
+est explicitement `HUMAN_REQUIRED`, bornée et autorisée. Après une telle action,
+GitHub live doit être rechargé avant de considérer l'état comme prouvé.
 
 ## Codex development execution
 

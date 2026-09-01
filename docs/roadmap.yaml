@@ -9,20 +9,9 @@ current_goal:
     Establish the minimal agent-native governance and deterministic PR path
     before any Drupal implementation.
 
-active_tasks:
-  - issue: 4
-    purpose: >-
-      Materialize the repository governance foundation and return the first
-      trust-root PR to Project Lead before merge.
+active_tasks: []
 
 planned_tasks:
-  - issue: 5
-    purpose: >-
-      Materialize and prove the smallest useful deterministic CI, then configure
-      main protection/ruleset and prove the PR-only path.
-    depends_on:
-      - 4
-
   - issue: 6
     purpose: >-
       Prove one bounded synthetic issue-to-branch/worktree-to-PR delivery path
