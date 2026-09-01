@@ -22,23 +22,64 @@ ici.
 status = available
 surface = connected GitHub repository operations
 role = read live authority + lightweight repository/issue/branch/PR work
-proof = Epic 0 issues and branch for #4
+proof = Epic 0 governance delivery through merged PR #14
 secrets = none stored in repository
 ```
 
-Cette surface suffit pour la matérialisation légère de gouvernance de #4.
+Cette surface couvre les opérations GitHub légères prouvées. Elle ne doit pas
+être supposée capable de muter des réglages repository-level non exposés par le
+connecteur.
 
 ## GitHub Actions CI
 
 ```text
-status = planned
-workflow = none
+status = available
+workflow = .github/workflows/governance.yml
+check = governance
 authority = #5
+proof = successful real GitHub Actions execution on an exact candidate HEAD
 ```
 
-Aucun workflow CI n'est matérialisé pendant #4. La séquence approuvée est :
-créer le plus petit CI déterministe utile, le prouver, puis seulement configurer
-la protection de `main` et les required checks correspondants.
+Le workflow minimal vise un check unique `governance` sur les branches
+gouvernées `work/**`. Il valide le diff depuis le merge-base avec `main` et
+parse les fichiers YAML de gouvernance sans dépendance de projet.
+
+La capacité a été promue à `available` uniquement après observation d'un vrai
+run GitHub Actions réussi dont le job `governance`, le checkout exact de branche
+et l'étape de validation ont tous terminé avec succès. Chaque nouveau HEAD reste
+responsable de sa propre preuve ; un succès antérieur ne valide pas un candidat
+ultérieur.
+
+## Main protection enforcement
+
+```text
+status = available
+ruleset = protected-main
+target = default branch / main
+required_check = governance
+authority = #5
+proof = live ACTIVE GitHub ruleset enforcing the governed PR path
+```
+
+La protection de `main` est prouvée par GitHub live. Le contrat durable exige
+une Pull Request, le check `governance` à jour avec `main`, la résolution des
+conversations, bloque la suppression et les mises à jour non fast-forward, et
+ne définit aucun bypass. Le nombre d'approbations requis reste à zéro pendant
+ce bootstrap afin de ne pas créer un gate auto-impossible avec le compte
+propriétaire unique.
+
+## Main protection administration routes
+
+```text
+connected_github_ruleset_mutation = unavailable
+human_github_admin_route = available_when_explicitly_human_required_and_authorized
+```
+
+La surface GitHub connectée peut lire la protection et les rulesets mais ne doit
+pas être présentée comme capable de les créer ou modifier. Une mutation de
+ruleset peut être effectuée par un administrateur humain uniquement lorsqu'elle
+est explicitement `HUMAN_REQUIRED`, bornée et autorisée. Après une telle action,
+GitHub live doit être rechargé avant de considérer l'état comme prouvé.
 
 ## Codex development execution
 
@@ -52,7 +93,8 @@ authority = docs/decisions/0001-agentic-development-operating-model.md
 Cette entrée ne signifie pas qu'un appel Codex est requis pour chaque tâche.
 Codex devient la surface d'exécution lorsque le travail présente un vrai gap
 d'exécution que les opérations GitHub légères ne couvrent pas correctement.
-Chaque usage doit pouvoir expliquer ce gap.
+Chaque usage doit pouvoir expliquer ce gap. Codex n'est pas utilisé comme
+substitut à une permission d'administration GitHub absente.
 
 ## Drupal / DDEV runtime
 
@@ -72,7 +114,7 @@ status = planned
 authority = #7
 ```
 
-Trajectoire envisagée uniquement, sans provisionnement dans #4 :
+Trajectoire envisagée uniquement :
 
 ```text
 GitHub-hosted minimal CI
@@ -90,7 +132,7 @@ cible.
 
 ```text
 status = unavailable
-reason = no demonstrated capability gap in Epic 0
+reason = no demonstrated capability gap requiring MCP in Epic 0
 ```
 
 MCP ne sera évalué qu'en présence d'un besoin structuré non couvert par les

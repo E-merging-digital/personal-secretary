@@ -1,0 +1,32 @@
+name: Governance
+
+on:
+  push:
+    branches:
+      - 'work/**'
+
+permissions:
+  contents: read
+
+jobs:
+  governance:
+    name: governance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate governance
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git merge-base HEAD origin/main)"
+          git diff --check "$BASE_SHA" HEAD
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path) }' \
+            docs/roadmap.yaml \
+            .github/ISSUE_TEMPLATE/epic.yml \
+            .github/ISSUE_TEMPLATE/task.yml \
+            .github/ISSUE_TEMPLATE/decision.yml
