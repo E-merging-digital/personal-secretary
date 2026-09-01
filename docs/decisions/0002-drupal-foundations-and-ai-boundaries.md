@@ -26,7 +26,7 @@ Avant toute capacité custom substantielle, évaluer dans cet ordre :
 Drupal Core
 -> Drupal APIs / Drush
 -> Recipes
--> stable maintained contrib
+-> stable + maintained + Drupal Security Team-covered contrib for production dependencies
 -> Drupal AI Initiative primitives when AI-related
 -> EXTEND EXISTING
 -> BUILD CUSTOM only with demonstrated gap
@@ -34,7 +34,33 @@ Drupal Core
 
 L'évaluation doit être proportionnée au besoin. Elle doit vérifier les
 capacités réellement pertinentes, leur maintenance, leur stabilité, leur
-compatibilité Drupal et les frontières produit applicables.
+compatibilité Drupal, leur statut de couverture sécurité et les frontières
+produit applicables.
+
+Pour une dépendance Drupal contrib pertinente pour la production, la cible par
+défaut est :
+
+```text
+stable
++ maintained
++ covered by Drupal Security Team
+```
+
+Les capacités upstream expérimentales, `-dev`, alpha, beta, RC ou autrement non
+couvertes par la Drupal Security Team peuvent être recherchées, évaluées,
+prototypées ou testées. Cette règle ne constitue pas une interdiction de suivre
+les capacités émergentes de Drupal ou de la Drupal AI Initiative.
+
+En revanche, faire d'une telle capacité une dépendance de production exige une
+décision/exception bornée et explicite documentant au minimum :
+
+```text
+necessity
+risk
+security/stability status
+scope
+upgrade/removal/re-evaluation trajectory
+```
 
 `BUILD CUSTOM` exige un gap précis et démontré. L'absence de recherche, la
 préférence personnelle ou le fait qu'une implémentation custom soit déjà
@@ -114,6 +140,8 @@ substantielle, y compris les implications liées à Drupal.
 - Epic 0 n'ajoute aucune dépendance Drupal ou IA.
 - Chaque futur custom substantiel doit pouvoir montrer son audit de capacités
   existantes.
+- Une dépendance contrib de production non stable/maintenue/security-covered
+  exige une exception bornée explicite avec trajectoire de réévaluation ou retrait.
 - Les futures fonctions IA restent provider-agnostic via Drupal AI par défaut.
 - Les trajectoires Inside AI et Outside AI peuvent partager des capacités
   gouvernées sans dupliquer la logique métier.
