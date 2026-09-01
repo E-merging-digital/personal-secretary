@@ -13,9 +13,10 @@ jobs:
     name: governance
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout exact PR head
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
