@@ -1,9 +1,9 @@
 # 0006 — Socle Drupal administration, configuration, sécurité et outillage
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #21  
-Parent epic: #16  
-Evidence audit: #22  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #21
+Parent epic: #16
+Evidence audit: #22
 Materialization task: #25
 
 ## Context
@@ -13,18 +13,16 @@ séparé par environnement et suffisamment sûr pour préparer l'arrivée future
 données personnelles sensibles, sans transformer le projet en distribution
 surchargée.
 
-Chaque dépendance contrib future de production reste soumise à la règle de la
-décision 0002 : stable, maintenue et couverte par la Drupal Security Team, sauf
-exception bornée explicitement acceptée.
+Chaque dépendance contrib future de production reste soumise à la décision 0002 :
+stable, maintenue et couverte par la Drupal Security Team, sauf exception bornée
+explicitement acceptée.
 
-Les versions exactes ne sont pas figées ici. Elles doivent être rechargées live
-au moment du bootstrap ou de toute activation future.
+Les versions exactes ne sont pas figées ici. Elles sont rechargées live au
+bootstrap ou avant toute activation future.
 
 ## Decision
 
 ### INSTALL_NOW
-
-Le futur bootstrap technique doit prévoir le socle suivant :
 
 ```text
 Core Navigation
@@ -37,12 +35,10 @@ Config Split
 
 Raisons :
 
-- Core Navigation constitue la direction native du nouveau projet ;
-- Gin améliore l'interface d'administration sans devenir le thème frontend de
-  l'application ;
-- Gin Toolbar complète cette expérience sans recréer une seconde stack de
-  navigation concurrente ;
-- Pathauto + Token fournissent une primitive générique d'alias/naming utile ;
+- Core Navigation est la direction native du nouveau projet ;
+- Gin améliore l'administration sans devenir le thème frontend applicatif ;
+- Gin Toolbar complète cette expérience sans recréer une navigation concurrente ;
+- Pathauto + Token fournissent une primitive générique d'alias/naming ;
 - Config Split rend les différences d'environnement explicites et versionnées.
 
 Les primitives Core de flood, access, session et least privilege font partie du
@@ -55,7 +51,7 @@ Devel
 Security Review
 ```
 
-Les dépendances DEV doivent être isolées par design :
+Les dépendances DEV sont isolées par design :
 
 ```text
 Composer require-dev
@@ -65,8 +61,7 @@ explicit development Config Split
 production installation supporting --no-dev
 ```
 
-Aucun outil purement DEV ne doit devenir une dépendance runtime PROD par
-commodité.
+Aucun outil purement DEV ne devient une dépendance runtime PROD par commodité.
 
 ### ENABLE_WHEN_ENV_EXISTS
 
@@ -75,14 +70,13 @@ Config Readonly = future PROD
 Environment Indicator = PREPROD/PROD when multiple environments exist
 ```
 
-Config Readonly est une défense en profondeur contre les modifications
-ordinaires de configuration en PROD ; il ne remplace pas les permissions,
-policies ou procédures de déploiement.
+Config Readonly est une défense en profondeur contre les modifications ordinaires
+de configuration en PROD ; il ne remplace ni permissions, ni policies, ni
+procédures de déploiement.
 
 Environment Indicator n'est activé qu'une fois plusieurs environnements réels
-présents, après reload live de sa release stable, de sa maintenance, de sa
-couverture sécurité et de sa compatibilité avec la Navigation/admin stack
-courante.
+présents, après reload live de sa release stable, maintenance, couverture
+sécurité et compatibilité avec la stack Navigation/admin courante.
 
 ### DEFER_UNTIL_NEEDED
 
@@ -121,15 +115,13 @@ WebProfiler
 
 Le rejet est borné au baseline initial :
 
-- le legacy Toolbar/Admin Toolbar est redondant avec la direction Core
-  Navigation de ce projet greenfield ;
+- legacy Toolbar/Admin Toolbar est redondant avec Core Navigation pour ce projet
+  greenfield ;
 - Login Security recouvre des protections déjà disponibles dans Core sans gap
   initial démontré ;
-- WebProfiler n'est pas ajouté tant que Devel couvre le besoin de diagnostic du
-  bootstrap.
+- WebProfiler n'est pas ajouté tant que Devel couvre le besoin de diagnostic.
 
-Un besoin futur matériel peut déclencher un nouvel audit, mais n'annule pas ce
-baseline par défaut.
+Un besoin futur matériel peut déclencher un nouvel audit.
 
 ### Gate TFA avant données réelles
 
@@ -143,29 +135,28 @@ REAL PERSONAL DATA / REAL PRIVILEGED USERS
 -> only then real-data authorization can be considered
 ```
 
-La release TFA applicable doit être rechargée live avant adoption. Aucune
-branche expérimentale ou non couverte n'est implicitement autorisée.
+La release TFA applicable doit être rechargée live avant adoption. Aucune branche
+expérimentale ou non couverte n'est implicitement autorisée.
 
 ### Logging et performance
 
 Le bootstrap commence avec les primitives Core de logging/cache. Monolog et
 Redis restent différés jusqu'à un besoin démontré.
 
-Toute observabilité doit respecter la décision 0005 : pas de payload familial,
+Toute observabilité respecte la décision 0005 : pas de payload familial,
 documentaire ou financier sensible en clair par défaut, pas de credentials,
 identifiants minimisés et rétention explicite.
 
 ## Consequences
 
-- Le bootstrap futur possède une liste minimale et explicite plutôt qu'un
-  catalogue de modules préventifs.
-- La navigation admin repose sur Core Navigation + Gin + Gin Toolbar, sans
-  Admin Toolbar concurrent.
+- Le bootstrap futur possède une liste minimale et explicite.
+- L'administration repose sur Core Navigation + Gin + Gin Toolbar, sans Admin
+  Toolbar concurrent.
 - La séparation DEV/PROD est explicite via Config Split et le contrat
   `require-dev`/`--no-dev`.
-- Les outils d'environnement sont activés seulement lorsqu'un environnement
-  réel leur donne une fonction.
-- TFA devient un gate avant données personnelles réelles, pas un module installé
+- Les outils d'environnement sont activés seulement lorsqu'un environnement réel
+  leur donne une fonction.
+- TFA est un gate avant données personnelles réelles, pas un module installé
   mécaniquement dans le bootstrap synthétique.
-- Chaque nouvelle dépendance future doit démontrer le gap ou risque qu'elle
-  réduit et revalider son état upstream live.
+- Chaque nouvelle dépendance doit démontrer le gap ou risque qu'elle réduit et
+  revalider son état upstream live.

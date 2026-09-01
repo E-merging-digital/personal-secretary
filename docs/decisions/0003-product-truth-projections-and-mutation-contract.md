@@ -1,17 +1,16 @@
 # 0003 — Source de vérité produit, projections externes et contrat de mutation
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #17  
-Parent epic: #16  
-Evidence audit: #20  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #17
+Parent epic: #16
+Evidence audit: #20
 Materialization task: #25
 
 ## Context
 
-Personal Secretary doit pouvoir agréger des activités, responsabilités,
-préparations, tâches et, plus tard, des calendriers, emails, documents et
-finances sans déplacer la vérité métier vers un système externe ou un modèle
-IA.
+Personal Secretary doit agréger activités, responsabilités, préparations, tâches
+et futures intégrations sans déplacer la vérité métier vers un calendrier, un
+service externe ou un modèle IA.
 
 Les mêmes règles doivent rester valables quelle que soit la surface qui demande
 une action : UI Drupal, orchestration, future capacité IA Inside AI ou future
@@ -40,11 +39,11 @@ EXTERNAL_CALENDAR = filtered projection / integration surface only
 
 Un élément n'est projeté vers un calendrier externe que lorsqu'il concerne
 réellement l'utilisateur et occupe effectivement son temps selon les règles du
-domaine. Une préparation contextuelle peut rester interne à Personal Secretary
-sans devenir un événement calendrier.
+domaine. Une préparation contextuelle peut rester interne sans devenir un
+événement calendrier.
 
-Une projection externe peut être reconstruite depuis l'état métier gouverné ;
-elle ne doit pas être nécessaire pour reconstruire la vérité métier.
+Une projection externe doit pouvoir être reconstruite depuis l'état métier
+gouverné ; elle ne sert pas à reconstruire la vérité métier.
 
 ### Rôle de l'IA
 
@@ -53,15 +52,15 @@ AI = interpret / extract / classify / propose
 AI != domain truth
 ```
 
-L'IA peut aider à comprendre une entrée, extraire une structure, classifier ou
-proposer une action. Elle ne décide pas seule d'une mutation métier et ne
-contourne ni validation déterministe, ni permissions, ni policy, ni gate humain.
+L'IA peut comprendre une entrée, extraire une structure, classifier ou proposer
+une action. Elle ne décide pas seule d'une mutation et ne contourne ni validation
+déterministe, ni permissions, ni policy, ni gate humain.
 
-Les règles métier critiques doivent fonctionner sans LLM.
+Les règles métier critiques fonctionnent sans LLM.
 
 ### Contrat de mutation
 
-Toute mutation métier suit une capacité applicative ou domaine gouvernée.
+Toute mutation métier passe par une capacité applicative ou domaine gouvernée.
 
 ```text
 input / email / document / user
@@ -81,15 +80,14 @@ AUTHORIZATION = deterministic business validation + Drupal access/policy
 HUMAN_GATE = required when sensitivity/risk demands it
 ```
 
-Une mutation sensible doit échouer en fail closed si l'identité, l'autorité, la
+Une mutation sensible échoue en fail closed si l'identité, l'autorité, la
 validation ou l'approbation requise est absente.
 
 ### Convergence Inside AI / Outside AI
 
 UI Drupal, ECA, futures capacités AI Agents/Tool API et toute future surface
-Outside AI autorisée doivent converger vers les mêmes services applicatifs et
-domaine gouvernés. Elles ne réimplémentent pas les règles métier dans leur
-propre couche.
+Outside AI autorisée convergent vers les mêmes services applicatifs et domaine
+gouvernés. Elles ne réimplémentent pas les règles métier dans leur propre couche.
 
 ```text
 multiple interaction surfaces
@@ -104,11 +102,9 @@ Cette compatibilité n'autorise aucune surface d'écriture Outside AI par elle-m
 - Drupal conserve la vérité métier canonique.
 - Les projections externes restent remplaçables et reconstructibles.
 - L'IA reste une couche d'assistance/proposition, jamais une autorité implicite.
-- Les Domain/Application Services constituent la frontière unique de mutation
-  métier.
-- Les permissions et policies Drupal complètent, sans remplacer, les règles
-  métier déterministes.
-- Les side effects peuvent être asynchrones ou orchestrés après validation sans
-  déplacer la décision métier vers la queue ou l'orchestrateur.
-- Le choix d'un provider, d'une API externe et du stockage Drupal exact reste
-  différé jusqu'à une Task qui en démontre le besoin.
+- Les Domain/Application Services constituent la frontière unique de mutation.
+- Les permissions et policies Drupal complètent les règles métier déterministes.
+- Les side effects peuvent être asynchrones après validation sans déplacer la
+  décision métier vers la queue ou l'orchestrateur.
+- Provider, API externe et stockage Drupal exact restent différés jusqu'à une
+  Task qui en démontre le besoin.

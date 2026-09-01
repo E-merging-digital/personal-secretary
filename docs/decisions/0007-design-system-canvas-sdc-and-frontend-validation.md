@@ -1,17 +1,17 @@
 # 0007 — Design system, Canvas, SDC et validation frontend
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #23  
-Parent epic: #16  
-Evidence audit: #24  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #23
+Parent epic: #16
+Evidence audit: #24
 Materialization task: #25
 
 ## Context
 
 Personal Secretary sera développé en partie par des agents. Le design system,
-les composants, les règles visuelles et les critères de validation doivent donc
-être des artefacts durables et versionnés du dépôt plutôt que du contexte
-volatile de conversation.
+les composants, les règles visuelles et les critères de validation doivent être
+des artefacts durables et versionnés du dépôt plutôt que du contexte volatil de
+conversation.
 
 Le frontend doit rester Drupal-native, accessible, composable lorsque cela
 apporte une valeur réelle et suffisamment explicite pour être compris par les
@@ -28,17 +28,15 @@ SDC = canonical custom Drupal UI component primitive
 Tous les composants Drupal custom réutilisables utilisent Single-Directory
 Components avant toute abstraction frontend maison.
 
-Convention de schéma :
-
 ```text
 ALL CUSTOM SDC PROPS = explicit JSON Schema
 SLOTS = explicitly declared and documented
 enforce_prop_schemas = true
 ```
 
-Les props doivent déclarer des types et métadonnées suffisamment explicites
-pour permettre validation, compréhension agentique et intégration Canvas. Les
-slots sont nommés et documentés avec leur intention de composition.
+Les props déclarent des types et métadonnées suffisamment explicites pour la
+validation, la compréhension agentique et l'intégration Canvas. Les slots sont
+nommés et documentés avec leur intention de composition.
 
 Twig reste une couche de présentation : aucune règle de domaine, décision
 d'autorisation ou calcul de responsabilité n'y est déplacé.
@@ -54,11 +52,9 @@ DESIGN AUTHORITY = DESIGN.md + repository-owned semantic token model
 FRONTEND TECHNICAL AUTHORITY = FRONTEND.md + executable SDC/code/tests
 ```
 
-`DESIGN.md` porte les règles design/UX normatives. `FRONTEND.md` porte le
-contrat technique d'implémentation.
-
-Les artefacts exécutables restent également autoritatifs : schemas SDC, code,
-tokens et tests versionnés.
+`DESIGN.md` porte les règles design/UX normatives. `FRONTEND.md` porte le contrat
+technique d'implémentation. Les schemas SDC, code, tokens et tests versionnés
+complètent ces autorités par leurs contrats exécutables.
 
 ### Design tokens
 
@@ -83,10 +79,10 @@ valeurs locales sans justification.
 ACCESSIBILITY_TARGET = WCAG 2.2 AA
 ```
 
-L'accessibilité est un input du design system et de l'implémentation, pas une
-correction finale. HTML sémantique, navigation clavier, focus visible,
-contrastes, indépendance à la couleur, formulaires/erreurs, reflow/zoom et
-réduction du mouvement doivent être pris en compte dès la conception.
+L'accessibilité est un input du design system et de l'implémentation. HTML
+sémantique, navigation clavier, focus visible, contrastes, indépendance à la
+couleur, formulaires/erreurs, reflow/zoom et réduction du mouvement sont pris en
+compte dès la conception.
 
 ATAG constitue une lentille pertinente lorsqu'une interface de composition telle
 que Canvas permet de produire du contenu ou des interfaces.
@@ -106,8 +102,6 @@ Canvas peut composer des présentations gouvernées, dashboards configurables et
 calcule ni responsabilité, ni permissions, ni classification, ni autorisation
 de mutation.
 
-Le flux reste :
-
 ```text
 Domain/Application Services
 -> governed view model / capability
@@ -116,10 +110,9 @@ Domain/Application Services
 ```
 
 Canvas Code Components restent une exception pour une UI véritablement riche en
-JavaScript ; ils ne remplacent pas Twig/SDC comme primitive custom par défaut.
+JavaScript ; ils ne remplacent pas Twig/SDC par défaut.
 
-Canvas AI/provider est différé jusqu'à un cas d'usage réel et une autorité
-dédiée.
+Canvas AI/provider est différé jusqu'à un cas d'usage réel et une autorité dédiée.
 
 ### Playwright
 
@@ -139,9 +132,8 @@ failure artifacts
 ```
 
 Les snapshots visuels ne sont autoritatifs que dans un environnement
-suffisamment reproductible et pinned pour éviter des différences permanentes de
-rendu. Les tests visuels ne remplacent ni assertions fonctionnelles ni revue
-d'accessibilité.
+suffisamment reproductible et pinned. Les tests visuels ne remplacent ni
+assertions fonctionnelles ni revue d'accessibilité.
 
 ### Figma
 
@@ -153,10 +145,8 @@ FIGMA != source of truth
 ```
 
 Figma peut servir à explorer, prototyper, documenter visuellement et réviser le
-design system. Les Figma Variables peuvent refléter le modèle de tokens du
-dépôt ; elles ne créent pas une seconde autorité indépendante.
-
-Frontière de convergence :
+design system. Les Figma Variables peuvent refléter le modèle de tokens du dépôt ;
+elles ne créent pas une seconde autorité indépendante.
 
 ```text
 DESIGN.md + repository DTCG tokens = design authority
@@ -184,16 +174,14 @@ Playwright/Figma démontre un gap concret de prévisualisation de composants.
 
 ## Documentation minimale
 
-Le socle narratif durable est limité à :
-
 ```text
 DESIGN.md
 FRONTEND.md
 ```
 
-Ne pas créer par défaut des documents `PRODUCT_SENSE.md`, `QUALITY_SCORE.md`,
-`PLANS.md` ou `RELIABILITY.md`. Un document `ACCESSIBILITY.md` séparé reste
-différé tant que DESIGN/FRONTEND couvrent correctement les responsabilités.
+Ne pas créer par défaut `PRODUCT_SENSE.md`, `QUALITY_SCORE.md`, `PLANS.md` ou
+`RELIABILITY.md`. Un `ACCESSIBILITY.md` séparé reste différé tant que DESIGN et
+FRONTEND couvrent correctement les responsabilités.
 
 ## Consequences
 

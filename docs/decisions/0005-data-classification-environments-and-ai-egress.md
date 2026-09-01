@@ -1,9 +1,9 @@
 # 0005 — Classification des données, environnements et sortie IA
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #19  
-Parent epic: #16  
-Evidence audit: #20  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #19
+Parent epic: #16
+Evidence audit: #20
 Materialization task: #25
 
 ## Context
@@ -11,8 +11,7 @@ Materialization task: #25
 Personal Secretary manipulera à terme des données personnelles et familiales
 sensibles. Les frontières de classification, d'environnement, de logging et de
 sortie vers un fournisseur IA doivent être fixées avant les premières entités
-réelles ou intégrations afin d'éviter qu'un modèle de données rende ensuite la
-minimisation ou l'anonymisation impraticable.
+réelles ou intégrations.
 
 Le dépôt est public et reste entièrement synthétique.
 
@@ -30,17 +29,14 @@ HIGHLY_SENSITIVE
 SECRET
 ```
 
-Interprétation :
-
-- `SYNTHETIC_PUBLIC` : données entièrement inventées et utilisables comme
+- `SYNTHETIC_PUBLIC` : données entièrement inventées utilisables comme
   exemples/fixtures publiques ;
 - `PERSONAL` : données se rapportant à une personne sans relever par défaut des
   catégories les plus sensibles ;
 - `SENSITIVE_PERSONAL` : informations privées dont la divulgation ou mauvaise
   utilisation présente un impact matériel ;
-- `HIGHLY_SENSITIVE` : données nécessitant une minimisation et des frontières
-  d'environnement renforcées, notamment lorsqu'elles touchent la vie familiale,
-  des documents privés ou des informations financières ;
+- `HIGHLY_SENSITIVE` : données nécessitant minimisation et frontières renforcées,
+  notamment lorsqu'elles touchent vie familiale, documents privés ou finances ;
 - `SECRET` : secrets opérationnels ou d'authentification tels que credentials,
   tokens, mots de passe et clés ; ils ne sont jamais des fixtures du dépôt.
 
@@ -49,8 +45,7 @@ revue dans la Task qui l'introduit.
 
 ### Contrat obligatoire par domaine
 
-Toute future entité, intégration ou domaine de données doit pouvoir déclarer au
-minimum :
+Toute future entité, intégration ou domaine de données doit pouvoir déclarer :
 
 ```text
 DATA_CLASSIFICATION
@@ -68,8 +63,6 @@ d'exporter, journaliser ou transmettre la donnée.
 
 ### Politique de sortie IA
 
-Les catégories de sortie IA sont :
-
 ```text
 MAY_SEND
 MUST_MINIMIZE
@@ -77,8 +70,8 @@ LOCAL_ONLY
 FORBIDDEN
 ```
 
-- `MAY_SEND` : la donnée peut être transmise dans le cadre d'une capacité IA
-  autorisée, sous réserve des autres validations/policies ;
+- `MAY_SEND` : transmission possible dans une capacité IA autorisée, sous réserve
+  des autres validations/policies ;
 - `MUST_MINIMIZE` : seule une représentation strictement nécessaire,
   minimisée/redacted, peut sortir ;
 - `LOCAL_ONLY` : la donnée ne quitte pas la frontière locale autorisée ;
@@ -113,19 +106,17 @@ anonymisé/pseudonymisé, document privé, credential ou secret.
 DEV/DDEV utilisent des fixtures entièrement synthétiques par défaut.
 
 PREPROD ne reçoit de données dérivées de PROD que si un besoin futur explicite
-est démontré et qu'une autorité dédiée définit la collecte, l'isolation,
+est démontré et qu'une autorité dédiée définit collecte, isolation,
 minimisation/sanitization, assertions, rétention et cleanup applicables.
 
 Une future exception autorisant des données réelles dérivées vers PREPROD ou
-DEV doit être explicite, bornée, assertée et revue indépendamment. Cette
-décision n'accorde aucune telle exception.
+DEV doit être explicite, bornée, assertée et revue indépendamment. Cette décision
+n'accorde aucune telle exception.
 
 Les fichiers privés PROD ne sont pas synchronisés hors PROD par défaut ; les
 environnements inférieurs utilisent des fixtures synthétiques.
 
 ### Logging et observabilité
-
-Politique par défaut :
 
 ```text
 NO sensitive family/document/financial payloads by default
@@ -134,26 +125,25 @@ MINIMIZE identifiers
 EXPLICIT retention
 ```
 
-Les mécanismes de logging, traces, observabilité ou observabilité IA doivent
-respecter la classification et la rétention. Un mode de logging riche ne doit
-jamais être activé avec des payloads sensibles complets par défaut.
+Logging, traces et observabilité doivent respecter classification et rétention.
+Un mode de logging riche ne doit jamais être activé avec des payloads sensibles
+complets par défaut.
 
 ### Secrets
 
 Les secrets et credentials sont hors dépôt et hors fixtures. Leur futur stockage
-et injection doivent utiliser une capacité dédiée et autorisée ; cette décision
-ne sélectionne ni provider de secrets ni implémentation runtime.
+et injection utiliseront une capacité dédiée et autorisée ; cette décision ne
+sélectionne aucune implémentation runtime.
 
 ## Consequences
 
-- La classification est un input d'architecture obligatoire avant
-  implémentation de données/integrations réelles.
-- La sortie IA est gouvernée avant invocation du provider et échoue en fail
-  closed sans policy explicite.
+- La classification est obligatoire avant données/intégrations réelles.
+- La sortie IA est gouvernée avant invocation provider et échoue en fail closed
+  sans policy explicite.
 - Le dépôt public et DEV/DDEV restent synthétiques par défaut.
 - PREPROD n'obtient aucune route implicite depuis PROD.
 - Les fichiers privés ne descendent pas d'environnement par défaut.
-- Logging et observabilité doivent minimiser les données et posséder une
-  rétention explicite.
-- Les futurs runbooks de sanitization/snapshot sont différés jusqu'à l'existence
+- Logging et observabilité minimisent les données et possèdent une rétention
+  explicite.
+- Les runbooks de sanitization/snapshot restent différés jusqu'à l'existence
   d'environnements et d'un besoin réel.

@@ -1,17 +1,17 @@
 # 0004 — Responsabilité, activité, récurrence, exception et préparation
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #18  
-Parent epic: #16  
-Evidence audit: #20  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #18
+Parent epic: #16
+Evidence audit: #20
 Materialization task: #25
 
 ## Context
 
-Le premier vertical utile doit représenter des activités récurrentes, leurs
-exceptions, la responsabilité effective de l'utilisateur et les préparations
-nécessaires sans transformer chaque occurrence calculable en ligne durable ni
-chaque préparation en événement de calendrier.
+Le premier vertical doit représenter des activités récurrentes, leurs exceptions,
+la responsabilité effective de l'utilisateur et les préparations nécessaires sans
+transformer chaque occurrence calculable en ligne durable ni chaque préparation
+en événement calendrier.
 
 L'audit USE EXISTING FIRST a confirmé qu'un moteur RRULE custom n'est pas
 justifié, mais qu'aucune primitive auditée ne porte à elle seule les règles de
@@ -20,8 +20,6 @@ responsabilité et de préparation propres à Personal Secretary.
 ## Decision
 
 ### Frontières durables du domaine
-
-Le modèle métier doit pouvoir représenter au minimum :
 
 ```text
 Person
@@ -33,9 +31,8 @@ ActivityException
 PreparationRequirement
 ```
 
-Ces frontières sont durables. Leur mécanique de persistance Drupal exacte
-(`node` bundles, Content Entities custom ou autre primitive adaptée) reste
-volontairement différée au bootstrap/spike technique.
+Leur mécanique de persistance Drupal exacte (`node` bundles, Content Entities
+custom ou autre primitive adaptée) reste différée au bootstrap/spike technique.
 
 ### Récurrence
 
@@ -53,9 +50,7 @@ prouver le contrat API courant et le scénario synthétique de récurrence,
 fuseau/DST, annulation, replanification et modification de série avant adoption
 irrévocable.
 
-Construire un moteur RRULE custom est interdit sans nouveau gap précis et
-prouvé.
-
+Construire un moteur RRULE custom est interdit sans nouveau gap précis et prouvé.
 Recurring Events n'est pas retenu comme modèle canonique parce que son modèle
 matérialise les occurrences ordinaires comme entités. Smart Date reste un
 fallback à réévaluer si le spike `date_recur` échoue.
@@ -64,26 +59,17 @@ fallback à réévaluer si le spike `date_recur` échoue.
 
 ```text
 ordinary ActivityOccurrence = calculated by default
+ActivityException = explicit durable/auditable cancel or reschedule semantics
 ```
 
 Une occurrence ordinaire reste calculée tant qu'aucune exigence métier ne
-justifie sa matérialisation.
-
-Une exception explicite est durable et auditable :
-
-```text
-ActivityException = explicit cancel / reschedule semantics
-```
-
-Elle doit pouvoir exprimer au minimum l'identité de la série/occurrence ciblée,
-le type d'exception et, lorsqu'applicable, la nouvelle planification, sans
-obliger à persister toutes les occurrences normales.
+justifie sa matérialisation. Une exception explicite peut cibler une occurrence,
+exprimer une annulation ou replanification et porter les métadonnées d'audit
+nécessaires sans obliger à persister toutes les occurrences normales.
 
 ### Responsabilité effective
 
 La responsabilité effective est un calcul métier déterministe.
-
-Ordre de précédence :
 
 ```text
 explicit ResponsibilityOverride
@@ -93,8 +79,7 @@ recurring ResponsibilityRule
 no responsibility
 ```
 
-Aucun moteur d'automation, agent IA ou calendrier externe ne peut remplacer ce
-calcul.
+Aucun moteur d'automation, agent IA ou calendrier externe ne remplace ce calcul.
 
 ### Flux de calcul
 
@@ -115,9 +100,8 @@ materialize only when needed
 
 Une `PreparationRequirement` est une exigence métier réutilisable et auditable.
 La préparation concrète n'est matérialisée que lorsqu'une occurrence pertinente
-et la responsabilité effective la rendent utile.
-
-Une préparation peut exister sans projection calendrier.
+et la responsabilité effective la rendent utile. Une préparation peut exister
+sans projection calendrier.
 
 ### Orchestration
 
@@ -154,13 +138,11 @@ bornées, pas un moteur générique de récurrence custom.
 
 ## Consequences
 
-- Core fournit les primitives de stockage/référence/révision/access pertinentes ;
-  la mécanique de persistance exacte reste différée.
-- `date_recur` reste le candidat préféré mais n'est pas une dépendance finale
-  avant preuve runtime.
+- Core fournit les primitives Drupal de base ; la persistance exacte reste
+  différée.
+- `date_recur` reste le candidat préféré mais n'est pas final avant preuve runtime.
 - Les occurrences ordinaires sont calculées par défaut.
 - Les exceptions et overrides explicites sont durables et auditables.
 - La responsabilité effective reste déterministe.
-- Les préparations/tâches sont dérivées et matérialisées seulement lorsqu'elles
-  apportent une valeur concrète.
+- Les préparations/tâches sont dérivées et matérialisées seulement si utiles.
 - Le calendrier reste une projection filtrée, jamais la vérité du domaine.
