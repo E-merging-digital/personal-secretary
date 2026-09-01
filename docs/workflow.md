@@ -1,0 +1,159 @@
+# Workflow de delivery
+
+GitHub est la vérité live de l'exécution. Les décisions et règles durables du
+dépôt définissent l'autorité; les conversations coordonnent le travail sans les
+remplacer.
+
+## Préparation d'une tâche
+
+Avant toute mutation :
+
+1. recharger `main` live;
+2. lire l'issue applicable et ses commentaires;
+3. lire `AGENTS.md`;
+4. lire `docs/decisions/README.md` et les décisions applicables;
+5. lire le Skill correspondant lorsque la procédure est répétable;
+6. consulter `docs/operations/execution-capabilities.md` si la surface
+   d'exécution est matérielle;
+7. confirmer scope, exclusions, gates et dépendances.
+
+Une ambiguïté d'architecture ou d'autorité retourne au Project Lead plutôt que
+d'être inventée par Delivery.
+
+## Unité Git
+
+```text
+1 issue = 1 branch = 1 PR
+```
+
+Convention :
+
+```text
+work/issue-<number>-<slug>
+```
+
+La branche part d'un `main` rechargé. Aucun travail direct sur `main`.
+
+Un seul agent modifiant écrit sur une branche à la fois. Un reviewer ou
+spécialiste peut analyser en read-only.
+
+## Choix de surface d'exécution
+
+Commencer par la surface la plus simple qui prouve correctement le résultat.
+
+```text
+lightweight GitHub work
+-> Codex only when a real execution gap requires development execution
+-> future governed runner when the task requires its proven capability
+```
+
+Invariant :
+
+```text
+CODEX_CALL = ONLY_WHEN_REQUIRED
+DEFAULT_CODEX_AGENTS = 1
+MULTI_AGENT_CODEX = EXCEPTION_ONLY
+```
+
+Ne pas introduire de coding agents payants parallèles par défaut.
+
+## Delivery normal
+
+```text
+reload authority
+-> create/resume canonical branch
+-> implement only authorized scope
+-> validate proportionally to impact
+-> inspect complete diff
+-> open/update canonical PR
+-> reload exact PR HEAD
+-> collect evidence attributable to that HEAD
+-> independent Project Lead review
+-> merge only when repository gates and authority permit
+-> reload main after merge
+```
+
+Un CI rouge n'est pas automatiquement `HUMAN_REQUIRED`; Delivery peut corriger
+dans le scope autorisé. Une extension matérielle de scope ou une décision non
+résolue retourne au Project Lead.
+
+## Exact-head verification
+
+Avant une décision d'approbation ou merge :
+
+- recharger la PR;
+- confirmer qu'elle est ouverte, same-repository et basée sur `main`;
+- relever le HEAD SHA exact;
+- inspecter la liste complète des fichiers et le diff;
+- associer chaque validation à ce HEAD;
+- vérifier les commentaires/reviews matériels;
+- confirmer qu'aucun changement parallèle de `main` ou d'autorité n'invalide
+  le travail.
+
+Une preuve issue d'un ancien HEAD ne valide pas le nouveau.
+
+## Independent verification
+
+Invariants :
+
+```text
+THE PRODUCER MUST NOT BE THE ONLY VERIFIER
+NO APPROVAL WITHOUT EVIDENCE
+```
+
+La voie normale est une revue Project Lead indépendante depuis GitHub exact
+HEAD, fondée sur le diff et les preuves déterministes. Un second agent Codex
+n'est utilisé que si une seconde exécution ou expertise indépendante est
+matériellement justifiée.
+
+## Trust root
+
+Chemins/surfaces de trust root au minimum :
+
+- `AGENTS.md`;
+- `.agents/skills/**`;
+- `.github/agents/**`;
+- `.github/workflows/**`;
+- `.github/ISSUE_TEMPLATE/**`;
+- `docs/decisions/**`;
+- `docs/workflow.md`;
+- contrats de revue, CI, autorité et capability routing.
+
+Pendant Epic 0 :
+
+```text
+deterministic validation
+-> exact-head reload
+-> PROJECT_LEAD_APPROVAL
+-> merge
+```
+
+Delivery ne fusionne pas autonomement une PR de trust root.
+
+## Gates humains et FINAL_LIVE_AUTHORITY_RELOAD
+
+Pour une action humainement gated, destructive, sensible aux
+secrets/credentials ou matériellement irréversible :
+
+```text
+prepare gate
+-> request approval
+-> receive explicit approval
+-> FINAL_LIVE_AUTHORITY_RELOAD
+-> execute
+```
+
+Le reload final vérifie au minimum, lorsque pertinent : `main`, issue,
+commentaires, décisions, roadmap, dépendances, capacité d'exécution et scope
+exact approuvé.
+
+Fail closed si un élément plus récent rend l'approbation inapplicable.
+
+## Roadmap
+
+`docs/roadmap.yaml` contient l'intention de planification uniquement. Il ne
+stocke aucun état volatil de PR, HEAD, CI ou merge.
+
+Après terminaison d'une tâche, recharger GitHub puis la roadmap. Delivery ne
+continue automatiquement que lorsqu'une unique prochaine tâche est
+explicitement autorisée et non ambiguë. Sinon, retour Project Lead.

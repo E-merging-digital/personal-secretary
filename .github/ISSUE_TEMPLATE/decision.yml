@@ -1,0 +1,48 @@
+name: Decision
+description: Record a product, architecture, governance or security decision.
+title: "[Decision] "
+labels:
+  - decision
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What problem, trade-off or ambiguity requires a decision?
+      value: |
+        We need to decide...
+
+        Options considered:
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision
+      description: What is decided and why?
+      value: |
+        We decided to...
+
+        Rationale:
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: Positive outcomes, trade-offs, risks and follow-up.
+      value: |
+        Positive outcomes:
+        - ...
+
+        Trade-offs or risks:
+        - ...
+
+        Follow-up:
+        - [ ] Materialize or update the durable decision in `docs/decisions/`.
+    validations:
+      required: true

@@ -1,0 +1,49 @@
+name: Epic
+description: Define a bounded initiative and its outcomes.
+title: "[Epic] "
+labels:
+  - epic
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome is this initiative trying to achieve and why?
+      value: |
+        We want to...
+
+        This matters because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: deliverables
+    attributes:
+      label: Deliverables
+      description: Concrete outcomes expected from the epic.
+      value: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: Explicit exclusions.
+      value: |
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      value: |
+        - [ ] Deliverables are complete or explicitly deferred.
+        - [ ] Required decisions are materialized.
+        - [ ] Child tasks are closed or explicitly deferred.
+    validations:
+      required: true

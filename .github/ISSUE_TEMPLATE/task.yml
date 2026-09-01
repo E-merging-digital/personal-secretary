@@ -1,0 +1,60 @@
+name: Task
+description: Define one concrete executable unit of work.
+title: "[Task] "
+labels:
+  - task
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Current situation and parent authority.
+      value: |
+        Current situation:
+
+        Related epic/decision:
+    validations:
+      required: true
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What must this task accomplish?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      value: |
+        Included:
+        - ...
+
+        Excluded:
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints
+      description: Task-specific limits, gates and dependencies.
+      value: |
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      value: |
+        - [ ] Scope is complete.
+        - [ ] Applicable validation is attributable to the exact candidate.
+        - [ ] Unexpected files or scope expansion are absent.
+        - [ ] Execution summary records what changed and how it was validated.
+    validations:
+      required: true
