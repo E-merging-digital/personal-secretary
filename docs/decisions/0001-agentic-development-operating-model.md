@@ -42,8 +42,13 @@ d'entretenir plusieurs chemins payants d'exécution.
 ### Git et unité de travail
 
 ```text
-1 issue = 1 branch = 1 PR
+1 modifying Task issue = 1 canonical branch = 1 canonical PR
 ```
+
+Les issues Epic et Decision portent l'intention ou l'autorité. Elles peuvent être
+matérialisées par une Task modifiante et sa PR dédiées et n'exigent pas chacune
+leur propre branche/PR, sauf si elles sont explicitement converties en travail
+modifiant exécutable.
 
 Ne jamais travailler directement sur `main`.
 
@@ -145,6 +150,8 @@ ce check.
 - Les prompts d'exécution restent courts et référencent les sources durables.
 - GitHub live et le dépôt portent l'autorité plutôt que la mémoire d'une
   conversation.
+- Epic/Decision restent des autorités distinctes des Tasks modifiantes et ne
+  créent pas artificiellement une branche/PR chacun.
 - Les dépenses Codex sont réservées aux besoins réels de développement.
 - La revue indépendante n'exige pas de doubler systématiquement les agents.
 - Les changements de gouvernance supportent un gate plus strict que les PR
