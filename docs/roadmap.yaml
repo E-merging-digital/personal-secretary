@@ -4,28 +4,15 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  epic: 1
+  epic: 16
   purpose: >-
-    Establish the minimal agent-native governance and deterministic PR path
-    before any Drupal implementation.
+    Establish the product, domain, privacy, platform and design foundations for
+    the first useful family/recurrence vertical, then return to Project Lead for
+    post-merge bootstrap arbitration.
 
 active_tasks: []
 
-planned_tasks:
-  - issue: 6
-    purpose: >-
-      Prove one bounded synthetic issue-to-branch/worktree-to-PR delivery path
-      with exact-head evidence and independent Project Lead review.
-    depends_on:
-      - 5
-
-  - issue: 7
-    purpose: >-
-      Keep the execution capability registry accurate and define the future
-      self-hosted trajectory without representing unproven capabilities as
-      available.
-    depends_on:
-      - 5
+planned_tasks: []
 
 deferred_decisions:
   - issue: 8
