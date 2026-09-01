@@ -33,22 +33,22 @@ connecteur.
 ## GitHub Actions CI
 
 ```text
-status = provisioning
+status = available
 workflow = .github/workflows/governance.yml
+check = governance
 authority = #5
-proof = none yet
+proof = successful real GitHub Actions run on a #5 exact candidate HEAD
 ```
 
-Le workflow minimal est matérialisé sur la branche de #5 et vise un check unique
-`governance` sur les branches gouvernées `work/**`. Il valide le diff depuis le
-merge-base avec `main` et parse les fichiers YAML de gouvernance sans dépendance
-de projet.
+Le workflow minimal vise un check unique `governance` sur les branches
+gouvernées `work/**`. Il valide le diff depuis le merge-base avec `main` et
+parse les fichiers YAML de gouvernance sans dépendance de projet.
 
-La capacité n'est pas `available` tant qu'un vrai run GitHub Actions réussi n'a
-pas été observé pour un HEAD candidat. Au dernier diagnostic #5, plusieurs
-mises à jour de branche — y compris une mise à jour Git ref explicite — ont
-produit zéro workflow run. La cause repository-level ou event-routing doit être
-résolue avant de rendre le check obligatoire.
+La capacité a été promue à `available` uniquement après observation d'un vrai
+run GitHub Actions réussi dont le job `governance`, le checkout exact de branche
+et l'étape de validation ont tous terminé avec succès. Chaque nouveau HEAD reste
+responsable de sa propre preuve ; un succès antérieur ne valide pas un candidat
+ultérieur.
 
 ## Main protection administration
 
@@ -58,9 +58,10 @@ surface = connected GitHub repository operations
 reason = protection/ruleset reads are available but no protection/ruleset mutation is exposed
 ```
 
-Aucune required check ni règle de protection n'est configurée tant que le CI
-n'est pas réellement prouvé. Une surface d'administration autorisée est requise
-pour appliquer ensuite la protection bornée de `main`.
+Le check existe maintenant et est prouvé, mais aucune required check ni règle de
+protection n'est représentée comme configurée tant que GitHub live ne le prouve
+pas. Une surface d'administration autorisée est requise pour appliquer la
+protection bornée de `main`.
 
 ## Codex development execution
 
