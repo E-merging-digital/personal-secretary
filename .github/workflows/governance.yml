@@ -1,9 +1,9 @@
 name: Governance
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - 'work/**'
 
 permissions:
   contents: read
@@ -13,21 +13,18 @@ jobs:
     name: governance
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact PR head
+      - name: Checkout exact branch head
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Validate governance
         shell: bash
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          git diff --check "$BASE_SHA" "$HEAD_SHA"
+          BASE_SHA="$(git merge-base HEAD origin/main)"
+          git diff --check "$BASE_SHA" HEAD
           ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path) }' \
             docs/roadmap.yaml \
             .github/ISSUE_TEMPLATE/epic.yml \
