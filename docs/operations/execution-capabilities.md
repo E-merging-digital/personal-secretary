@@ -22,23 +22,45 @@ ici.
 status = available
 surface = connected GitHub repository operations
 role = read live authority + lightweight repository/issue/branch/PR work
-proof = Epic 0 issues and branch for #4
+proof = Epic 0 governance delivery through merged PR #14
 secrets = none stored in repository
 ```
 
-Cette surface suffit pour la matérialisation légère de gouvernance de #4.
+Cette surface couvre les opérations GitHub légères prouvées. Elle ne doit pas
+être supposée capable de muter des réglages repository-level non exposés par le
+connecteur.
 
 ## GitHub Actions CI
 
 ```text
-status = planned
-workflow = none
+status = provisioning
+workflow = .github/workflows/governance.yml
 authority = #5
+proof = none yet
 ```
 
-Aucun workflow CI n'est matérialisé pendant #4. La séquence approuvée est :
-créer le plus petit CI déterministe utile, le prouver, puis seulement configurer
-la protection de `main` et les required checks correspondants.
+Le workflow minimal est matérialisé sur la branche de #5 et vise un check unique
+`governance` sur les branches gouvernées `work/**`. Il valide le diff depuis le
+merge-base avec `main` et parse les fichiers YAML de gouvernance sans dépendance
+de projet.
+
+La capacité n'est pas `available` tant qu'un vrai run GitHub Actions réussi n'a
+pas été observé pour un HEAD candidat. Au dernier diagnostic #5, plusieurs
+mises à jour de branche — y compris une mise à jour Git ref explicite — ont
+produit zéro workflow run. La cause repository-level ou event-routing doit être
+résolue avant de rendre le check obligatoire.
+
+## Main protection administration
+
+```text
+status = unavailable
+surface = connected GitHub repository operations
+reason = protection/ruleset reads are available but no protection/ruleset mutation is exposed
+```
+
+Aucune required check ni règle de protection n'est configurée tant que le CI
+n'est pas réellement prouvé. Une surface d'administration autorisée est requise
+pour appliquer ensuite la protection bornée de `main`.
 
 ## Codex development execution
 
@@ -52,7 +74,8 @@ authority = docs/decisions/0001-agentic-development-operating-model.md
 Cette entrée ne signifie pas qu'un appel Codex est requis pour chaque tâche.
 Codex devient la surface d'exécution lorsque le travail présente un vrai gap
 d'exécution que les opérations GitHub légères ne couvrent pas correctement.
-Chaque usage doit pouvoir expliquer ce gap.
+Chaque usage doit pouvoir expliquer ce gap. Codex n'est pas utilisé comme
+substitut à une permission d'administration GitHub absente.
 
 ## Drupal / DDEV runtime
 
@@ -72,7 +95,7 @@ status = planned
 authority = #7
 ```
 
-Trajectoire envisagée uniquement, sans provisionnement dans #4 :
+Trajectoire envisagée uniquement :
 
 ```text
 GitHub-hosted minimal CI
@@ -90,7 +113,7 @@ cible.
 
 ```text
 status = unavailable
-reason = no demonstrated capability gap in Epic 0
+reason = no demonstrated capability gap requiring MCP in Epic 0
 ```
 
 MCP ne sera évalué qu'en présence d'un besoin structuré non couvert par les
