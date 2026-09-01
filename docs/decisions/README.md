@@ -15,6 +15,7 @@ la décision correspondante est matérialisée ici.
 | 0005 | [Data classification, environments and AI egress](0005-data-classification-environments-and-ai-egress.md) | #19 |
 | 0006 | [Drupal platform admin/config/security baseline](0006-drupal-platform-admin-config-security-baseline.md) | #21 |
 | 0007 | [Design system, Canvas, SDC and frontend validation](0007-design-system-canvas-sdc-and-frontend-validation.md) | #23 |
+| 0008 | [Licensing and commercialization boundary](0008-licensing-and-commercialization-boundary.md) | #8 |
 
 ## Règles
 
