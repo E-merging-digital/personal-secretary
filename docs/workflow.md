@@ -9,7 +9,8 @@ remplacer.
 Avant toute mutation :
 
 1. recharger `main` live;
-2. lire l'issue applicable et ses commentaires;
+2. lire la Task modifiante applicable et ses commentaires, ainsi que les issues
+   Epic/Decision qui portent l'autorité nécessaire;
 3. lire `AGENTS.md`;
 4. lire `docs/decisions/README.md` et les décisions applicables;
 5. lire le Skill correspondant lorsque la procédure est répétable;
@@ -23,8 +24,12 @@ d'être inventée par Delivery.
 ## Unité Git
 
 ```text
-1 issue = 1 branch = 1 PR
+1 modifying Task issue = 1 canonical branch = 1 canonical PR
 ```
+
+Les issues Epic et Decision peuvent porter intention et autorité puis être
+matérialisées par une Task/PR dédiée. Elles n'exigent pas chacune une branche ou
+une PR sauf conversion explicite en travail modifiant exécutable.
 
 Convention :
 
@@ -61,7 +66,7 @@ Ne pas introduire de coding agents payants parallèles par défaut.
 
 ```text
 reload authority
--> create/resume canonical branch
+-> create/resume canonical branch for the modifying Task
 -> implement only authorized scope
 -> validate proportionally to impact
 -> inspect complete diff
