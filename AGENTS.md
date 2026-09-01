@@ -47,11 +47,14 @@ pour un agent externe.
 
 ## Git et périmètre
 
-- Une issue = une branche = une Pull Request.
+- Une Task GitHub modifiante = une branche canonique = une Pull Request canonique.
+- Les issues Epic et Decision peuvent porter l'intention ou l'autorité et être
+  matérialisées par une Task/PR dédiée. Elles n'exigent pas chacune leur propre
+  branche/PR sauf conversion explicite en travail modifiant exécutable.
 - Ne jamais travailler directement sur `main`.
 - Partir d'un `main` rechargé et courant.
 - Convention de branche : `work/issue-<numéro>-<slug>`.
-- Une PR doit référencer son issue et rester strictement dans son périmètre.
+- Une PR doit référencer sa Task modifiante et rester strictement dans son périmètre.
 - Un seul agent modifiant écrit sur une branche à la fois.
 
 ## Exécution et Codex
