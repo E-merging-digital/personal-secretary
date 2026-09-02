@@ -4,18 +4,13 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  epic: 16
+  phase: post-architecture
   purpose: >-
-    Establish the product, domain, privacy, platform and design foundations for
-    the first useful family/recurrence vertical, then return to Project Lead for
-    post-merge bootstrap arbitration.
+    Licensing is materialized; await Project Lead arbitration of the first
+    technical Drupal bootstrap epic.
 
 active_tasks: []
 
 planned_tasks: []
 
-deferred_decisions:
-  - issue: 8
-    purpose: >-
-      Decide repository licensing before substantive functional publication,
-      including implications of building on Drupal.
+deferred_decisions: []
