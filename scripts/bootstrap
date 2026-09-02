@@ -21,9 +21,10 @@ fi
 
 "${DRUSH}" site:install minimal -y --site-name="Personal Secretary" --account-name="admin" --account-pass="synthetic-ci-admin"
 
-"${DRUSH}" pm:install navigation gin_toolbar pathauto token config_split -y
+"${DRUSH}" pm:install navigation pathauto token config_split -y
 "${DRUSH}" theme:enable gin -y
 "${DRUSH}" config:set system.theme admin gin -y
+"${DRUSH}" pm:install gin_toolbar -y
 
 if [[ "${MODE}" == "development" ]]; then
   "$(dirname "$0")/configure-development-split"
