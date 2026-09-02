@@ -1,0 +1,63 @@
+name: Drupal
+
+on:
+  push:
+    branches:
+      - "work/**"
+
+permissions:
+  contents: read
+
+jobs:
+  drupal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact HEAD
+        uses: actions/checkout@v5
+
+      - name: Assert committed lock
+        run: test -f composer.lock
+
+      - name: Set up DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+          version: 1.25.4
+
+      - name: Assert DEV-only shared configuration isolation
+        run: |
+          ! grep -Eq '^[[:space:]]+(devel|security_review):' config/sync/core.extension.yml
+
+      - name: Start DDEV
+        run: |
+          ddev version
+          ddev start
+          ddev describe
+
+      - name: Validate locked Composer project
+        run: |
+          ddev composer validate --strict
+          ddev composer install --no-interaction --prefer-dist
+          ddev composer audit --locked
+
+      - name: Bootstrap development baseline
+        run: |
+          ddev exec ./scripts/bootstrap development
+          ddev exec ./scripts/verify development
+
+      - name: Clean rebuild 1
+        run: ddev exec ./scripts/rebuild development
+
+      - name: Clean rebuild 2
+        run: ddev exec ./scripts/rebuild development
+
+      - name: Prove production no-dev trajectory
+        run: |
+          rm -rf vendor web/core web/modules/contrib web/profiles/contrib web/themes/contrib
+          ddev composer install --no-dev --no-interaction --prefer-dist
+          ddev exec ./scripts/rebuild production
+
+      - name: Assert repository drift is zero
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"

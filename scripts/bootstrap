@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-development}"
+
+if [[ "${MODE}" != "development" && "${MODE}" != "production" ]]; then
+  echo "Usage: $0 [development|production]" >&2
+  exit 64
+fi
+
+# Once canonical configuration has been materialized, every clean checkout must
+# rebuild from that committed source of truth instead of generating a new state.
+if [[ -f config/sync/system.site.yml ]]; then
+  exec "$(dirname "$0")/rebuild" "${MODE}"
+fi
+
+if vendor/bin/drush status --field=bootstrap 2>/dev/null | grep -q Successful; then
+  vendor/bin/drush sql:drop -y
+fi
+
+vendor/bin/drush site:install minimal -y \
+  --site-name="Personal Secretary" \
+  --account-name=admin \
+  --account-pass=synthetic-ci-admin
+
+vendor/bin/drush pm:install -y navigation pathauto token config_split
+vendor/bin/drush theme:enable -y gin
+vendor/bin/drush config:set system.theme admin gin -y
+vendor/bin/drush pm:install -y gin_toolbar
+
+if [[ "${MODE}" == "development" ]]; then
+  "$(dirname "$0")/configure-development-split"
+fi
+
+vendor/bin/drush cache:rebuild

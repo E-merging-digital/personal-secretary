@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-development}"
+case "${MODE}" in
+  development|production) ;;
+  *)
+    echo "Usage: $0 [development|production]" >&2
+    exit 64
+    ;;
+esac
+
+export PERSONAL_SECRETARY_ENV="${MODE}"
+DRUSH="${DRUSH:-vendor/bin/drush}"
+
+"${DRUSH}" sql:drop -y || true
+"${DRUSH}" site:install minimal -y --site-name="Personal Secretary" --account-name="admin" --account-pass="synthetic-ci-admin"
+
+"${DRUSH}" pm:install config_split -y
+
+source_uuid="$(awk '/^uuid:/ {print $2; exit}' config/sync/system.site.yml)"
+if [[ -z "${source_uuid}" ]]; then
+  echo "Unable to determine source configuration site UUID." >&2
+  exit 1
+fi
+"${DRUSH}" config:set system.site uuid "${source_uuid}" -y
+
+"${DRUSH}" config:import -y
+"${DRUSH}" cache:rebuild
+
+"$(dirname "$0")/verify" "${MODE}"
