@@ -35,7 +35,7 @@ assert_module_disabled() {
 [[ "$("${DRUSH}" config:get core.extension profile --format=string)" == "minimal" ]]
 [[ "$("${DRUSH}" config:get system.theme admin --format=string)" == "gin" ]]
 
-for module in navigation gin_toolbar pathauto token config_split date_recur; do
+for module in navigation gin_toolbar pathauto token config_split date_recur personal_secretary; do
   assert_module_enabled "${module}"
 done
 grep -Fxq gin <<<"${enabled_themes}"

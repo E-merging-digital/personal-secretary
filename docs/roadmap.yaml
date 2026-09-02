@@ -4,20 +4,21 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: recurrence-primitive-finalization
+  phase: first-domain-vertical-core
   purpose: >-
-    Finalize Epic #32 through the bounded Task #33 after Project Lead adoption of
-    date_recur, before starting the first bounded domain implementation slice.
+    Materialize Epic #35's first Drupal-owned domain core with Person, Household,
+    revisionable ActivitySeries and bounded base-occurrence projection.
 
 active_tasks:
-  - issue: 33
+  - issue: 37
     purpose: >-
-      Complete the adopted date_recur Stage-B candidate and return it for final
-      exact-head Project Lead review and terminalization.
+      Materialize Person, Household and ActivitySeries through governed Drupal
+      domain services and prove persisted bounded recurrence integration.
 
 planned_tasks:
   - purpose: >-
-      After Epic #32 is terminal, execute the first bounded domain
-      persistence/application slice under separate Project Lead authority.
+      After this domain core is independently reviewed and terminalized,
+      materialize ActivityException together with revision/effective-from
+      semantics and orphan reconciliation under separate Project Lead authority.
 
 deferred_decisions: []
