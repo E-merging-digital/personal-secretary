@@ -103,6 +103,26 @@ final class DomainCoreKernelTest extends KernelTestBase {
     $projection = $this->container->get('personal_secretary.occurrence_projection');
     $this->assertInstanceOf(OccurrenceProjectionService::class, $projection);
 
+    /** @var \Drupal\personal_secretary\Entity\ActivitySeries $unsavedSeries */
+    $unsavedSeries = $seriesStorage->create([
+      'name' => 'Example Unsaved Routine',
+      'household' => (int) $household->id(),
+      'recurrence' => [[
+        'value' => '2026-03-22T17:00:00',
+        'end_value' => '2026-03-22T17:45:00',
+        'rrule' => 'FREQ=WEEKLY;INTERVAL=1;COUNT=2',
+        'timezone' => 'Europe/Brussels',
+      ]],
+    ]);
+    $this->assertTrue($unsavedSeries->isNew());
+    try {
+      $projection->project($unsavedSeries, NULL, NULL, 1);
+      $this->fail('Unsaved ActivitySeries projection must fail closed.');
+    }
+    catch (InvalidArgumentException $exception) {
+      $this->assertStringContainsString('persisted ActivitySeries', $exception->getMessage());
+    }
+
     $occurrences = $projection->project(
       $loadedSeries,
       new DateTimeImmutable('2026-03-01 00:00:00', $sourceTimezone),

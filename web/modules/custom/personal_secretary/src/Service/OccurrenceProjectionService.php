@@ -26,6 +26,16 @@ final class OccurrenceProjectionService {
     ?DateTimeImmutable $windowEnd = NULL,
     ?int $limit = NULL,
   ): array {
+    if ($series->isNew()) {
+      throw new InvalidArgumentException('Occurrence projection requires a persisted ActivitySeries.');
+    }
+
+    $revisionId = $series->getRevisionId();
+    if ($revisionId === NULL || (string) $revisionId === '') {
+      throw new InvalidArgumentException('Occurrence projection requires valid persisted ActivitySeries revision context.');
+    }
+    $revisionId = (string) $revisionId;
+
     $hasWindow = $windowStart !== NULL && $windowEnd !== NULL;
     if (($windowStart === NULL) !== ($windowEnd === NULL)) {
       throw new InvalidArgumentException('Occurrence windows require both a start and an end.');
@@ -56,7 +66,6 @@ final class OccurrenceProjectionService {
 
     $utc = new DateTimeZone('UTC');
     $seriesUuid = $series->uuid();
-    $revisionId = (string) $series->getRevisionId();
     $projected = [];
 
     foreach ($occurrences as $occurrence) {
