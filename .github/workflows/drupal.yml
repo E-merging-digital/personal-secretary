@@ -45,17 +45,21 @@ jobs:
           ddev exec ./scripts/bootstrap development
           ddev exec ./scripts/verify development
 
+      - name: Run Date Recur recurrence spike explicitly
+        run: ddev exec vendor/bin/drush php:script scripts/date-recur-spike.php
+
       - name: Clean rebuild 1
         run: ddev exec ./scripts/rebuild development
 
       - name: Clean rebuild 2
         run: ddev exec ./scripts/rebuild development
 
-      - name: Prove production no-dev trajectory
+      - name: Prove production no-dev trajectory and generic verification
         run: |
           rm -rf vendor web/core web/modules/contrib web/profiles/contrib web/themes/contrib
           ddev composer install --no-dev --no-interaction --prefer-dist
           ddev exec ./scripts/rebuild production
+          ddev exec ./scripts/verify production
 
       - name: Assert repository drift is zero
         run: |
