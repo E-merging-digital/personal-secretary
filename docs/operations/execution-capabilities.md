@@ -60,10 +60,11 @@ authority = #30
 proof_required = successful read-only exact-head Composer + DDEV + Drupal run
 ```
 
-La Task #30 matérialise cette capacité. Elle reste `provisioning` tant qu'un
-HEAD final n'a pas prouvé le lock Composer commité, le chemin `--no-dev`, DDEV,
-le bootstrap Drupal, deux rebuilds propres et l'absence de dérive de
-configuration. Le workflow n'est pas encore un check requis du ruleset.
+La Task #30 a déjà prouvé la chaîne runtime sur GitHub-hosted Linux pendant la
+matérialisation du lock et de la configuration. La capacité CI durable reste
+cependant `provisioning` tant que le workflow repository-read-only `drupal` n'a
+pas lui-même réussi sur le HEAD final qui ne contient plus le workflow temporaire
+de matérialisation. Le workflow n'est pas encore un check requis du ruleset.
 
 ## Main protection enforcement
 
@@ -121,16 +122,20 @@ la résolution Composer et la preuve Docker/DDEV.
 ## Drupal / DDEV runtime
 
 ```text
-status = provisioning
-composer_project = being materialized by #30
-ddev_config = being materialized by #30
-github_hosted_ddev_proof = pending exact-head CI
+status = available
+composer_project = materialized by #30
+ddev_config = materialized by #30
+github_hosted_ddev_proof = successful real GitHub Actions execution
+observed_stack = Drupal 11.4.5 / DDEV 1.25.3 / PHP 8.5.7 / MariaDB 11.8.8 / Drush 13.7.6
 codex_cloud_ddev = unavailable in the observed environment
 ```
 
-La capacité ne devient `available` qu'après preuve GitHub-hosted réelle sur le
-candidat exact. L'absence de Docker/DDEV dans Codex Cloud ne constitue pas une
-preuve contre la surface GitHub-hosted.
+La capacité GitHub-hosted Drupal/DDEV a été promue à `available` seulement après
+une exécution réelle ayant réussi la résolution et l'audit Composer, le démarrage
+DDEV, le bootstrap Drupal, l'isolation DEV, deux rebuilds propres, la trajectoire
+production `--no-dev`, l'absence de dérive de configuration et la garde du
+write-set généré. Cette preuve runtime ne préjuge pas du statut du workflow CI
+durable `drupal`, qui doit encore réussir en lecture seule sur son HEAD final.
 
 ## Self-hosted runner
 
