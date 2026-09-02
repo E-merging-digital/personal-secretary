@@ -53,18 +53,23 @@ ultérieur.
 ## Technical Drupal CI
 
 ```text
-status = provisioning
+status = available
 workflow = .github/workflows/drupal.yml
 check = drupal
 authority = #30
-proof_required = successful read-only exact-head Composer + DDEV + Drupal run
+proof = successful read-only exact-head Composer + DDEV + Drupal run
 ```
 
-La Task #30 a déjà prouvé la chaîne runtime sur GitHub-hosted Linux pendant la
-matérialisation du lock et de la configuration. La capacité CI durable reste
-cependant `provisioning` tant que le workflow repository-read-only `drupal` n'a
-pas lui-même réussi sur le HEAD final qui ne contient plus le workflow temporaire
-de matérialisation. Le workflow n'est pas encore un check requis du ruleset.
+La capacité CI Drupal est promue à `available` après une exécution réelle du
+workflow durable, avec `contents: read`, réussie sur un HEAD exact sans workflow
+temporaire de matérialisation. Elle a validé le lock commité, `composer validate`,
+l'installation depuis le lock, l'audit, DDEV, le bootstrap depuis la configuration
+canonique, deux rebuilds propres, la trajectoire production `--no-dev` et
+l'absence de dérive repository/configuration.
+
+Le check `drupal` n'est pas encore requis par le ruleset. Chaque nouveau HEAD
+reste responsable de sa propre preuve ; un succès antérieur ne valide pas un
+candidat ultérieur.
 
 ## Main protection enforcement
 
@@ -126,7 +131,7 @@ status = available
 composer_project = materialized by #30
 ddev_config = materialized by #30
 github_hosted_ddev_proof = successful real GitHub Actions execution
-observed_stack = Drupal 11.4.5 / DDEV 1.25.3 / PHP 8.5.7 / MariaDB 11.8.8 / Drush 13.7.6
+observed_stack = Drupal 11.4.5 / DDEV 1.25.4 / PHP 8.5.9 / MariaDB 11.8.9 / Drush 13.7.6
 codex_cloud_ddev = unavailable in the observed environment
 ```
 
@@ -134,8 +139,8 @@ La capacité GitHub-hosted Drupal/DDEV a été promue à `available` seulement a
 une exécution réelle ayant réussi la résolution et l'audit Composer, le démarrage
 DDEV, le bootstrap Drupal, l'isolation DEV, deux rebuilds propres, la trajectoire
 production `--no-dev`, l'absence de dérive de configuration et la garde du
-write-set généré. Cette preuve runtime ne préjuge pas du statut du workflow CI
-durable `drupal`, qui doit encore réussir en lecture seule sur son HEAD final.
+write-set généré. Le workflow CI durable `drupal` a ensuite confirmé cette chaîne
+en lecture seule sur un HEAD exact sans workflow temporaire de matérialisation.
 
 ## Self-hosted runner
 
