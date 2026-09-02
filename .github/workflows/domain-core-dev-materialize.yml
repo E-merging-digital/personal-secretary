@@ -30,6 +30,7 @@ jobs:
       - name: Resolve Drupal core development test tooling
         run: |
           ddev composer config allow-plugins.phpstan/extension-installer true
+          ddev composer config allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
           ddev composer require --dev drupal/core-dev:11.4.5 --with-all-dependencies --no-interaction
 
       - name: Persist resolved Composer files on bounded branch
