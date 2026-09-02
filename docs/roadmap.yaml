@@ -4,20 +4,20 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: recurrence-primitive-validation
+  phase: recurrence-primitive-finalization
   purpose: >-
-    Validate Epic #32 through the bounded Task #33 runtime spike for the preferred
-    recurrence primitive before any final adoption or domain implementation.
+    Finalize Epic #32 through the bounded Task #33 after Project Lead adoption of
+    date_recur, before starting the first bounded domain implementation slice.
 
 active_tasks:
   - issue: 33
     purpose: >-
-      Prove the date_recur backend contract with synthetic weekly, timezone/DST,
-      bounded infinite recurrence, overlay and series-edit runtime evidence.
+      Complete the adopted date_recur Stage-B candidate and return it for final
+      exact-head Project Lead review and terminalization.
 
 planned_tasks:
   - purpose: >-
-      After Project Lead adopts or rejects the recurrence primitive, execute the
-      first bounded domain persistence/application slice under separate authority.
+      After Epic #32 is terminal, execute the first bounded domain
+      persistence/application slice under separate Project Lead authority.
 
 deferred_decisions: []
