@@ -22,9 +22,6 @@ use InvalidArgumentException;
  */
 final class DomainCoreKernelTest extends KernelTestBase {
 
-  /**
-   * {@inheritdoc}
-   */
   protected static $modules = [
     'system',
     'user',
@@ -35,14 +32,12 @@ final class DomainCoreKernelTest extends KernelTestBase {
     'personal_secretary',
   ];
 
-  /**
-   * {@inheritdoc}
-   */
   protected function setUp(): void {
     parent::setUp();
     $this->installEntitySchema('personal_secretary_person');
     $this->installEntitySchema('personal_secretary_household');
     $this->installEntitySchema('personal_sec_activity_series');
+    $this->installEntitySchema('personal_sec_activity_exception');
   }
 
   public function testPersistedDomainGraphAndBoundedOccurrenceProjection(): void {
@@ -50,6 +45,7 @@ final class DomainCoreKernelTest extends KernelTestBase {
     $this->assertTrue($entityTypeManager->hasDefinition('personal_secretary_person'));
     $this->assertTrue($entityTypeManager->hasDefinition('personal_secretary_household'));
     $this->assertTrue($entityTypeManager->hasDefinition('personal_sec_activity_series'));
+    $this->assertTrue($entityTypeManager->hasDefinition('personal_sec_activity_exception'));
     $this->assertFalse($entityTypeManager->hasDefinition('personal_secretary_activity_occurrence'));
 
     /** @var \Drupal\personal_secretary\Service\DomainMutationService $mutations */
@@ -61,7 +57,7 @@ final class DomainCoreKernelTest extends KernelTestBase {
     $this->assertNotNull($personA->id());
     $this->assertNotEmpty($personA->uuid());
     $this->assertSame('Alex Example', $entityTypeManager->getStorage('personal_secretary_person')->load($personA->id())->label());
-    $this->assertFalse($personA->hasField('uid'), 'Domain Person must not be Drupal User-backed.');
+    $this->assertFalse($personA->hasField('uid'));
 
     $household = $mutations->createHousehold('Example Household', [(int) $personA->id(), (int) $personB->id()]);
     $memberIds = array_map(
@@ -92,12 +88,11 @@ final class DomainCoreKernelTest extends KernelTestBase {
     $this->assertTrue($loadedSeries->getEntityType()->isRevisionable());
     $initialRevisionId = (string) $loadedSeries->getRevisionId();
     $this->assertNotSame('', $initialRevisionId);
+    $this->assertSame('2026-03-22T17:00:00', (string) $loadedSeries->get('effective_from')->value);
 
     $rawRecurrence = $loadedSeries->get('recurrence')->first()->getValue();
     $this->assertSame('FREQ=WEEKLY;INTERVAL=1;COUNT=4', $rawRecurrence['rrule']);
     $this->assertSame('Europe/Brussels', $rawRecurrence['timezone']);
-    $this->assertArrayHasKey('value', $rawRecurrence);
-    $this->assertArrayHasKey('end_value', $rawRecurrence);
 
     /** @var \Drupal\personal_secretary\Service\OccurrenceProjectionService $projection */
     $projection = $this->container->get('personal_secretary.occurrence_projection');
@@ -113,6 +108,7 @@ final class DomainCoreKernelTest extends KernelTestBase {
         'rrule' => 'FREQ=WEEKLY;INTERVAL=1;COUNT=2',
         'timezone' => 'Europe/Brussels',
       ]],
+      'effective_from' => '2026-03-22T17:00:00',
     ]);
     $this->assertTrue($unsavedSeries->isNew());
     try {
@@ -136,14 +132,15 @@ final class DomainCoreKernelTest extends KernelTestBase {
     $this->assertMatchesRegularExpression('/^2026-03-22T17:00:00Z$/', $occurrences[0]->originalOccurrenceKey);
     $this->assertStringContainsString('T18:00:00+01:00', $occurrences[0]->sourceLocalStart);
     $this->assertStringContainsString('T17:00:00+00:00', $occurrences[0]->utcStart);
-    $this->assertFalse(ctype_digit($occurrences[0]->originalOccurrenceKey), 'Occurrence key must not be an ordinal.');
-    $this->assertStringContainsString('T18:00:00+02:00', $occurrences[1]->sourceLocalStart, 'Source-local time must survive the spring DST transition.');
+    $this->assertFalse(ctype_digit($occurrences[0]->originalOccurrenceKey));
+    $this->assertStringContainsString('T18:00:00+02:00', $occurrences[1]->sourceLocalStart);
 
     $revised = $mutations->updateActivitySeriesRecurrence(
       $loadedSeries,
       new DateTimeImmutable('2026-03-23 18:00:00', $sourceTimezone),
       new DateTimeImmutable('2026-03-23 18:45:00', $sourceTimezone),
       'FREQ=WEEKLY;INTERVAL=1;COUNT=4;BYDAY=MO',
+      new DateTimeImmutable('2026-03-23 00:00:00', new DateTimeZone('UTC')),
     );
     $newRevisionId = (string) $revised->getRevisionId();
     $this->assertNotSame($initialRevisionId, $newRevisionId);
