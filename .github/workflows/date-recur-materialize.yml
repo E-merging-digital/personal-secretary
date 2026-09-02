@@ -36,6 +36,12 @@ jobs:
 
       - name: Materialize Drupal configuration
         run: |
+          ddev exec drush site:install minimal -y --site-name="Personal Secretary" --account-name=admin --account-pass=synthetic-ci-admin
+          ddev exec drush pm:install config_split -y
+          source_uuid="$(awk '/^uuid:/ {print $2; exit}' config/sync/system.site.yml)"
+          test -n "${source_uuid}"
+          ddev exec drush config:set system.site uuid "${source_uuid}" -y
+          ddev exec drush config:import -y
           ddev exec drush pm:install date_recur -y
           ddev exec drush config:export -y
           grep -Eq '^[[:space:]]+date_recur:' config/sync/core.extension.yml
