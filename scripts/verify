@@ -50,8 +50,6 @@ else
   [[ ! -d web/modules/contrib/security_review ]]
 fi
 
-"${DRUSH}" php:script scripts/date-recur-spike.php
-
 status_json="$("${DRUSH}" config:status --format=json)"
 php -r '$data = json_decode(stream_get_contents(STDIN), true); if (!empty($data)) { fwrite(STDERR, "Configuration drift detected\n"); exit(1); }' <<<"${status_json}"
 
