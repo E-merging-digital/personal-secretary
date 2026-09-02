@@ -4,20 +4,20 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: technical-drupal-bootstrap
+  phase: recurrence-primitive-validation
   purpose: >-
-    Materialize Epic #29 through the single active bootstrap Task #30: a
-    reproducible Drupal 11 + DDEV foundation with exact-head technical evidence.
+    Validate Epic #32 through the bounded Task #33 runtime spike for the preferred
+    recurrence primitive before any final adoption or domain implementation.
 
 active_tasks:
-  - issue: 30
+  - issue: 33
     purpose: >-
-      Materialize the Drupal 11 Composer project, DDEV runtime, platform baseline,
-      DEV-only isolation and technical CI without domain implementation.
+      Prove the date_recur backend contract with synthetic weekly, timezone/DST,
+      bounded infinite recurrence, overlay and series-edit runtime evidence.
 
 planned_tasks:
   - purpose: >-
-      After Project Lead review and merge of the bootstrap, run a separate bounded
-      runtime spike for the preferred recurrence primitive date_recur.
+      After Project Lead adopts or rejects the recurrence primitive, execute the
+      first bounded domain persistence/application slice under separate authority.
 
 deferred_decisions: []
