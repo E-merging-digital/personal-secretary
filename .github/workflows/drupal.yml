@@ -22,7 +22,7 @@ jobs:
         uses: ddev/github-action-setup-ddev@v1
         with:
           autostart: false
-          version: 1.25.3
+          version: 1.25.4
 
       - name: Assert DEV-only shared configuration isolation
         run: |

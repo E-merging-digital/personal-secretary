@@ -6,7 +6,7 @@ webserver_type: nginx-fpm
 database:
   type: mariadb
   version: "11.8"
-ddev_version_constraint: ">= 1.25.3"
+ddev_version_constraint: ">= 1.25.4"
 disable_settings_management: true
 web_environment:
   - PERSONAL_SECRETARY_ENV=development
