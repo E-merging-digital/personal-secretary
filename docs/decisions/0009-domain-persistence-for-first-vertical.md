@@ -1,8 +1,8 @@
 # 0009 — Persistance du noyau métier du premier vertical
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #36  
-Parent epic: #35  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #36
+Parent epic: #35
 Materialization task: #37
 
 ## Context
