@@ -21,6 +21,7 @@ module:
   page_cache: 0
   path: 0
   path_alias: 0
+  personal_secretary: 0
   system: 0
   text: 0
   token: 0
