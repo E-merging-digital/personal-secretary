@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DRUSH="${DRUSH:-vendor/bin/drush}"
+SPLIT_UUID="9fd6f94e-40dc-4f1a-93f6-43ff4f26b0df"
+
+"${DRUSH}" php:eval "\$config = \\Drupal::service('config.factory')->getEditable('config_split.config_split.development'); \
+\$config->setData([ \
+  'uuid' => '${SPLIT_UUID}', \
+  'langcode' => 'en', \
+  'status' => false, \
+  'dependencies' => [], \
+  'id' => 'development', \
+  'label' => 'Development', \
+  'description' => 'Development-only modules and configuration.', \
+  'weight' => 0, \
+  'stackable' => false, \
+  'no_patching' => false, \
+  'storage' => 'folder', \
+  'folder' => '../config/splits/development', \
+  'module' => ['devel' => 0, 'security_review' => 0], \
+  'theme' => [], \
+  'complete_list' => [], \
+  'partial_list' => [], \
+])->save();"
+
+"${DRUSH}" pm:install devel security_review -y

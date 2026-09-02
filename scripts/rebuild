@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-development}"
+case "${MODE}" in
+  development|production) ;;
+  *)
+    echo "Usage: $0 [development|production]" >&2
+    exit 64
+    ;;
+esac
+
+export PERSONAL_SECRETARY_ENV="${MODE}"
+DRUSH="${DRUSH:-vendor/bin/drush}"
+
+"${DRUSH}" sql:drop -y || true
+"${DRUSH}" site:install minimal -y --site-name="Personal Secretary" --account-name="admin" --account-pass="synthetic-ci-admin"
+
+"${DRUSH}" pm:install config_split -y
+"${DRUSH}" config:import -y
+"${DRUSH}" cache:rebuild
+
+"$(dirname "$0")/verify" "${MODE}"

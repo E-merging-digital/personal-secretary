@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-development}"
+case "${MODE}" in
+  development|production) ;;
+  *)
+    echo "Usage: $0 [development|production]" >&2
+    exit 64
+    ;;
+esac
+
+export PERSONAL_SECRETARY_ENV="${MODE}"
+DRUSH="${DRUSH:-vendor/bin/drush}"
+
+enabled_modules="$("${DRUSH}" pm:list --status=enabled --type=module --field=name)"
+enabled_themes="$("${DRUSH}" pm:list --status=enabled --type=theme --field=name)"
+
+assert_module_enabled() {
+  local extension="$1"
+  grep -Fxq "${extension}" <<<"${enabled_modules}" || {
+    echo "Expected enabled module: ${extension}" >&2
+    exit 1
+  }
+}
+
+assert_module_disabled() {
+  local extension="$1"
+  if grep -Fxq "${extension}" <<<"${enabled_modules}"; then
+    echo "Expected disabled module: ${extension}" >&2
+    exit 1
+  fi
+}
+
+[[ "$("${DRUSH}" config:get core.extension profile --format=string)" == "minimal" ]]
+[[ "$("${DRUSH}" config:get system.theme admin --format=string)" == "gin" ]]
+
+for module in navigation gin_toolbar pathauto token config_split; do
+  assert_module_enabled "${module}"
+done
+grep -Fxq gin <<<"${enabled_themes}"
+
+if [[ "${MODE}" == "development" ]]; then
+  assert_module_enabled devel
+  assert_module_enabled security_review
+else
+  assert_module_disabled devel
+  assert_module_disabled security_review
+  [[ ! -d web/modules/contrib/devel ]]
+  [[ ! -d web/modules/contrib/security_review ]]
+fi
+
+status_json="$("${DRUSH}" config:status --format=json)"
+php -r '$data = json_decode(stream_get_contents(STDIN), true); if (!empty($data)) { fwrite(STDERR, "Configuration drift detected\n"); exit(1); }' <<<"${status_json}"
+
+echo "DRUPAL_VERSION=$("${DRUSH}" status --field=drupal-version)"
+echo "PHP_VERSION=$(php -r 'echo PHP_VERSION;')"
+echo "DATABASE_VERSION=$("${DRUSH}" sql:query 'SELECT VERSION();' --extra=--skip-column-names | head -n1)"
+echo "DRUSH_VERSION=$("${DRUSH}" --version | awk '{print $NF}')"
+echo "INSTALL_PROFILE=minimal"
+echo "ADMIN_THEME=gin"
+echo "ENVIRONMENT=${MODE}"

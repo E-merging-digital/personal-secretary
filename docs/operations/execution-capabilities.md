@@ -50,6 +50,21 @@ et l'étape de validation ont tous terminé avec succès. Chaque nouveau HEAD re
 responsable de sa propre preuve ; un succès antérieur ne valide pas un candidat
 ultérieur.
 
+## Technical Drupal CI
+
+```text
+status = provisioning
+workflow = .github/workflows/drupal.yml
+check = drupal
+authority = #30
+proof_required = successful read-only exact-head Composer + DDEV + Drupal run
+```
+
+La Task #30 matérialise cette capacité. Elle reste `provisioning` tant qu'un
+HEAD final n'a pas prouvé le lock Composer commité, le chemin `--no-dev`, DDEV,
+le bootstrap Drupal, deux rebuilds propres et l'absence de dérive de
+configuration. Le workflow n'est pas encore un check requis du ruleset.
+
 ## Main protection enforcement
 
 ```text
@@ -84,28 +99,38 @@ GitHub live doit être rechargé avant de considérer l'état comme prouvé.
 ## Codex development execution
 
 ```text
-status = planned
+status = degraded
 policy = CODEX_CALL_ONLY_WHEN_REQUIRED
 default_agents = 1
 authority = docs/decisions/0001-agentic-development-operating-model.md
+source_authoring = proven in the Task #30 Codex Cloud run
+artifact_handoff = unavailable in the observed Task #30 surface
+packages.drupal.org = proxy-blocked in the observed Codex Cloud environment
+docker_ddev = unavailable in the observed Codex Cloud environment
 ```
 
-Cette entrée ne signifie pas qu'un appel Codex est requis pour chaque tâche.
-Codex devient la surface d'exécution lorsque le travail présente un vrai gap
-d'exécution que les opérations GitHub légères ne couvrent pas correctement.
-Chaque usage doit pouvoir expliquer ce gap. Codex n'est pas utilisé comme
-substitut à une permission d'administration GitHub absente.
+Codex a effectivement exécuté le rôle de développement demandé par la Task #30,
+mais son workspace observé n'a pas fourni de transport complet et durable de
+l'artefact vers GitHub. Cette limitation de handoff est acceptée par l'autorité
+Project Lead de #30 et ne doit pas être contournée par ajout de secrets.
+
+Le statut `degraded` décrit cette surface observée, pas l'ensemble du produit :
+le dépôt peut utiliser des surfaces d'exécution distinctes pour la persistance,
+la résolution Composer et la preuve Docker/DDEV.
 
 ## Drupal / DDEV runtime
 
 ```text
-status = unavailable
-drupal = not installed
-composer_project = not materialized
-ddev = not materialized
+status = provisioning
+composer_project = being materialized by #30
+ddev_config = being materialized by #30
+github_hosted_ddev_proof = pending exact-head CI
+codex_cloud_ddev = unavailable in the observed environment
 ```
 
-C'est intentionnel pendant Epic 0.
+La capacité ne devient `available` qu'après preuve GitHub-hosted réelle sur le
+candidat exact. L'absence de Docker/DDEV dans Codex Cloud ne constitue pas une
+preuve contre la surface GitHub-hosted.
 
 ## Self-hosted runner
 
@@ -132,7 +157,7 @@ cible.
 
 ```text
 status = unavailable
-reason = no demonstrated capability gap requiring MCP in Epic 0
+reason = no demonstrated application-runtime capability gap requiring MCP
 ```
 
 MCP ne sera évalué qu'en présence d'un besoin structuré non couvert par les

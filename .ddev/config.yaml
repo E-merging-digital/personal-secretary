@@ -1,0 +1,13 @@
+name: personal-secretary
+type: drupal11
+docroot: web
+php_version: "8.5"
+webserver_type: nginx-fpm
+database:
+  type: mariadb
+  version: "11.8"
+ddev_version_constraint: ">= 1.25.3"
+disable_settings_management: true
+web_environment:
+  - PERSONAL_SECRETARY_ENV=development
+use_dns_when_possible: true

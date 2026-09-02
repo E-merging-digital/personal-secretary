@@ -1,0 +1,89 @@
+name: Drupal materialization
+
+on:
+  push:
+    branches:
+      - work/issue-30-drupal-ddev-bootstrap
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch HEAD
+        uses: actions/checkout@v5
+        with:
+          ref: work/issue-30-drupal-ddev-bootstrap
+          fetch-depth: 0
+
+      - name: Set up DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+          version: 1.25.3
+
+      - name: Start DDEV
+        run: |
+          ddev version
+          ddev start
+          ddev describe
+
+      - name: Resolve Composer dependencies
+        run: |
+          ddev composer update --with-all-dependencies --no-interaction --prefer-dist
+          ddev composer validate --strict
+          ddev composer audit --locked
+
+      - name: Materialize Drupal configuration
+        run: |
+          ddev exec ./scripts/bootstrap development
+          ddev exec vendor/bin/drush config:export -y
+          ddev exec ./scripts/verify development
+
+      - name: Assert DEV-only configuration isolation
+        run: |
+          ! grep -Eq '^[[:space:]]+(devel|security_review):' config/sync/core.extension.yml
+          test -n "$(find config/splits/development -type f -name '*.yml' -print -quit)"
+
+      - name: Prove clean development rebuilds
+        run: |
+          ddev exec ./scripts/rebuild development
+          ddev exec ./scripts/rebuild development
+
+      - name: Prove production no-dev trajectory
+        run: |
+          rm -rf vendor web/core web/modules/contrib web/profiles/contrib web/themes/contrib
+          ddev composer install --no-dev --no-interaction --prefer-dist
+          ddev exec ./scripts/rebuild production
+
+      - name: Restrict generated write set
+        shell: bash
+        run: |
+          set -euo pipefail
+          unexpected="$(
+            git status --porcelain=v1 |
+              awk '{print $2}' |
+              grep -Ev '^(composer\.lock|config/sync/|config/splits/development/)' || true
+          )"
+          if [[ -n "${unexpected}" ]]; then
+            echo "Unexpected generated paths:" >&2
+            echo "${unexpected}" >&2
+            exit 1
+          fi
+
+      - name: Persist deterministic generated artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add composer.lock config/sync config/splits/development
+          if git diff --cached --quiet; then
+            echo "No generated artifacts changed."
+            exit 0
+          fi
+          git commit -m "Materialize Drupal lock and configuration (#30)"
+          git push origin HEAD:work/issue-30-drupal-ddev-bootstrap
