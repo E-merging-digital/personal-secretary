@@ -42,14 +42,14 @@ final class DomainCoreKernelTest extends KernelTestBase {
     parent::setUp();
     $this->installEntitySchema('personal_secretary_person');
     $this->installEntitySchema('personal_secretary_household');
-    $this->installEntitySchema('personal_secretary_activity_series');
+    $this->installEntitySchema('personal_sec_activity_series');
   }
 
   public function testPersistedDomainGraphAndBoundedOccurrenceProjection(): void {
     $entityTypeManager = $this->container->get('entity_type.manager');
     $this->assertTrue($entityTypeManager->hasDefinition('personal_secretary_person'));
     $this->assertTrue($entityTypeManager->hasDefinition('personal_secretary_household'));
-    $this->assertTrue($entityTypeManager->hasDefinition('personal_secretary_activity_series'));
+    $this->assertTrue($entityTypeManager->hasDefinition('personal_sec_activity_series'));
     $this->assertFalse($entityTypeManager->hasDefinition('personal_secretary_activity_occurrence'));
 
     /** @var \Drupal\personal_secretary\Service\DomainMutationService $mutations */
@@ -84,7 +84,7 @@ final class DomainCoreKernelTest extends KernelTestBase {
       'FREQ=WEEKLY;INTERVAL=1;COUNT=4',
     );
 
-    $seriesStorage = $entityTypeManager->getStorage('personal_secretary_activity_series');
+    $seriesStorage = $entityTypeManager->getStorage('personal_sec_activity_series');
     /** @var \Drupal\personal_secretary\Entity\ActivitySeries $loadedSeries */
     $loadedSeries = $seriesStorage->load($series->id());
     $this->assertInstanceOf(ActivitySeries::class, $loadedSeries);

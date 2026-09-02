@@ -15,7 +15,7 @@ use Drupal\personal_secretary\Access\DomainEntityAccessControlHandler;
  * A revisionable recurring activity series.
  */
 #[ContentEntityType(
-  id: 'personal_secretary_activity_series',
+  id: 'personal_sec_activity_series',
   label: new TranslatableMarkup('Activity series'),
   label_singular: new TranslatableMarkup('activity series'),
   label_plural: new TranslatableMarkup('activity series'),

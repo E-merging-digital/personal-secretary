@@ -73,7 +73,7 @@ final class DomainMutationService {
     $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
 
     /** @var \Drupal\personal_secretary\Entity\ActivitySeries $series */
-    $series = $this->entityTypeManager->getStorage('personal_secretary_activity_series')->create([
+    $series = $this->entityTypeManager->getStorage('personal_sec_activity_series')->create([
       'name' => $name,
       'household' => $householdId,
       'recurrence' => [$recurrence],
