@@ -4,6 +4,9 @@ module:
   block: 0
   config_split: 0
   contextual: 0
+  date_recur: 0
+  datetime: 0
+  datetime_range: 0
   dblog: 0
   dynamic_page_cache: 0
   field: 0
