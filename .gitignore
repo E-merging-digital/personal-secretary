@@ -9,6 +9,7 @@
 /web/update.php
 /web/robots.txt
 /web/.htaccess
+/web/.gitignore
 /web/.csslintrc
 /web/.eslintignore
 /web/.eslintrc.json

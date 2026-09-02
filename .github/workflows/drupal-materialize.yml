@@ -64,7 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           unexpected="$(
-            git status --porcelain=v1 |
+            git status --porcelain=v1 --untracked-files=all |
               awk '{print $2}' |
               grep -Ev '^(composer\.lock|config/sync/|config/splits/development/)' || true
           )"
