@@ -1,0 +1,55 @@
+$schema: https://git.drupalcode.org/project/drupal/-/raw/11.x/core/assets/schemas/v1/metadata.schema.json
+name: Upcoming activity
+status: stable
+props:
+  type: object
+  required:
+    - activity_label
+    - effective_start
+    - effective_end
+    - effective_start_iso
+    - effective_end_iso
+    - source_timezone
+    - responsibility_label
+    - preparations
+  properties:
+    activity_label:
+      type: string
+      title: Activity label
+    effective_start:
+      type: string
+      title: Effective local start display
+    effective_end:
+      type: string
+      title: Effective local end display
+    effective_start_iso:
+      type: string
+      title: Effective local start ISO datetime
+    effective_end_iso:
+      type: string
+      title: Effective local end ISO datetime
+    source_timezone:
+      type: string
+      title: Source timezone
+    responsibility_label:
+      type: string
+      title: Responsible Person label or explicit unassigned state
+    preparations:
+      type: array
+      title: Eligible preparations
+      items:
+        type: object
+        required:
+          - instruction
+          - due_time
+          - due_time_iso
+        properties:
+          instruction:
+            type: string
+            title: Preparation instruction
+          due_time:
+            type: string
+            title: Preparation due time display
+          due_time_iso:
+            type: string
+            title: Preparation due time ISO datetime

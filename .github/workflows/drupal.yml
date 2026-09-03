@@ -45,9 +45,9 @@ jobs:
           ddev exec ./scripts/bootstrap development
           ddev exec ./scripts/verify development
 
-      - name: Run Personal Secretary domain Kernel tests
+      - name: Run Personal Secretary domain and browser tests
         run: |
-          ddev exec env SIMPLETEST_DB=mysql://db:db@db/db SIMPLETEST_BASE_URL=http://web vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/personal_secretary/tests/src/Kernel
+          ddev exec env SIMPLETEST_DB=mysql://db:db@db/db SIMPLETEST_BASE_URL=http://web vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/personal_secretary/tests/src
 
       - name: Run Date Recur recurrence spike explicitly
         run: ddev exec vendor/bin/drush php:script scripts/date-recur-spike.php

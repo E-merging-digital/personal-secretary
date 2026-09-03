@@ -1,0 +1,32 @@
+<article class="personal-secretary-upcoming-activity">
+  <h2>{{ activity_label }}</h2>
+
+  <dl>
+    <div>
+      <dt>{{ 'When'|t }}</dt>
+      <dd>
+        <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
+        –
+        <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
+        ({{ source_timezone }})
+      </dd>
+    </div>
+    <div>
+      <dt>{{ 'Responsibility'|t }}</dt>
+      <dd>{{ responsibility_label }}</dd>
+    </div>
+  </dl>
+
+  {% if preparations %}
+    <h3>{{ 'To prepare'|t }}</h3>
+    <ul>
+      {% for preparation in preparations %}
+        <li>
+          {{ preparation.instruction }} —
+          {{ 'due'|t }}
+          <time datetime="{{ preparation.due_time_iso }}">{{ preparation.due_time }}</time>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</article>
