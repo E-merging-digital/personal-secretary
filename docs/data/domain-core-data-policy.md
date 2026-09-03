@@ -1,6 +1,6 @@
-# Domain core data policy — Person, Household, ActivitySeries, ActivityException, ResponsibilityRule, ResponsibilityOverride
+# Domain core data policy — Person, Household, ActivitySeries, ActivityException, ResponsibilityRule, ResponsibilityOverride, PreparationRequirement
 
-Authority: Decisions 0005, 0009, 0010, 0011; Epic #35 / Tasks #37, #40 and #43.
+Authority: Decisions 0005, 0009, 0010, 0011, 0012; Epic #35 / Tasks #37, #40, #43 and #49.
 
 This repository is public. All examples and automated-test values for these
 entities are invented and classified:
@@ -126,13 +126,34 @@ Override original/effective/timezone/exception fields are audit and validation
 snapshots. Matching remains based on series identity, target series revision and
 original occurrence key; no automatic/fuzzy retargeting is authorized.
 
+## PreparationRequirement
+
+A preparation requirement reveals a household routine's reusable preparation
+instruction and timing. Eventual real records are therefore classified
+conservatively.
+
+```text
+DATA_CLASSIFICATION = HIGHLY_SENSITIVE for eventual real records
+PII_FIELDS = id, uuid, label, ActivitySeries reference
+SENSITIVE_FIELDS = preparation instruction, lead time, effective-from/effective-until applicability, revision lifecycle persisted-at timestamp
+PROD_TO_PREPROD_POLICY = FORBIDDEN absent future explicit authority
+PREPROD_TO_DEV_POLICY = FORBIDDEN absent future explicit authority
+RETENTION_POLICY = DEFERRED / NOT_AUTHORIZED by #49
+LOGGING_POLICY = MINIMIZED; no preparation instruction/timing payload by default
+AI_PROVIDER_POLICY = NOT_AUTHORIZED IN #49
+```
+
+Ordinary `PreparationEligibility` results are calculated values, not persisted
+domain records. Their responsible Person comes from the existing calculated
+`EffectiveResponsibility` and is not copied into a durable preparation row.
+
 ## Environment and egress invariant
 
 ```text
 PROD_TO_PREPROD = FORBIDDEN absent future explicit authority
 PREPROD_TO_DEV = FORBIDDEN absent future explicit authority
 LOGGING = MINIMIZED / NO FAMILY PAYLOAD BY DEFAULT
-AI_PROVIDER_USAGE = NOT_AUTHORIZED IN #37/#40/#43
+AI_PROVIDER_USAGE = NOT_AUTHORIZED IN #37/#40/#43/#49
 ```
 
 ```text
