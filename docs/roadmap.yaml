@@ -4,27 +4,30 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: commercial-multilingual-foundation
+  phase: usable-occurrence-adjustments
   purpose: >-
-    Keep one stable English source language for distributable Drupal
-    configuration before returning to the highest-value occurrence UX.
+    Make one concrete recurring occurrence adjustable from Upcoming while
+    preserving the established audited occurrence semantics.
 
 active_tasks:
-  - issue: 60
+  - issue: 61
     purpose: >-
-      Lock the canonical repository configuration source language to English
-      without prematurely enabling the full multilingual product stack.
+      Reschedule one exact upcoming base occurrence without editing its
+      ActivitySeries or introducing replacement/re-reschedule behavior.
 
 historical_context:
   - issue: 58
     purpose: >-
       Terminal occurrence cancellation established the governed path for
       cancelling one exact upcoming base occurrence.
+  - issue: 60
+    purpose: >-
+      Terminal commercial multilingual foundation established English as the
+      canonical Drupal configuration source language.
 
 planned_tasks:
-  - issue: 61
-    purpose: >-
-      Resume the occurrence UX with rescheduling only after the configuration
-      language foundation from issue 60 is terminal.
+  - purpose: >-
+      Reassess the highest-value single-occurrence responsibility override or
+      broader activity editing only after issue 61 is terminal.
 
 deferred_decisions: []

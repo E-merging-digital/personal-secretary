@@ -59,7 +59,7 @@ final class UpcomingController extends ControllerBase {
 
     $build['items'] = ['#type' => 'container'];
     foreach ($items as $delta => $item) {
-      $cancelTarget = $item['cancel_target'];
+      $actionTarget = $item['cancel_target'];
       unset($item['cancel_target']);
       if ($item['responsibility_label'] === '') {
         $item['responsibility_label'] = (string) $this->t('Unassigned');
@@ -69,16 +69,25 @@ final class UpcomingController extends ControllerBase {
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
       ];
-      if ($cancelTarget !== NULL) {
+      if ($actionTarget !== NULL) {
+        $routeParameters = [
+          'series' => $actionTarget['series_id'],
+          'original_occurrence_key' => $actionTarget['original_occurrence_key'],
+        ];
+        $build['items'][$delta]['reschedule'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Reschedule occurrence'),
+          '#url' => Url::fromRoute(
+            'personal_secretary.reschedule_occurrence',
+            $routeParameters,
+          ),
+        ];
         $build['items'][$delta]['cancel'] = [
           '#type' => 'link',
           '#title' => $this->t('Cancel occurrence'),
           '#url' => Url::fromRoute(
             'personal_secretary.cancel_occurrence',
-            [
-              'series' => $cancelTarget['series_id'],
-              'original_occurrence_key' => $cancelTarget['original_occurrence_key'],
-            ],
+            $routeParameters,
           ),
         ];
       }
