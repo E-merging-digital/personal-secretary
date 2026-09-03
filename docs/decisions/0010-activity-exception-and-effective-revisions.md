@@ -27,6 +27,7 @@ REVISION_TIMELINE = append-only / strictly increasing effective-from
 AUTO_RETARGET_EXCEPTION = NO
 ORPHAN_EXCEPTION = explicit durable status
 RECONCILIATION = explicit / audited through a new ActivityException revision
+ACTIVITY_EXCEPTION_REVISION_AUDIT_TIME = persisted revision-specific system timestamp
 ```
 
 ### Effective-from des révisions de série
@@ -76,8 +77,16 @@ original source-local start/end
 source timezone snapshot
 action = cancel | reschedule
 status = active | orphaned
+lifecycle_persisted_at = system time when this exception revision was persisted
 rescheduled UTC start/end when reschedule
 ```
+
+`lifecycle_persisted_at` est un champ Drupal `timestamp` revisionable. Chaque
+révision initiale active, transition `orphaned` et réconciliation `active` reçoit
+l'heure système courante immédiatement avant sa persistance. Les révisions
+historiques conservent leur propre valeur. Cette donnée décrit le moment de la
+transition de lifecycle de l'exception ; elle ne représente ni l'occurrence
+originale, ni l'horaire reschedulé, ni `ActivitySeries.effective_from`, ni DTSTART.
 
 Le snapshot source-local/fuseau est une trace d'audit de la cible ; il ne remplace
 jamais la timezone canonique de la série.
@@ -154,8 +163,8 @@ Aucune Queue, ECA ou IA ne possède cette vérité.
 
 `ActivityException` réutilise la permission restrictive
 `administer personal secretary domain`. Les révisions Drupal conservent les états
-successifs active/orphaned/reconciled sans introduire de relation Drupal User →
-Person pour l'attribution d'acteur.
+successifs active/orphaned/reconciled avec leur timestamp de persistance propre,
+sans introduire de relation Drupal User → Person pour l'attribution d'acteur.
 
 ## Data et exclusions
 

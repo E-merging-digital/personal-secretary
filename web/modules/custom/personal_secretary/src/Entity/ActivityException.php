@@ -104,6 +104,12 @@ final class ActivityException extends ContentEntityBase {
       ->setRevisionable(TRUE)
       ->setSetting('max_length', 16);
 
+    $fields['lifecycle_persisted_at'] = BaseFieldDefinition::create('timestamp')
+      ->setLabel(new TranslatableMarkup('Lifecycle revision persisted at'))
+      ->setDescription(new TranslatableMarkup('System time when this ActivityException lifecycle revision was persisted.'))
+      ->setRequired(TRUE)
+      ->setRevisionable(TRUE);
+
     $fields['rescheduled_utc_start'] = BaseFieldDefinition::create('datetime')
       ->setLabel(new TranslatableMarkup('Rescheduled UTC start'))
       ->setRevisionable(TRUE)

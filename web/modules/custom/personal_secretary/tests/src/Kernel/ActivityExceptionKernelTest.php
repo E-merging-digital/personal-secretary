@@ -99,6 +99,10 @@ final class ActivityExceptionKernelTest extends KernelTestBase {
       new DateTimeImmutable('2026-02-08 16:00:00', new DateTimeZone('UTC')),
       'Europe/Brussels',
     );
+    $preBoundaryActiveTimestamp = (int) $preBoundaryCancel->get('lifecycle_persisted_at')->value;
+    $postBoundaryActiveTimestamp = (int) $postBoundaryReschedule->get('lifecycle_persisted_at')->value;
+    $this->assertGreaterThan(0, $preBoundaryActiveTimestamp);
+    $this->assertGreaterThan(0, $postBoundaryActiveTimestamp);
     $postBoundaryActiveRevision = (string) $postBoundaryReschedule->getRevisionId();
 
     try {
@@ -175,14 +179,19 @@ final class ActivityExceptionKernelTest extends KernelTestBase {
 
     $reloadedPreBoundary = $exceptionStorage->load($preBoundaryCancel->id());
     $this->assertSame(ActivityException::STATUS_ACTIVE, (string) $reloadedPreBoundary->get('status')->value);
+    $this->assertSame($preBoundaryActiveTimestamp, (int) $reloadedPreBoundary->get('lifecycle_persisted_at')->value);
 
     /** @var \Drupal\personal_secretary\Entity\ActivityException $orphan */
     $orphan = $exceptionStorage->load($postBoundaryReschedule->id());
     $this->assertSame(ActivityException::STATUS_ORPHANED, (string) $orphan->get('status')->value);
+    $orphanTimestamp = (int) $orphan->get('lifecycle_persisted_at')->value;
+    $this->assertGreaterThan(0, $orphanTimestamp);
+    $this->assertGreaterThanOrEqual($postBoundaryActiveTimestamp, $orphanTimestamp);
     $orphanRevision = (string) $orphan->getRevisionId();
     $this->assertNotSame($postBoundaryActiveRevision, $orphanRevision);
     $activeHistory = $exceptionStorage->loadRevision((int) $postBoundaryActiveRevision);
     $this->assertSame(ActivityException::STATUS_ACTIVE, (string) $activeHistory->get('status')->value);
+    $this->assertSame($postBoundaryActiveTimestamp, (int) $activeHistory->get('lifecycle_persisted_at')->value);
 
     // The new revision deliberately generates the same Feb 8 UTC instant. The
     // old-revision exception is still orphaned and therefore is not auto-retargeted.
@@ -215,11 +224,17 @@ final class ActivityExceptionKernelTest extends KernelTestBase {
     $effectiveTarget = $crossBoundary[2];
     $reconciled = $exceptions->reconcile($orphan, $series, $effectiveTarget);
     $reconciledRevision = (string) $reconciled->getRevisionId();
+    $reconciledTimestamp = (int) $reconciled->get('lifecycle_persisted_at')->value;
+    $this->assertGreaterThan(0, $reconciledTimestamp);
+    $this->assertGreaterThanOrEqual($orphanTimestamp, $reconciledTimestamp);
     $this->assertNotSame($orphanRevision, $reconciledRevision);
     $this->assertSame(ActivityException::STATUS_ACTIVE, (string) $reconciled->get('status')->value);
     $this->assertSame($revisionB, (string) $reconciled->get('target_revision_id')->value);
-    $this->assertSame(ActivityException::STATUS_ORPHANED, (string) $exceptionStorage->loadRevision((int) $orphanRevision)->get('status')->value);
+    $orphanHistory = $exceptionStorage->loadRevision((int) $orphanRevision);
+    $this->assertSame(ActivityException::STATUS_ORPHANED, (string) $orphanHistory->get('status')->value);
+    $this->assertSame($orphanTimestamp, (int) $orphanHistory->get('lifecycle_persisted_at')->value);
     $this->assertSame(ActivityException::STATUS_ACTIVE, (string) $exceptionStorage->loadRevision((int) $postBoundaryActiveRevision)->get('status')->value);
+    $this->assertSame($postBoundaryActiveTimestamp, (int) $exceptionStorage->loadRevision((int) $postBoundaryActiveRevision)->get('lifecycle_persisted_at')->value);
 
     $afterReconciliation = $effective->project(
       $series,

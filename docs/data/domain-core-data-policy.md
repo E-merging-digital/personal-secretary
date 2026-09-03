@@ -69,16 +69,21 @@ conservatively.
 ```text
 DATA_CLASSIFICATION = HIGHLY_SENSITIVE for eventual real records
 PII_FIELDS = id, uuid, ActivitySeries reference
-SENSITIVE_FIELDS = target revision/key, original UTC/local times, source timezone snapshot, action/status, rescheduled UTC times
+SENSITIVE_FIELDS = target revision/key, original UTC/local times, source timezone snapshot, action/status, revision lifecycle persisted-at timestamp, rescheduled UTC times
 PROD_TO_PREPROD_POLICY = FORBIDDEN absent future explicit authority
 PREPROD_TO_DEV_POLICY = FORBIDDEN absent future explicit authority
 RETENTION_POLICY = DEFERRED / NOT_AUTHORIZED by #40
-LOGGING_POLICY = MINIMIZED; no exception target/time payload by default
+LOGGING_POLICY = MINIMIZED; no exception target/time/audit payload by default
 AI_PROVIDER_POLICY = NOT_AUTHORIZED IN #40
 ```
 
 Exception source-local/timezone fields are immutable audit snapshots of a
 calculated target. They do not become a second recurrence-timezone truth.
+
+`lifecycle_persisted_at` is revision-specific lifecycle audit metadata. It records
+when an ActivityException revision was persisted; it is not an occurrence time,
+reschedule time, ActivitySeries effective-from boundary or recurrence DTSTART.
+Historical exception revisions retain their own stored value.
 
 ## Environment and egress invariant
 

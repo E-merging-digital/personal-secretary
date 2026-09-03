@@ -6,6 +6,7 @@ namespace Drupal\personal_secretary\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\RevisionableStorageInterface;
 use Drupal\personal_secretary\Entity\ActivityException;
@@ -19,11 +20,12 @@ use RuntimeException;
  */
 final class ActivityExceptionService {
 
-  private const UTC_STORAGE_FORMAT = 'Y-m-d\TH:i:s';
+  private const UTC_STORAGE_FORMAT = 'Y-m-d\\TH:i:s';
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly RevisionTimelineService $revisionTimeline,
+    private readonly TimeInterface $time,
   ) {}
 
   public function createCancel(ActivitySeries $series, BaseOccurrence $target): ActivityException {
@@ -95,6 +97,7 @@ final class ActivityExceptionService {
 
       $exception->setNewRevision(TRUE);
       $exception->set('status', ActivityException::STATUS_ORPHANED);
+      $this->stampLifecycleRevision($exception);
       $exception->save();
       $orphaned[] = $exception;
     }
@@ -130,6 +133,7 @@ final class ActivityExceptionService {
       $exception->set($field, $value);
     }
     $exception->set('status', ActivityException::STATUS_ACTIVE);
+    $this->stampLifecycleRevision($exception);
     $exception->save();
 
     return $exception;
@@ -161,6 +165,7 @@ final class ActivityExceptionService {
       'series' => $series->id(),
       'action' => $action,
       'status' => ActivityException::STATUS_ACTIVE,
+      'lifecycle_persisted_at' => $this->time->getCurrentTime(),
       'rescheduled_utc_start' => $newUtcStart === NULL ? NULL : $this->toStorage($newUtcStart),
       'rescheduled_utc_end' => $newUtcEnd === NULL ? NULL : $this->toStorage($newUtcEnd),
     ];
@@ -219,6 +224,10 @@ final class ActivityExceptionService {
       throw new RuntimeException('ActivityException storage must support revisions.');
     }
     return $storage;
+  }
+
+  private function stampLifecycleRevision(ActivityException $exception): void {
+    $exception->set('lifecycle_persisted_at', $this->time->getCurrentTime());
   }
 
   private function toStorage(DateTimeImmutable $value): string {
