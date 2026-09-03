@@ -6,18 +6,18 @@ schema_version: 1
 current_goal:
   phase: first-user-facing-vertical
   purpose: >-
-    Build Epic #51's first understandable Drupal application surface on top of
-    Epic #35's terminal internal domain foundation.
+    Make Epic #51's terminal read-only #52 surface independently usable through
+    the smallest governed first-activity onboarding path.
 
 active_tasks:
-  - issue: 52
+  - issue: 54
     purpose: >-
-      Render upcoming EffectiveOccurrences, EffectiveResponsibility and
-      PreparationEligibility in one read-only frontend view.
+      Create one coherent Person, Household, weekly ActivitySeries,
+      ResponsibilityRule and optional PreparationRequirement transactionally.
 
 planned_tasks:
   - purpose: >-
-      After #52 review, decide the smallest governed data-entry/onboarding
-      surface needed to make the vertical independently usable.
+      Review actual usability after onboarding before authorizing broader CRUD,
+      identity mapping or calendar work.
 
 deferred_decisions: []
