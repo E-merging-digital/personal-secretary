@@ -12,6 +12,7 @@
     ],
     "require": {
         "composer/installers": "^2.3",
+        "drupal/config_language_lock": "^1.0",
         "drupal/config_split": "^2.0",
         "drupal/core-composer-scaffold": "^11.4",
         "drupal/core-project-message": "^11.4",

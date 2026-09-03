@@ -4,20 +4,27 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: usable-occurrence-exceptions
+  phase: commercial-multilingual-foundation
   purpose: >-
-    Make the repeatable first vertical usable when one concrete recurring
-    occurrence exceptionally does not happen, without altering its series.
+    Keep one stable English source language for distributable Drupal
+    configuration before returning to the highest-value occurrence UX.
 
 active_tasks:
+  - issue: 60
+    purpose: >-
+      Lock the canonical repository configuration source language to English
+      without prematurely enabling the full multilingual product stack.
+
+historical_context:
   - issue: 58
     purpose: >-
-      Cancel one exact upcoming base occurrence through the governed
-      ActivityException domain path.
+      Terminal occurrence cancellation established the governed path for
+      cancelling one exact upcoming base occurrence.
 
 planned_tasks:
-  - purpose: >-
-      Reassess reschedule UX and effective responsibility/preparation semantics
-      after cancellation is proven.
+  - issue: 61
+    purpose: >-
+      Resume the occurrence UX with rescheduling only after the configuration
+      language foundation from issue 60 is terminal.
 
 deferred_decisions: []
