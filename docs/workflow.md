@@ -18,6 +18,14 @@ Avant toute mutation :
    d'exécution est matérielle;
 7. confirmer scope, exclusions, gates et dépendances.
 
+Pour toute Task modifiante, établir avant l'implémentation :
+
+```text
+WHAT_USER_OR_PRODUCT_VALUE_DOES_THIS_DELIVER?
+WHAT_IS_THE_SMALLEST_CHANGE_THAT_DELIVERS_IT?
+WHAT_MATERIAL_RISK_MUST_BE_PROVEN?
+```
+
 Une ambiguïté d'architecture ou d'autorité retourne au Project Lead plutôt que
 d'être inventée par Delivery.
 
@@ -68,15 +76,30 @@ Ne pas introduire de coding agents payants parallèles par défaut.
 reload authority
 -> create/resume canonical branch for the modifying Task
 -> implement only authorized scope
--> validate proportionally to impact
+-> validate proportionally to material risk
 -> inspect complete diff
 -> open/update canonical PR
 -> reload exact PR HEAD
--> collect evidence attributable to that HEAD
+-> collect only evidence needed for that HEAD
 -> independent Project Lead review
 -> merge only when repository gates and authority permit
 -> reload main after merge
 ```
+
+La validation est value-first et proportionnelle. Réutiliser tout gate, test ou
+preuve existant qui couvre déjà le risque; ne pas en dupliquer la fonction. Les
+tests ciblent le contrat, le comportement métier, les régressions réalistes et
+les frontières de sécurité matérielles, pas chaque détail d'implémentation.
+
+```text
+low-risk mechanical change -> minimal validation
+high-risk domain/security change -> proportional targeted validation
+new gate/review -> explicit material risk justification required
+```
+
+Les gates, tests, preuves et revues redondants, ainsi que le processus pour le
+processus lui-même, sont interdits. Entre deux processus également sûrs,
+préférer le plus simple, le plus court et le moins coûteux.
 
 Un CI rouge n'est pas automatiquement `HUMAN_REQUIRED`; Delivery peut corriger
 dans le scope autorisé. Une extension matérielle de scope ou une décision non

@@ -57,6 +57,38 @@ pour un agent externe.
 - Une PR doit référencer sa Task modifiante et rester strictement dans son périmètre.
 - Un seul agent modifiant écrit sur une branche à la fois.
 
+## Valeur et proportionnalité
+
+Livrer le plus petit changement qui produit la valeur utilisateur/produit visée
+tout en protégeant les risques matériels. Gouvernance, gates, tests, revues et
+preuves sont des moyens, jamais des livrables en eux-mêmes.
+
+```text
+VALUE_FIRST = YES
+SIMPLEST_SUFFICIENT_PROCESS = REQUIRED
+NEW_GATE_REQUIRES_EXPLICIT_RISK_JUSTIFICATION = YES
+EXISTING_SUFFICIENT_GATE = REUSE
+REDUNDANT_GATES = PROHIBITED
+REDUNDANT_TESTS = PROHIBITED
+DUPLICATE_EVIDENCE = PROHIBITED
+TEST_THE_CONTRACT_NOT_EVERY_IMPLEMENTATION_DETAIL = YES
+LOW_RISK_MECHANICAL_CHANGE = MINIMAL_VALIDATION
+HIGH_RISK_DOMAIN_OR_SECURITY_CHANGE = PROPORTIONAL_TARGETED_VALIDATION
+EXTRA_REVIEW_WITHOUT_MATERIAL_VALUE = NO
+```
+
+Chaque Task modifiante doit répondre à :
+
+```text
+WHAT_USER_OR_PRODUCT_VALUE_DOES_THIS_DELIVER?
+WHAT_IS_THE_SMALLEST_CHANGE_THAT_DELIVERS_IT?
+WHAT_MATERIAL_RISK_MUST_BE_PROVEN?
+```
+
+Réutiliser une preuve existante lorsqu'elle couvre déjà le risque; ne pas ajouter
+de processus pour le processus lui-même. Entre deux processus également sûrs,
+choisir le plus simple, le plus court et le moins coûteux.
+
 ## Exécution et Codex
 
 Lire `docs/operations/execution-capabilities.md` avant de conclure qu'une
