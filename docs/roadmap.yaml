@@ -4,21 +4,21 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: first-domain-vertical-core
+  phase: first-domain-vertical
   purpose: >-
-    Materialize Epic #35's first Drupal-owned domain core with Person, Household,
-    revisionable ActivitySeries and bounded base-occurrence projection.
+    Complete Epic #35's deterministic internal activity domain while ordinary
+    occurrences remain calculated from Drupal-owned state.
 
 active_tasks:
-  - issue: 37
+  - issue: 40
     purpose: >-
-      Materialize Person, Household and ActivitySeries through governed Drupal
-      domain services and prove persisted bounded recurrence integration.
+      Materialize ActivityException, explicit effective-from ActivitySeries
+      revisions, orphan detection, audited reconciliation and effective
+      occurrence projection.
 
 planned_tasks:
   - purpose: >-
-      After this domain core is independently reviewed and terminalized,
-      materialize ActivityException together with revision/effective-from
-      semantics and orphan reconciliation under separate Project Lead authority.
+      Materialize ResponsibilityRule, ResponsibilityOverride and deterministic
+      effective responsibility under separate Project Lead authority.
 
 deferred_decisions: []

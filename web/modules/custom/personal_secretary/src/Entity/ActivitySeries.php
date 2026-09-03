@@ -57,6 +57,12 @@ final class ActivitySeries extends ContentEntityBase {
       ->setRequired(TRUE)
       ->setRevisionable(TRUE);
 
+    $fields['effective_from'] = BaseFieldDefinition::create('datetime')
+      ->setLabel(new TranslatableMarkup('Effective from'))
+      ->setRequired(TRUE)
+      ->setRevisionable(TRUE)
+      ->setSetting('datetime_type', 'datetime');
+
     return $fields;
   }
 

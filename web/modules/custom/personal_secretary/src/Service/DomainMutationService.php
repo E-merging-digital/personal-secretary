@@ -6,22 +6,28 @@ namespace Drupal\personal_secretary\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\RevisionableStorageInterface;
 use Drupal\date_recur\DateRecurHelper;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\Household;
 use Drupal\personal_secretary\Entity\Person;
 use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
 
 /**
- * Governed mutation boundary for the first domain persistence slice.
+ * Governed mutation boundary for Personal Secretary domain persistence.
  */
 final class DomainMutationService {
 
-  private const UTC_STORAGE_FORMAT = 'Y-m-d\\TH:i:s';
+  private const UTC_STORAGE_FORMAT = 'Y-m-d\TH:i:s';
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly Connection $database,
+    private readonly ActivityExceptionService $activityExceptions,
   ) {}
 
   public function createPerson(string $name): Person {
@@ -73,10 +79,11 @@ final class DomainMutationService {
     $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
 
     /** @var \Drupal\personal_secretary\Entity\ActivitySeries $series */
-    $series = $this->entityTypeManager->getStorage('personal_sec_activity_series')->create([
+    $series = $this->seriesStorage()->create([
       'name' => $name,
       'household' => $householdId,
       'recurrence' => [$recurrence],
+      'effective_from' => $this->toStorage($localStart),
     ]);
     $series->save();
     return $series;
@@ -87,15 +94,43 @@ final class DomainMutationService {
     DateTimeImmutable $localStart,
     DateTimeImmutable $localEnd,
     string $rrule,
+    DateTimeImmutable $effectiveFrom,
   ): ActivitySeries {
-    if ($series->isNew()) {
+    if ($series->isNew() || $series->id() === NULL) {
       throw new InvalidArgumentException('ActivitySeries must be persisted before it can be revised.');
     }
 
+    $storage = $this->seriesStorage();
+    $latestRevisionId = $storage->getLatestRevisionId($series->id());
+    if ($latestRevisionId === NULL || (string) $latestRevisionId !== (string) $series->getRevisionId()) {
+      throw new InvalidArgumentException('Semantic ActivitySeries updates require the latest persisted revision.');
+    }
+
+    $latestEffectiveFrom = $this->fromStorage((string) $series->get('effective_from')->value);
+    $effectiveFrom = $this->utc($effectiveFrom);
+    if ($effectiveFrom <= $latestEffectiveFrom) {
+      throw new InvalidArgumentException('ActivitySeries effective-from boundaries must be strictly increasing.');
+    }
+
     $this->requireHousehold((int) $series->get('household')->target_id);
-    $series->setNewRevision(TRUE);
-    $series->set('recurrence', [$this->recurrenceValue($localStart, $localEnd, $rrule)]);
-    $series->save();
+    $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
+
+    $transaction = $this->database->startTransaction();
+    try {
+      $series->setNewRevision(TRUE);
+      $series->set('recurrence', [$recurrence]);
+      $series->set('effective_from', $this->toStorage($effectiveFrom));
+      $series->save();
+
+      // Domain consistency is synchronous: no queue/background truth may own
+      // orphan transitions created by a new semantic series boundary.
+      $this->activityExceptions->orphanSupersededTargets($series, $effectiveFrom);
+    }
+    catch (Throwable $exception) {
+      $transaction->rollBack();
+      throw $exception;
+    }
+
     return $series;
   }
 
@@ -116,7 +151,6 @@ final class DomainMutationService {
       throw new InvalidArgumentException('Start and end must use the same explicit source timezone.');
     }
 
-    // Validate the already-adopted recurrence primitive before persistence.
     DateRecurHelper::create($rrule, $localStart, $localEnd);
 
     $utc = new DateTimeZone('UTC');
@@ -124,7 +158,6 @@ final class DomainMutationService {
       'value' => $localStart->setTimezone($utc)->format(self::UTC_STORAGE_FORMAT),
       'end_value' => $localEnd->setTimezone($utc)->format(self::UTC_STORAGE_FORMAT),
       'rrule' => $rrule,
-      // This date_recur property is the single canonical source-timezone truth.
       'timezone' => $timezone,
     ];
   }
@@ -140,12 +173,40 @@ final class DomainMutationService {
     return $household;
   }
 
+  private function seriesStorage(): RevisionableStorageInterface {
+    $storage = $this->entityTypeManager->getStorage('personal_sec_activity_series');
+    if (!$storage instanceof RevisionableStorageInterface) {
+      throw new RuntimeException('ActivitySeries storage must support revisions.');
+    }
+    return $storage;
+  }
+
   private function requiredLabel(string $value, string $field): string {
     $value = trim($value);
     if ($value === '') {
       throw new InvalidArgumentException(sprintf('%s must not be empty.', $field));
     }
     return $value;
+  }
+
+  private function toStorage(DateTimeImmutable $value): string {
+    return $this->utc($value)->format(self::UTC_STORAGE_FORMAT);
+  }
+
+  private function fromStorage(string $value): DateTimeImmutable {
+    $parsed = DateTimeImmutable::createFromFormat(
+      '!' . self::UTC_STORAGE_FORMAT,
+      $value,
+      new DateTimeZone('UTC'),
+    );
+    if (!$parsed instanceof DateTimeImmutable) {
+      throw new InvalidArgumentException('ActivitySeries effective-from boundary is invalid.');
+    }
+    return $parsed;
+  }
+
+  private function utc(DateTimeImmutable $value): DateTimeImmutable {
+    return $value->setTimezone(new DateTimeZone('UTC'));
   }
 
 }
