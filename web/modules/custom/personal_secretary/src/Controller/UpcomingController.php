@@ -59,14 +59,29 @@ final class UpcomingController extends ControllerBase {
 
     $build['items'] = ['#type' => 'container'];
     foreach ($items as $delta => $item) {
+      $cancelTarget = $item['cancel_target'];
+      unset($item['cancel_target']);
       if ($item['responsibility_label'] === '') {
         $item['responsibility_label'] = (string) $this->t('Unassigned');
       }
-      $build['items'][$delta] = [
+      $build['items'][$delta]['activity'] = [
         '#type' => 'component',
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
       ];
+      if ($cancelTarget !== NULL) {
+        $build['items'][$delta]['cancel'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Cancel occurrence'),
+          '#url' => Url::fromRoute(
+            'personal_secretary.cancel_occurrence',
+            [
+              'series' => $cancelTarget['series_id'],
+              'original_occurrence_key' => $cancelTarget['original_occurrence_key'],
+            ],
+          ),
+        ];
+      }
     }
     $build['add_activity'] = $this->addActivityLink();
 
