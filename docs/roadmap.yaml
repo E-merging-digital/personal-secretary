@@ -4,30 +4,34 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: usable-occurrence-adjustments
+  phase: usable-occurrence-responsibility
   purpose: >-
-    Make one concrete recurring occurrence adjustable from Upcoming while
-    preserving the established audited occurrence semantics.
+    Let one exact effective occurrence use a Household-specific responsibility
+    choice without changing the recurring responsibility rule.
 
 active_tasks:
-  - issue: 61
+  - issue: 64
     purpose: >-
-      Reschedule one exact upcoming base occurrence without editing its
-      ActivitySeries or introducing replacement/re-reschedule behavior.
+      Change one Upcoming occurrence responsibility, including rescheduled
+      effective occurrences, and allow return to recurring responsibility.
 
 historical_context:
   - issue: 58
     purpose: >-
-      Terminal occurrence cancellation established the governed path for
-      cancelling one exact upcoming base occurrence.
+      Terminal occurrence cancellation established the governed exact-target
+      cancellation path.
   - issue: 60
     purpose: >-
       Terminal commercial multilingual foundation established English as the
       canonical Drupal configuration source language.
+  - issue: 61
+    purpose: >-
+      Terminal occurrence rescheduling established the governed exact-target
+      reschedule flow from Upcoming.
 
 planned_tasks:
   - purpose: >-
-      Reassess the highest-value single-occurrence responsibility override or
-      broader activity editing only after issue 61 is terminal.
+      Reassess whether broader ActivitySeries editing or Person/Household
+      management now provides more user value.
 
 deferred_decisions: []
