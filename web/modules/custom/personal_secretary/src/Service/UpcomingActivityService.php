@@ -41,6 +41,7 @@ final class UpcomingActivityService {
    *   source_timezone: string,
    *   responsibility_label: string,
    *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   responsibility_target: array{series_id: int, original_occurrence_key: string},
    *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
    */
@@ -66,6 +67,7 @@ final class UpcomingActivityService {
    *   source_timezone: string,
    *   responsibility_label: string,
    *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   responsibility_target: array{series_id: int, original_occurrence_key: string},
    *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
    */
@@ -130,6 +132,10 @@ final class UpcomingActivityService {
         if ($seriesId === NULL) {
           throw new RuntimeException('Upcoming ActivitySeries has no persisted identity.');
         }
+        $target = [
+          'series_id' => (int) $seriesId,
+          'original_occurrence_key' => $occurrence->originalOccurrenceKey,
+        ];
 
         $sortable[] = [
           'sort_start' => $occurrence->effectiveUtcStart,
@@ -141,12 +147,8 @@ final class UpcomingActivityService {
           'source_timezone' => $occurrence->sourceTimezone,
           'responsibility_label' => $responsibilityLabel,
           'preparations' => $preparations,
-          'cancel_target' => $occurrence->exceptionUuid === NULL
-            ? [
-              'series_id' => (int) $seriesId,
-              'original_occurrence_key' => $occurrence->originalOccurrenceKey,
-            ]
-            : NULL,
+          'responsibility_target' => $target,
+          'cancel_target' => $occurrence->exceptionUuid === NULL ? $target : NULL,
         ];
       }
     }
