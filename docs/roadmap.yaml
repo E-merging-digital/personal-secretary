@@ -4,16 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: usable-occurrence-responsibility
+  phase: usable-recurring-schedule-correction
   purpose: >-
-    Let one exact effective occurrence use a Household-specific responsibility
-    choice without changing the recurring responsibility rule.
+    Let one existing weekly ActivitySeries change its future recurring day and
+    time from a chosen effective date while preserving aligned responsibility
+    and derived preparation behavior.
 
 active_tasks:
-  - issue: 64
+  - issue: 66
     purpose: >-
-      Change one Upcoming occurrence responsibility, including rescheduled
-      effective occurrences, and allow return to recurring responsibility.
+      Change the future weekly schedule of one current ActivitySeries from
+      Upcoming through a semantic series revision and responsibility-rule
+      replacement.
 
 historical_context:
   - issue: 58
@@ -28,10 +30,14 @@ historical_context:
     purpose: >-
       Terminal occurrence rescheduling established the governed exact-target
       reschedule flow from Upcoming.
+  - issue: 64
+    purpose: >-
+      Terminal occurrence responsibility established exact current-occurrence
+      assignment, clear, and return-to-recurring behavior.
 
 planned_tasks:
   - purpose: >-
-      Reassess whether broader ActivitySeries editing or Person/Household
-      management now provides more user value.
+      Reassess activity naming/details versus Person/Household management after
+      recurring schedule correction is terminal.
 
 deferred_decisions: []
