@@ -59,8 +59,9 @@ final class UpcomingController extends ControllerBase {
 
     $build['items'] = ['#type' => 'container'];
     foreach ($items as $delta => $item) {
+      $responsibilityTarget = $item['responsibility_target'];
       $actionTarget = $item['cancel_target'];
-      unset($item['cancel_target']);
+      unset($item['responsibility_target'], $item['cancel_target']);
       if ($item['responsibility_label'] === '') {
         $item['responsibility_label'] = (string) $this->t('Unassigned');
       }
@@ -69,6 +70,20 @@ final class UpcomingController extends ControllerBase {
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
       ];
+
+      $responsibilityRouteParameters = [
+        'series' => $responsibilityTarget['series_id'],
+        'original_occurrence_key' => $responsibilityTarget['original_occurrence_key'],
+      ];
+      $build['items'][$delta]['responsibility'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Change responsibility'),
+        '#url' => Url::fromRoute(
+          'personal_secretary.responsibility_occurrence',
+          $responsibilityRouteParameters,
+        ),
+      ];
+
       if ($actionTarget !== NULL) {
         $routeParameters = [
           'series' => $actionTarget['series_id'],
