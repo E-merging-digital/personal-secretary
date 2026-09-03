@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -16,11 +17,13 @@ final class UpcomingController extends ControllerBase {
 
   public function __construct(
     private readonly UpcomingActivityService $upcomingActivities,
+    private readonly EntityTypeManagerInterface $domainEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.upcoming_activity'),
+      $container->get('entity_type.manager'),
     );
   }
 
@@ -41,11 +44,16 @@ final class UpcomingController extends ControllerBase {
         '#tag' => 'p',
         '#value' => $this->t('No upcoming activities in the next 7 days.'),
       ];
-      $build['setup'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Add your first activity'),
-        '#url' => Url::fromRoute('personal_secretary.setup'),
-      ];
+      if ($this->hasExistingContext()) {
+        $build['add_activity'] = $this->addActivityLink();
+      }
+      else {
+        $build['setup'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Add your first activity'),
+          '#url' => Url::fromRoute('personal_secretary.setup'),
+        ];
+      }
       return $build;
     }
 
@@ -60,8 +68,35 @@ final class UpcomingController extends ControllerBase {
         '#props' => $item,
       ];
     }
+    $build['add_activity'] = $this->addActivityLink();
 
     return $build;
+  }
+
+  private function hasExistingContext(): bool {
+    foreach (['personal_secretary_person', 'personal_secretary_household'] as $entityTypeId) {
+      $count = $this->domainEntityTypeManager
+        ->getStorage($entityTypeId)
+        ->getQuery()
+        ->accessCheck(FALSE)
+        ->count()
+        ->execute();
+      if ((int) $count === 0) {
+        return FALSE;
+      }
+    }
+    return TRUE;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function addActivityLink(): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('Add activity'),
+      '#url' => Url::fromRoute('personal_secretary.add_activity'),
+    ];
   }
 
 }

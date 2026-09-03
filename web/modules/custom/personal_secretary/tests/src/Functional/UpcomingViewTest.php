@@ -10,7 +10,7 @@ use Drupal\Tests\BrowserTestBase;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 
 /**
- * Proves the first read-only and onboarding application surfaces.
+ * Proves the read-only, onboarding, and repeatable activity surfaces.
  *
  * @group personal_secretary
  */
@@ -184,6 +184,120 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertCount(1, $entityTypeManager->getStorage('personal_secretary_person')->loadMultiple());
     $this->assertCount(1, $entityTypeManager->getStorage('personal_secretary_household')->loadMultiple());
     $this->assertCount(1, $entityTypeManager->getStorage('personal_sec_resp_rule')->loadMultiple());
+    $this->assertCount(1, $entityTypeManager->getStorage('personal_sec_prep_req')->loadMultiple());
+  }
+
+  public function testAddActivityToExistingContextFlow(): void {
+    $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->statusCodeEquals(403);
+
+    $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->drupalLogin($authorized);
+
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    /** @var \Drupal\personal_secretary\Service\ResponsibilityMutationService $responsibilityMutations */
+    $responsibilityMutations = $this->container->get('personal_secretary.responsibility_mutation');
+    $entityTypeManager = $this->container->get('entity_type.manager');
+
+    $sourceTimezone = new DateTimeZone('Europe/Brussels');
+    $nowLocal = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone($sourceTimezone);
+    $firstStart = $nowLocal->modify('+2 days')->setTime(9, 0);
+    $firstEnd = $firstStart->modify('+1 hour');
+
+    $person = $domain->createPerson('Existing Synthetic Person');
+    $household = $domain->createHousehold('Existing Synthetic Household', [(int) $person->id()]);
+    $firstSeries = $domain->createActivitySeries(
+      'Existing first weekly activity',
+      (int) $household->id(),
+      $firstStart,
+      $firstEnd,
+      'FREQ=WEEKLY;INTERVAL=1',
+    );
+    $responsibilityMutations->createResponsibilityRule(
+      $firstSeries,
+      (int) $person->id(),
+      $firstStart,
+      $firstEnd,
+      'FREQ=WEEKLY;INTERVAL=1',
+    );
+
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Existing first weekly activity');
+    $this->assertSession()->linkExists('Add activity');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+
+    $personCount = count($entityTypeManager->getStorage('personal_secretary_person')->loadMultiple());
+    $householdCount = count($entityTypeManager->getStorage('personal_secretary_household')->loadMultiple());
+    $seriesCount = count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple());
+
+    $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldExists('household_id');
+    $this->assertSession()->fieldExists('responsible_person_id');
+    $this->assertSession()->fieldExists('activity_label');
+    $this->assertSession()->fieldExists('first_occurrence_date');
+    $this->assertSession()->fieldExists('start_local_time');
+    $this->assertSession()->fieldExists('end_local_time');
+    $this->assertSession()->fieldExists('source_timezone');
+    $this->assertSession()->fieldExists('preparation_instruction');
+    $this->assertSession()->fieldExists('preparation_lead_minutes');
+    $this->assertSession()->pageTextContains('Weekly');
+    $this->assertSession()->fieldNotExists('rrule');
+
+    $secondStart = $nowLocal->modify('+3 days')->setTime(14, 0);
+    $secondDate = $secondStart->format('Y-m-d');
+    $dueDisplay = $secondStart->modify('-30 minutes')->format('Y-m-d H:i');
+    $this->submitForm([
+      'household_id' => (string) $household->id(),
+      'responsible_person_id' => (string) $person->id(),
+      'activity_label' => 'Synthetic second weekly activity',
+      'first_occurrence_date' => $secondDate,
+      'start_local_time' => '14:00',
+      'end_local_time' => '15:00',
+      'source_timezone' => 'Europe/Brussels',
+      'preparation_instruction' => 'Prepare synthetic second equipment',
+      'preparation_lead_minutes' => '30',
+    ], 'Add activity');
+
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Existing first weekly activity');
+    $this->assertSession()->pageTextContains('Synthetic second weekly activity');
+    $this->assertSession()->pageTextContains('Existing Synthetic Person');
+    $this->assertSession()->pageTextContains('Prepare synthetic second equipment');
+    $this->assertSession()->pageTextContains($dueDisplay);
+
+    $this->assertCount($personCount, $entityTypeManager->getStorage('personal_secretary_person')->loadMultiple());
+    $this->assertCount($householdCount, $entityTypeManager->getStorage('personal_secretary_household')->loadMultiple());
+    $allSeries = array_values($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple());
+    $this->assertCount($seriesCount + 1, $allSeries);
+    $this->assertSame('Existing first weekly activity', $entityTypeManager
+      ->getStorage('personal_sec_activity_series')
+      ->load($firstSeries->id())
+      ?->label());
+
+    $addedSeries = array_values(array_filter(
+      $allSeries,
+      static fn($candidate): bool => $candidate->label() === 'Synthetic second weekly activity',
+    ));
+    $this->assertCount(1, $addedSeries);
+    $this->assertInstanceOf(ActivitySeries::class, $addedSeries[0]);
+    $recurrenceItem = $addedSeries[0]->get('recurrence')->first();
+    $this->assertNotNull($recurrenceItem);
+    $recurrence = $recurrenceItem->getValue();
+    $this->assertSame('FREQ=WEEKLY;INTERVAL=1', $recurrence['rrule']);
+    $this->assertSame('Europe/Brussels', $recurrence['timezone']);
+
+    $rules = array_values($entityTypeManager->getStorage('personal_sec_resp_rule')->loadMultiple());
+    $addedRules = array_values(array_filter(
+      $rules,
+      static fn($rule): bool => (int) $rule->get('series')->target_id === (int) $addedSeries[0]->id(),
+    ));
+    $this->assertCount(1, $addedRules);
+    $this->assertSame((int) $person->id(), (int) $addedRules[0]->get('responsible_person')->target_id);
     $this->assertCount(1, $entityTypeManager->getStorage('personal_sec_prep_req')->loadMultiple());
   }
 
