@@ -62,6 +62,46 @@ Un seul agent modifiant écrit sur une branche à la fois. Des analyses
 read-only peuvent être parallèles si elles n'introduisent pas d'autorité
 contradictoire.
 
+### Simplicité, proportionnalité et valeur
+
+La gouvernance, les gates, tests, revues et preuves existent pour protéger une
+valeur livrée ou un risque matériel identifié; ils ne sont pas des livrables en
+eux-mêmes. Le plus petit processus suffisant est la voie normale.
+
+```text
+VALUE_FIRST = YES
+SIMPLEST_SUFFICIENT_PROCESS = REQUIRED
+GOVERNANCE_IS_A_MEANS_NOT_A_DELIVERABLE = YES
+EVERY_GATE_TEST_OR_PROOF = MUST_PROTECT_IDENTIFIED_RISK_OR_USER_VALUE
+REDUNDANT_GATES = PROHIBITED
+REDUNDANT_TESTS = PROHIBITED
+DUPLICATE_EVIDENCE = PROHIBITED
+PROCESS_FOR_PROCESS_SAKE = PROHIBITED
+NEW_GATE_REQUIRES_EXPLICIT_RISK_JUSTIFICATION = YES
+EXISTING_SUFFICIENT_GATE = REUSE
+TEST_THE_CONTRACT_NOT_EVERY_IMPLEMENTATION_DETAIL = YES
+EXISTING_TEST_PROVES_RISK = DO_NOT_DUPLICATE
+LOW_RISK_MECHANICAL_CHANGE = MINIMAL_VALIDATION
+HIGH_RISK_DOMAIN_OR_SECURITY_CHANGE = PROPORTIONAL_TARGETED_VALIDATION
+EXTRA_REVIEW_WITHOUT_MATERIAL_VALUE = NO
+```
+
+Chaque Task modifiante doit pouvoir répondre simplement à :
+
+```text
+WHAT_USER_OR_PRODUCT_VALUE_DOES_THIS_DELIVER?
+WHAT_IS_THE_SMALLEST_CHANGE_THAT_DELIVERS_IT?
+WHAT_MATERIAL_RISK_MUST_BE_PROVEN?
+```
+
+Les tests ciblent les contrats, comportements métier, régressions réalistes et
+frontières de sécurité matérielles, pas chaque détail d'implémentation. Une
+preuve existante suffisante est réutilisée; les gates, tests, preuves ou revues
+dupliqués sont interdits. Une modification mécanique à faible risque reçoit une
+validation minimale; un changement métier ou sécurité à risque élevé reçoit une
+validation ciblée et proportionnée. Entre deux processus également sûrs,
+préférer le plus simple, le plus court et le moins coûteux.
+
 ### Vérification indépendante
 
 Les invariants sont :

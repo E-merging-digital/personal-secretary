@@ -7,18 +7,17 @@ current_goal:
   phase: first-domain-vertical
   purpose: >-
     Complete Epic #35's deterministic internal activity domain while ordinary
-    occurrences remain calculated from Drupal-owned state.
+    occurrences and effective responsibility remain calculated from Drupal-owned state.
 
 active_tasks:
-  - issue: 40
+  - issue: 43
     purpose: >-
-      Materialize ActivityException, explicit effective-from ActivitySeries
-      revisions, orphan detection, audited reconciliation and effective
-      occurrence projection.
+      Materialize ResponsibilityRule, ResponsibilityOverride and deterministic
+      effective responsibility after the EffectiveOccurrence exception overlay.
 
 planned_tasks:
   - purpose: >-
-      Materialize ResponsibilityRule, ResponsibilityOverride and deterministic
-      effective responsibility under separate Project Lead authority.
+      Materialize PreparationRequirement and deterministic preparation eligibility
+      under separate Project Lead authority.
 
 deferred_decisions: []

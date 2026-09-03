@@ -1,6 +1,6 @@
-# Domain core data policy — Person, Household, ActivitySeries, ActivityException
+# Domain core data policy — Person, Household, ActivitySeries, ActivityException, ResponsibilityRule, ResponsibilityOverride
 
-Authority: Decisions 0005, 0009, 0010; Epic #35 / Tasks #37 and #40.
+Authority: Decisions 0005, 0009, 0010, 0011; Epic #35 / Tasks #37, #40 and #43.
 
 This repository is public. All examples and automated-test values for these
 entities are invented and classified:
@@ -67,7 +67,7 @@ cancellation or rescheduling history, so eventual real records are classified
 conservatively.
 
 ```text
-DATA_CLASSIFICATION = HIGHLY_SENSITIVE for eventual real records
+DATA_CLASSIFICATION = HIGHLY_SENSITIVE for eventual records
 PII_FIELDS = id, uuid, ActivitySeries reference
 SENSITIVE_FIELDS = target revision/key, original UTC/local times, source timezone snapshot, action/status, revision lifecycle persisted-at timestamp, rescheduled UTC times
 PROD_TO_PREPROD_POLICY = FORBIDDEN absent future explicit authority
@@ -85,13 +85,54 @@ when an ActivityException revision was persisted; it is not an occurrence time,
 reschedule time, ActivitySeries effective-from boundary or recurrence DTSTART.
 Historical exception revisions retain their own stored value.
 
+## ResponsibilityRule
+
+A recurring responsibility rule reveals who is expected to handle a family
+routine and when. Eventual real records are therefore highly sensitive.
+
+```text
+DATA_CLASSIFICATION = HIGHLY_SENSITIVE for eventual real records
+PII_FIELDS = id, uuid, ActivitySeries reference, responsible Person reference
+SENSITIVE_FIELDS = responsible Person assignment, recurring applicability start/end/RRULE/source timezone, effective-until cutoff, revision lifecycle persisted-at timestamp
+PROD_TO_PREPROD_POLICY = FORBIDDEN absent future explicit authority
+PREPROD_TO_DEV_POLICY = FORBIDDEN absent future explicit authority
+RETENTION_POLICY = DEFERRED / NOT_AUTHORIZED by #43
+LOGGING_POLICY = MINIMIZED; no responsibility assignment/window payload by default
+AI_PROVIDER_POLICY = NOT_AUTHORIZED IN #43
+```
+
+The `date_recur` recurrence item's timezone remains the sole canonical source
+timezone for rule applicability windows. No separate ResponsibilityRule timezone
+truth is introduced.
+
+## ResponsibilityOverride
+
+An override records an explicit responsibility decision for one audited family
+routine occurrence, including original/effective timing context. Eventual real
+records are highly sensitive.
+
+```text
+DATA_CLASSIFICATION = HIGHLY_SENSITIVE for eventual real records
+PII_FIELDS = id, uuid, ActivitySeries reference, responsible Person reference when assigning
+SENSITIVE_FIELDS = target series revision/key, original/effective UTC/local times, source timezone snapshot, ActivityException UUID/revision snapshot, action/status, revision lifecycle persisted-at timestamp
+PROD_TO_PREPROD_POLICY = FORBIDDEN absent future explicit authority
+PREPROD_TO_DEV_POLICY = FORBIDDEN absent future explicit authority
+RETENTION_POLICY = DEFERRED / NOT_AUTHORIZED by #43
+LOGGING_POLICY = MINIMIZED; no override target/responsibility/time/audit payload by default
+AI_PROVIDER_POLICY = NOT_AUTHORIZED IN #43
+```
+
+Override original/effective/timezone/exception fields are audit and validation
+snapshots. Matching remains based on series identity, target series revision and
+original occurrence key; no automatic/fuzzy retargeting is authorized.
+
 ## Environment and egress invariant
 
 ```text
 PROD_TO_PREPROD = FORBIDDEN absent future explicit authority
 PREPROD_TO_DEV = FORBIDDEN absent future explicit authority
 LOGGING = MINIMIZED / NO FAMILY PAYLOAD BY DEFAULT
-AI_PROVIDER_USAGE = NOT_AUTHORIZED IN #37/#40
+AI_PROVIDER_USAGE = NOT_AUTHORIZED IN #37/#40/#43
 ```
 
 ```text
