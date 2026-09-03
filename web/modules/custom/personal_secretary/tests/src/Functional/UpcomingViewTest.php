@@ -6,11 +6,13 @@ namespace Drupal\Tests\personal_secretary\Functional;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Drupal\Core\Url;
 use Drupal\Tests\BrowserTestBase;
+use Drupal\personal_secretary\Entity\ActivityException;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 
 /**
- * Proves the read-only, onboarding, and repeatable activity surfaces.
+ * Proves the read-only, onboarding, repeatable activity, and cancellation surfaces.
  *
  * @group personal_secretary
  */
@@ -122,6 +124,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->pageTextNotContains($originalLocalDisplay);
     $this->assertSession()->pageTextNotContains('Synthetic cancelled activity');
+    $this->assertSession()->linkNotExists('Cancel occurrence');
   }
 
   public function testFirstActivitySetupFlow(): void {
@@ -198,6 +201,8 @@ final class UpcomingViewTest extends BrowserTestBase {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     /** @var \Drupal\personal_secretary\Service\ResponsibilityMutationService $responsibilityMutations */
     $responsibilityMutations = $this->container->get('personal_secretary.responsibility_mutation');
+    /** @var \Drupal\personal_secretary\Service\OccurrenceProjectionService $baseProjection */
+    $baseProjection = $this->container->get('personal_secretary.occurrence_projection');
     $entityTypeManager = $this->container->get('entity_type.manager');
 
     $sourceTimezone = new DateTimeZone('Europe/Brussels');
@@ -299,6 +304,56 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertCount(1, $addedRules);
     $this->assertSame((int) $person->id(), (int) $addedRules[0]->get('responsible_person')->target_id);
     $this->assertCount(1, $entityTypeManager->getStorage('personal_sec_prep_req')->loadMultiple());
+
+    $firstTarget = $baseProjection->project(
+      $firstSeries,
+      $firstStart->setTimezone(new DateTimeZone('UTC'))->modify('-1 minute'),
+      $firstEnd->setTimezone(new DateTimeZone('UTC'))->modify('+1 minute'),
+    )[0];
+    $cancelUrl = Url::fromRoute(
+      'personal_secretary.cancel_occurrence',
+      [
+        'series' => (int) $firstSeries->id(),
+        'original_occurrence_key' => $firstTarget->originalOccurrenceKey,
+      ],
+    )->toString();
+
+    $this->drupalLogout();
+    $this->drupalGet($cancelUrl);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalLogin($authorized);
+
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->pageTextContains('Existing first weekly activity');
+    $this->assertSession()->pageTextContains('Synthetic second weekly activity');
+    $this->assertSession()->linkByHrefExists($cancelUrl);
+
+    $seriesCountBeforeCancel = count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple());
+    $this->drupalGet($cancelUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Cancel occurrence of Existing first weekly activity');
+    $this->assertSession()->buttonExists('Cancel occurrence');
+
+    $this->submitForm([], 'Cancel occurrence');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextNotContains('Existing first weekly activity');
+    $this->assertSession()->pageTextContains('Synthetic second weekly activity');
+    $this->assertSession()->pageTextContains('Prepare synthetic second equipment');
+    $this->assertCount(
+      $seriesCountBeforeCancel,
+      $entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple(),
+    );
+
+    $activityExceptions = array_values($entityTypeManager
+      ->getStorage('personal_sec_activity_exception')
+      ->loadMultiple());
+    $this->assertCount(1, $activityExceptions);
+    $this->assertInstanceOf(ActivityException::class, $activityExceptions[0]);
+    $this->assertSame(ActivityException::ACTION_CANCEL, (string) $activityExceptions[0]->get('action')->value);
+    $this->assertSame(ActivityException::STATUS_ACTIVE, (string) $activityExceptions[0]->get('status')->value);
+    $this->assertSame((int) $firstSeries->id(), (int) $activityExceptions[0]->get('series')->target_id);
+    $this->assertSame($firstTarget->originalOccurrenceKey, (string) $activityExceptions[0]->get('original_occurrence_key')->value);
   }
 
 }

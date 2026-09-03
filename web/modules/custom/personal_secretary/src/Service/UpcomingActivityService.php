@@ -40,7 +40,8 @@ final class UpcomingActivityService {
    *   effective_end_iso: string,
    *   source_timezone: string,
    *   responsibility_label: string,
-   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>
+   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
    */
   public function upcoming(): array {
@@ -64,7 +65,8 @@ final class UpcomingActivityService {
    *   effective_end_iso: string,
    *   source_timezone: string,
    *   responsibility_label: string,
-   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>
+   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
    */
   public function aggregate(
@@ -124,6 +126,11 @@ final class UpcomingActivityService {
           throw new RuntimeException('Unknown EffectiveResponsibility state.');
         }
 
+        $seriesId = $series->id();
+        if ($seriesId === NULL) {
+          throw new RuntimeException('Upcoming ActivitySeries has no persisted identity.');
+        }
+
         $sortable[] = [
           'sort_start' => $occurrence->effectiveUtcStart,
           'activity_label' => $activityLabel,
@@ -134,6 +141,12 @@ final class UpcomingActivityService {
           'source_timezone' => $occurrence->sourceTimezone,
           'responsibility_label' => $responsibilityLabel,
           'preparations' => $preparations,
+          'cancel_target' => $occurrence->exceptionUuid === NULL
+            ? [
+              'series_id' => (int) $seriesId,
+              'original_occurrence_key' => $occurrence->originalOccurrenceKey,
+            ]
+            : NULL,
         ];
       }
     }
