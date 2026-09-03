@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  inspect-normalization:
+  materialize-config:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -31,14 +31,42 @@ jobs:
         run: |
           ddev start
           ddev composer install --no-interaction --prefer-dist
+          ddev composer validate --strict
+          ddev composer audit --locked
 
-      - name: Inspect actual normalization services and submit path
+      - name: Bootstrap canonical development configuration
+        run: ddev exec ./scripts/rebuild development
+
+      - name: Enable and configure Configuration Language Lock
         run: |
-          echo '=== services ==='
-          cat web/modules/contrib/config_language_lock/config_language_lock.services.yml
-          echo '=== settings form submit ==='
-          sed -n '170,235p' web/modules/contrib/config_language_lock/src/Form/ConfigLanguageLockSettingsForm.php
-          echo '=== batch ==='
-          cat web/modules/contrib/config_language_lock/src/ConfigLanguageLockBatch.php
-          echo '=== config manager ==='
-          cat web/modules/contrib/config_language_lock/src/ConfigLanguageLockConfigManager.php
+          ddev drush en config_language_lock -y
+          ddev drush cset config_language_lock.settings locked_langcode en -y
+          ddev drush cset config_language_lock.settings follow_site_default false -y
+          ddev drush php:eval '$manager = \Drupal::service("Drupal\\config_language_lock\\ConfigLanguageLockConfigManager"); $stats = $manager->updateConfigForLockedLanguageSwitch($manager->getComponentNames()); print "NORMALIZATION=" . json_encode($stats) . PHP_EOL; print "LANGCODES=" . json_encode($manager->countConfigItemsByLangcode()) . PHP_EOL;'
+          test "$(ddev drush cget config_language_lock.settings locked_langcode --format=string)" = "en"
+          test "$(ddev drush cget config_language_lock.settings follow_site_default --format=string)" = "false"
+          test "$(ddev drush cget system.site default_langcode --format=string)" = "en"
+
+      - name: Export canonical configuration
+        run: |
+          ddev drush cex -y
+          echo '=== exported settings ==='
+          cat config/sync/config_language_lock.settings.yml
+          echo '=== module enablement ==='
+          grep -nE 'config_language_lock|language:|locale:|config_translation:|content_translation:' config/sync/core.extension.yml || true
+          echo '=== exported langcode distribution ==='
+          grep -RhoE '^langcode: .+$' config/sync | sort | uniq -c || true
+          echo '=== generated diff ==='
+          git diff -- config/sync
+
+      - name: Commit generated Drupal configuration only
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add config/sync
+          if git diff --cached --quiet; then
+            echo 'No Drupal configuration change to commit.'
+            exit 1
+          fi
+          git commit -m 'Lock repository configuration language to English (#60)'
+          git push origin HEAD:work/issue-60-config-language-lock
