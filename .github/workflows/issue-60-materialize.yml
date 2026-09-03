@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  materialize:
+  inspect-normalization:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -27,36 +27,18 @@ jobs:
           autostart: false
           version: 1.25.4
 
-      - name: Start DDEV
+      - name: Start DDEV and install locked dependencies
         run: |
-          ddev version
           ddev start
+          ddev composer install --no-interaction --prefer-dist
 
-      - name: Resolve Configuration Language Lock with Composer
+      - name: Inspect actual normalization services and submit path
         run: |
-          ddev composer require 'drupal/config_language_lock:^1.0' --no-interaction --prefer-dist
-          ddev composer validate --strict
-          ddev composer audit --locked
-
-      - name: Inspect actual installed module metadata and configuration semantics
-        run: |
-          echo '=== info ==='
-          cat web/modules/contrib/config_language_lock/config_language_lock.info.yml
-          echo '=== config/install ==='
-          find web/modules/contrib/config_language_lock/config/install -maxdepth 1 -type f -print -exec sh -c 'echo --- $1; cat "$1"' _ {} \; || true
-          echo '=== config/schema ==='
-          find web/modules/contrib/config_language_lock/config/schema -maxdepth 1 -type f -print -exec sh -c 'echo --- $1; cat "$1"' _ {} \; || true
-          echo '=== settings references ==='
-          grep -RInE 'follow|langcode|language|config_language_lock\.' web/modules/contrib/config_language_lock/src web/modules/contrib/config_language_lock/config 2>/dev/null | head -n 300 || true
-
-      - name: Commit Composer material only
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add composer.json composer.lock
-          if git diff --cached --quiet; then
-            echo 'No Composer material change to commit.'
-            exit 0
-          fi
-          git commit -m 'Materialize config language lock dependency (#60)'
-          git push origin HEAD:work/issue-60-config-language-lock
+          echo '=== services ==='
+          cat web/modules/contrib/config_language_lock/config_language_lock.services.yml
+          echo '=== settings form submit ==='
+          sed -n '170,235p' web/modules/contrib/config_language_lock/src/Form/ConfigLanguageLockSettingsForm.php
+          echo '=== batch ==='
+          cat web/modules/contrib/config_language_lock/src/ConfigLanguageLockBatch.php
+          echo '=== config manager ==='
+          cat web/modules/contrib/config_language_lock/src/ConfigLanguageLockConfigManager.php
