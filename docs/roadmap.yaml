@@ -4,20 +4,20 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: first-user-facing-vertical
+  phase: repeatable-first-vertical
   purpose: >-
-    Make Epic #51's terminal read-only #52 surface independently usable through
-    the smallest governed first-activity onboarding path.
+    Build repeatable activity creation on top of #54's terminal first-activity
+    onboarding without recreating Household or Person context.
 
 active_tasks:
-  - issue: 54
+  - issue: 56
     purpose: >-
-      Create one coherent Person, Household, weekly ActivitySeries,
-      ResponsibilityRule and optional PreparationRequirement transactionally.
+      Add a weekly ActivitySeries to an existing Household and responsible Person
+      with optional preparation through one governed transaction.
 
 planned_tasks:
   - purpose: >-
-      Review actual usability after onboarding before authorizing broader CRUD,
-      identity mapping or calendar work.
+      Reassess actual usability after multiple-activity creation before
+      authorizing edit/cancel/reschedule, identity mapping, calendar or AI.
 
 deferred_decisions: []
