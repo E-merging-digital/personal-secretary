@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -39,6 +40,11 @@ final class UpcomingController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#value' => $this->t('No upcoming activities in the next 7 days.'),
+      ];
+      $build['setup'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Add your first activity'),
+        '#url' => Url::fromRoute('personal_secretary.setup'),
       ];
       return $build;
     }
