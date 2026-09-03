@@ -41,6 +41,7 @@ final class UpcomingActivityService {
    *   source_timezone: string,
    *   responsibility_label: string,
    *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   schedule_target: array{series_id: int},
    *   responsibility_target: array{series_id: int, original_occurrence_key: string},
    *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
@@ -67,6 +68,7 @@ final class UpcomingActivityService {
    *   source_timezone: string,
    *   responsibility_label: string,
    *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   schedule_target: array{series_id: int},
    *   responsibility_target: array{series_id: int, original_occurrence_key: string},
    *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
@@ -147,6 +149,7 @@ final class UpcomingActivityService {
           'source_timezone' => $occurrence->sourceTimezone,
           'responsibility_label' => $responsibilityLabel,
           'preparations' => $preparations,
+          'schedule_target' => ['series_id' => (int) $seriesId],
           'responsibility_target' => $target,
           'cancel_target' => $occurrence->exceptionUuid === NULL ? $target : NULL,
         ];
