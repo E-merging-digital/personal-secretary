@@ -40,8 +40,7 @@ jobs:
       - name: Enable and configure Configuration Language Lock
         run: |
           ddev drush en config_language_lock -y
-          ddev drush cset config_language_lock.settings locked_langcode en -y
-          ddev drush cset config_language_lock.settings follow_site_default false -y
+          ddev drush php:eval '$settings = \Drupal::service("config.factory")->getEditable("config_language_lock.settings"); $settings->set("locked_langcode", "en")->set("follow_site_default", FALSE)->save(); print "SETTINGS_SAVED=PASS" . PHP_EOL;'
           ddev drush php:eval '$manager = \Drupal::service("Drupal\\config_language_lock\\ConfigLanguageLockConfigManager"); $stats = $manager->updateConfigForLockedLanguageSwitch($manager->getComponentNames()); print "NORMALIZATION=" . json_encode($stats) . PHP_EOL; print "LANGCODES=" . json_encode($manager->countConfigItemsByLangcode()) . PHP_EOL;'
           ddev drush php:eval '$settings = \Drupal::config("config_language_lock.settings"); $site = \Drupal::config("system.site"); if ($settings->get("locked_langcode") !== "en" || $settings->get("follow_site_default") !== FALSE || $site->get("default_langcode") !== "en") { throw new \RuntimeException("Configuration language contract mismatch"); } print "CONFIG_CONTRACT=PASS" . PHP_EOL;'
 
