@@ -299,6 +299,11 @@ final class TimeCommitmentCalendarEligibilityKernelTest extends KernelTestBase {
       $movedStart->modify('-1 second'),
       $movedEnd->modify('+1 second'),
     )[0];
+    // Existing responsibility semantics do not infer that a recurring rule
+    // follows a moved occurrence outside its own applicability window. Make
+    // the responsibility for this exact rescheduled occurrence explicit so
+    // this assertion isolates the time-commitment/reschedule contract.
+    $responsibility->createAssignOverride($seriesC, $movedOccurrence, (int) $personA->id());
     $movedCandidate = $eligibility->evaluate($seriesC, $movedOccurrence, $personA);
     $this->assertInstanceOf(CalendarProjectionCandidate::class, $movedCandidate);
     $this->assertSame($seriesCBase->originalOccurrenceKey, $movedCandidate->originalOccurrenceKey);
