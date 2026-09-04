@@ -30,7 +30,7 @@ final class UpcomingActivityService {
   ) {}
 
   /**
-   * Returns the default upcoming presentation window.
+   * Returns the default Household-wide upcoming presentation window.
    *
    * @return array<int, array{
    *   activity_label: string,
@@ -47,17 +47,44 @@ final class UpcomingActivityService {
    * }>
    */
   public function upcoming(): array {
-    $windowStart = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
-      ->setTimezone(new DateTimeZone('UTC'));
+    [$windowStart, $windowEnd] = $this->defaultWindow();
 
-    return $this->aggregate(
+    return $this->aggregateInternal($windowStart, $windowEnd, NULL);
+  }
+
+  /**
+   * Returns the default window filtered by effective responsibility for Person.
+   *
+   * @return array<int, array{
+   *   activity_label: string,
+   *   effective_start: string,
+   *   effective_end: string,
+   *   effective_start_iso: string,
+   *   effective_end_iso: string,
+   *   source_timezone: string,
+   *   responsibility_label: string,
+   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   schedule_target: array{series_id: int},
+   *   responsibility_target: array{series_id: int, original_occurrence_key: string},
+   *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
+   * }>
+   */
+  public function upcomingForPerson(Person $person): array {
+    if ($person->isNew() || $person->id() === NULL) {
+      throw new InvalidArgumentException('Personalized upcoming requires a persisted Person.');
+    }
+
+    [$windowStart, $windowEnd] = $this->defaultWindow();
+
+    return $this->aggregateInternal(
       $windowStart,
-      $windowStart->modify('+' . self::DEFAULT_WINDOW_DAYS . ' days'),
+      $windowEnd,
+      (int) $person->id(),
     );
   }
 
   /**
-   * Builds presentation items for an explicit bounded UTC window.
+   * Builds Household-wide presentation items for an explicit bounded UTC window.
    *
    * @return array<int, array{
    *   activity_label: string,
@@ -76,6 +103,42 @@ final class UpcomingActivityService {
   public function aggregate(
     DateTimeImmutable $windowStart,
     DateTimeImmutable $windowEnd,
+  ): array {
+    return $this->aggregateInternal($windowStart, $windowEnd, NULL);
+  }
+
+  /**
+   * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
+   */
+  private function defaultWindow(): array {
+    $windowStart = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('UTC'));
+
+    return [
+      $windowStart,
+      $windowStart->modify('+' . self::DEFAULT_WINDOW_DAYS . ' days'),
+    ];
+  }
+
+  /**
+   * @return array<int, array{
+   *   activity_label: string,
+   *   effective_start: string,
+   *   effective_end: string,
+   *   effective_start_iso: string,
+   *   effective_end_iso: string,
+   *   source_timezone: string,
+   *   responsibility_label: string,
+   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   schedule_target: array{series_id: int},
+   *   responsibility_target: array{series_id: int, original_occurrence_key: string},
+   *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
+   * }>
+   */
+  private function aggregateInternal(
+    DateTimeImmutable $windowStart,
+    DateTimeImmutable $windowEnd,
+    ?int $responsiblePersonId,
   ): array {
     $windowStart = $this->utc($windowStart);
     $windowEnd = $this->utc($windowEnd);
@@ -99,6 +162,14 @@ final class UpcomingActivityService {
 
       foreach ($this->effectiveOccurrences->project($series, $windowStart, $windowEnd) as $occurrence) {
         $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
+
+        if ($responsiblePersonId !== NULL && (
+          $responsibility->state !== EffectiveResponsibility::STATE_ASSIGNED
+          || $responsibility->responsiblePersonId !== $responsiblePersonId
+        )) {
+          continue;
+        }
+
         $responsibilityLabel = '';
         $preparations = [];
 
