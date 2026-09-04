@@ -85,6 +85,14 @@ final class UpcomingController extends ControllerBase {
           ['series' => $scheduleTarget['series_id']],
         ),
       ];
+      $build['items'][$delta]['recurring_responsibility'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Change recurring responsibility'),
+        '#url' => Url::fromRoute(
+          'personal_secretary.edit_recurring_responsibility',
+          ['series' => $scheduleTarget['series_id']],
+        ),
+      ];
 
       $responsibilityRouteParameters = [
         'series' => $responsibilityTarget['series_id'],
