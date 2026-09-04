@@ -29,6 +29,7 @@ final class UpcomingController extends ControllerBase {
 
   public function build(): array {
     $items = $this->upcomingActivities->upcoming();
+    $hasExistingContext = $this->hasExistingContext();
     $build = [
       '#cache' => ['max-age' => 0],
       'window' => [
@@ -44,7 +45,8 @@ final class UpcomingController extends ControllerBase {
         '#tag' => 'p',
         '#value' => $this->t('No upcoming activities in the next 7 days.'),
       ];
-      if ($this->hasExistingContext()) {
+      if ($hasExistingContext) {
+        $build['add_household_member'] = $this->addHouseholdMemberLink();
         $build['add_activity'] = $this->addActivityLink();
       }
       else {
@@ -57,6 +59,9 @@ final class UpcomingController extends ControllerBase {
       return $build;
     }
 
+    if ($hasExistingContext) {
+      $build['add_household_member'] = $this->addHouseholdMemberLink();
+    }
     $build['items'] = ['#type' => 'container'];
     foreach ($items as $delta => $item) {
       $scheduleTarget = $item['schedule_target'];
@@ -145,6 +150,17 @@ final class UpcomingController extends ControllerBase {
       '#type' => 'link',
       '#title' => $this->t('Add activity'),
       '#url' => Url::fromRoute('personal_secretary.add_activity'),
+    ];
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function addHouseholdMemberLink(): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('Add household member'),
+      '#url' => Url::fromRoute('personal_secretary.add_household_member'),
     ];
   }
 
