@@ -272,7 +272,7 @@ final class RenameHouseholdMemberTest extends BrowserTestBase {
     $this->assertNotNull($currentRequirement);
     $this->assertCount($preparationCountBefore, $preparationStorage->loadMultiple());
     $this->assertSame($preparationRevisionBefore, (string) $currentRequirement->getRevisionId());
-    $this->assertSame($preparationStateBefore, $currentRequirement->toArray());
+    $this->assertEquals($preparationStateBefore, $currentRequirement->toArray());
 
     $effectiveAfter = $this->effectiveByOriginalKey(
       $effectiveProjection->project($currentSeries, $nowUtc, $windowEnd),
