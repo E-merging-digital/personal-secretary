@@ -7,37 +7,36 @@ namespace Drupal\personal_secretary\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
+use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Renders the first read-only Personal Secretary application surface.
+ * Renders the first read-only Personal Secretary application surfaces.
  */
 final class UpcomingController extends ControllerBase {
 
   public function __construct(
     private readonly UpcomingActivityService $upcomingActivities,
     private readonly EntityTypeManagerInterface $domainEntityTypeManager,
+    private readonly CurrentPersonResolver $currentPersonResolver,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.upcoming_activity'),
       $container->get('entity_type.manager'),
+      $container->get('personal_secretary.current_person'),
     );
   }
 
   public function build(): array {
     $items = $this->upcomingActivities->upcoming();
     $hasExistingContext = $this->hasExistingContext();
-    $build = [
-      '#cache' => ['max-age' => 0],
-      'window' => [
-        '#type' => 'html_tag',
-        '#tag' => 'p',
-        '#value' => $this->t('Showing upcoming activities for the next 7 days.'),
-      ],
-    ];
+    $build = $this->windowBuild(
+      (string) $this->t('Showing upcoming activities for the next 7 days.'),
+    );
 
     if ($items === []) {
       $build['empty'] = [
@@ -46,6 +45,7 @@ final class UpcomingController extends ControllerBase {
         '#value' => $this->t('No upcoming activities in the next 7 days.'),
       ];
       if ($hasExistingContext) {
+        $build['my_upcoming'] = $this->myUpcomingLink();
         $build['add_household_member'] = $this->addHouseholdMemberLink();
         $build['rename_household_member'] = $this->renameHouseholdMemberLink();
         $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
@@ -62,26 +62,90 @@ final class UpcomingController extends ControllerBase {
     }
 
     if ($hasExistingContext) {
+      $build['my_upcoming'] = $this->myUpcomingLink();
       $build['add_household_member'] = $this->addHouseholdMemberLink();
       $build['rename_household_member'] = $this->renameHouseholdMemberLink();
       $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
     }
-    $build['items'] = ['#type' => 'container'];
+    $build['items'] = $this->buildItems($items);
+    $build['add_activity'] = $this->addActivityLink();
+
+    return $build;
+  }
+
+  public function buildMine(): array {
+    try {
+      $person = $this->currentPersonResolver->resolve($this->currentUser());
+    }
+    catch (InvalidArgumentException) {
+      return [
+        '#cache' => ['max-age' => 0],
+        'remediation' => [
+          '#type' => 'html_tag',
+          '#tag' => 'p',
+          '#value' => $this->t('Link your account to a Household member to see My upcoming.'),
+        ],
+        'link_current_user_to_person' => $this->linkCurrentUserToPersonLink(),
+      ];
+    }
+
+    $items = $this->upcomingActivities->upcomingForPerson($person);
+    $build = $this->windowBuild(
+      (string) $this->t('Showing My upcoming activities for the next 7 days.'),
+    );
+
+    if ($items === []) {
+      $build['empty'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t('No upcoming activities are assigned to you in the next 7 days.'),
+      ];
+      return $build;
+    }
+
+    $build['items'] = $this->buildItems($items);
+    return $build;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function windowBuild(string $message): array {
+    return [
+      '#cache' => ['max-age' => 0],
+      'window' => [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $message,
+      ],
+    ];
+  }
+
+  /**
+   * @param array<int, array<string, mixed>> $items
+   *
+   * @return array<string|int, mixed>
+   */
+  private function buildItems(array $items): array {
+    $build = ['#type' => 'container'];
+
     foreach ($items as $delta => $item) {
       $scheduleTarget = $item['schedule_target'];
       $responsibilityTarget = $item['responsibility_target'];
       $actionTarget = $item['cancel_target'];
       unset($item['schedule_target'], $item['responsibility_target'], $item['cancel_target']);
+
       if ($item['responsibility_label'] === '') {
         $item['responsibility_label'] = (string) $this->t('Unassigned');
       }
-      $build['items'][$delta]['activity'] = [
+
+      $build[$delta]['activity'] = [
         '#type' => 'component',
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
       ];
 
-      $build['items'][$delta]['schedule'] = [
+      $build[$delta]['schedule'] = [
         '#type' => 'link',
         '#title' => $this->t('Change recurring schedule'),
         '#url' => Url::fromRoute(
@@ -89,7 +153,7 @@ final class UpcomingController extends ControllerBase {
           ['series' => $scheduleTarget['series_id']],
         ),
       ];
-      $build['items'][$delta]['recurring_responsibility'] = [
+      $build[$delta]['recurring_responsibility'] = [
         '#type' => 'link',
         '#title' => $this->t('Change recurring responsibility'),
         '#url' => Url::fromRoute(
@@ -102,7 +166,7 @@ final class UpcomingController extends ControllerBase {
         'series' => $responsibilityTarget['series_id'],
         'original_occurrence_key' => $responsibilityTarget['original_occurrence_key'],
       ];
-      $build['items'][$delta]['responsibility'] = [
+      $build[$delta]['responsibility'] = [
         '#type' => 'link',
         '#title' => $this->t('Change responsibility'),
         '#url' => Url::fromRoute(
@@ -116,7 +180,7 @@ final class UpcomingController extends ControllerBase {
           'series' => $actionTarget['series_id'],
           'original_occurrence_key' => $actionTarget['original_occurrence_key'],
         ];
-        $build['items'][$delta]['reschedule'] = [
+        $build[$delta]['reschedule'] = [
           '#type' => 'link',
           '#title' => $this->t('Reschedule occurrence'),
           '#url' => Url::fromRoute(
@@ -124,7 +188,7 @@ final class UpcomingController extends ControllerBase {
             $routeParameters,
           ),
         ];
-        $build['items'][$delta]['cancel'] = [
+        $build[$delta]['cancel'] = [
           '#type' => 'link',
           '#title' => $this->t('Cancel occurrence'),
           '#url' => Url::fromRoute(
@@ -134,7 +198,6 @@ final class UpcomingController extends ControllerBase {
         ];
       }
     }
-    $build['add_activity'] = $this->addActivityLink();
 
     return $build;
   }
@@ -152,6 +215,17 @@ final class UpcomingController extends ControllerBase {
       }
     }
     return TRUE;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function myUpcomingLink(): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('My upcoming'),
+      '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
+    ];
   }
 
   /**

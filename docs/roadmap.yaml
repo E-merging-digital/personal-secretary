@@ -4,18 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: current-user-domain-identity
+  phase: personalized-current-user-upcoming
   purpose: >-
-    Give the authenticated Drupal account one deterministic domain Person
-    identity without merging authentication, Household authorization or future
-    external-account authority.
+    Give the authenticated Drupal account a personalized Upcoming view filtered
+    only by effective responsibility for its exact CurrentPerson identity, while
+    preserving the existing Household-wide Upcoming surface.
 
 active_tasks:
-  - issue: 76
+  - issue: 78
     purpose: >-
-      Materialize accepted Decision #74 as Decision 0013, add the Core
-      configurable User-to-Person binding, CurrentPerson resolution and one
-      governed current-user linking surface.
+      Add My upcoming by reusing CurrentPersonResolver and the existing Upcoming
+      aggregation, effective responsibility, and preparation derivation without
+      introducing calendar semantics.
 
 historical_context:
   - issue: 58
@@ -56,10 +56,15 @@ historical_context:
       Accepted User-to-Person architecture established a Core configurable
       User entity-reference field, deterministic fail-closed CurrentPerson
       resolution and strict separation from external account authority.
+  - issue: 76
+    purpose: >-
+      Terminal current-user identity materialized Decision 0013, the Core
+      User-to-Person binding, deterministic CurrentPerson resolution and the
+      governed account-linking surface.
 
 planned_tasks:
   - purpose: >-
-      Reassess personalized Upcoming and the next filtered-calendar projection
-      prerequisite after current-user domain identity is terminal.
+      Define the smallest provider-agnostic calendar eligibility and projection
+      prerequisite after personalized My upcoming is terminal.
 
 deferred_decisions: []
