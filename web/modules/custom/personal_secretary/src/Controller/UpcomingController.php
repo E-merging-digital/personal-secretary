@@ -161,6 +161,14 @@ final class UpcomingController extends ControllerBase {
           ['series' => $scheduleTarget['series_id']],
         ),
       ];
+      $build[$delta]['time_commitment'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Change time commitment'),
+        '#url' => Url::fromRoute(
+          'personal_secretary.edit_time_commitment',
+          ['series' => $scheduleTarget['series_id']],
+        ),
+      ];
 
       $responsibilityRouteParameters = [
         'series' => $responsibilityTarget['series_id'],

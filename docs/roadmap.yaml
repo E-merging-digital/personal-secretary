@@ -4,18 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: personalized-current-user-upcoming
+  phase: provider-agnostic-calendar-eligibility
   purpose: >-
-    Give the authenticated Drupal account a personalized Upcoming view filtered
-    only by effective responsibility for its exact CurrentPerson identity, while
-    preserving the existing Household-wide Upcoming surface.
+    Establish explicit domain truth for when an effectively responsible CurrentPerson
+    is occupied for the full effective occurrence, and derive a reconstructible
+    provider-agnostic calendar candidate without authorizing external calendar writes.
 
 active_tasks:
-  - issue: 78
+  - issue: 81
     purpose: >-
-      Add My upcoming by reusing CurrentPersonResolver and the existing Upcoming
-      aggregation, effective responsibility, and preparation derivation without
-      introducing calendar semantics.
+      Materialize Decision 0014 with revisionable TimeCommitmentRule lifecycle,
+      deterministic calendar eligibility and a non-persisted projection candidate.
 
 historical_context:
   - issue: 58
@@ -53,18 +52,24 @@ historical_context:
       while preserving stable identity and every existing domain reference.
   - issue: 74
     purpose: >-
-      Accepted User-to-Person architecture established a Core configurable
-      User entity-reference field, deterministic fail-closed CurrentPerson
-      resolution and strict separation from external account authority.
+      Accepted User-to-Person architecture established deterministic CurrentPerson
+      identity separated from external account authority.
   - issue: 76
     purpose: >-
-      Terminal current-user identity materialized Decision 0013, the Core
-      User-to-Person binding, deterministic CurrentPerson resolution and the
-      governed account-linking surface.
+      Terminal current-user identity materialized Decision 0013 and the governed
+      User-to-Person binding surface.
+  - issue: 78
+    purpose: >-
+      Terminal My upcoming established first current-user personalization by
+      filtering the shared Upcoming aggregation on effective responsibility.
+  - issue: 80
+    purpose: >-
+      Accepted time-commitment architecture selected an independent revisionable
+      TimeCommitmentRule and provider-agnostic calendar eligibility contract.
 
 planned_tasks:
   - purpose: >-
-      Define the smallest provider-agnostic calendar eligibility and projection
-      prerequisite after personalized My upcoming is terminal.
+      Reassess the first external calendar account/provider integration only after
+      the provider-agnostic eligibility slice is terminal.
 
 deferred_decisions: []
