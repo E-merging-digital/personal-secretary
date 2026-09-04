@@ -4,18 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: usable-recurring-schedule-correction
+  phase: usable-household-membership
   purpose: >-
-    Let one existing weekly ActivitySeries change its future recurring day and
-    time from a chosen effective date while preserving aligned responsibility
-    and derived preparation behavior.
+    Let the first vertical add one new Person to one selected existing Household
+    so current Household-scoped responsibility choices become usable with more
+    than the onboarding Person.
 
 active_tasks:
-  - issue: 66
+  - issue: 68
     purpose: >-
-      Change the future weekly schedule of one current ActivitySeries from
-      Upcoming through a semantic series revision and responsibility-rule
-      replacement.
+      Create one new Person and add that Person atomically to one selected
+      existing Household through the governed domain mutation boundary.
 
 historical_context:
   - issue: 58
@@ -34,10 +33,14 @@ historical_context:
     purpose: >-
       Terminal occurrence responsibility established exact current-occurrence
       assignment, clear, and return-to-recurring behavior.
+  - issue: 66
+    purpose: >-
+      Terminal recurring schedule correction established future weekly schedule
+      revision with aligned recurring responsibility replacement.
 
 planned_tasks:
   - purpose: >-
-      Reassess activity naming/details versus Person/Household management after
-      recurring schedule correction is terminal.
+      Reassess activity naming semantics versus additional Household/Person
+      management after the member-add flow is terminal.
 
 deferred_decisions: []
