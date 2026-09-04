@@ -67,6 +67,40 @@ final class DomainMutationService {
     return $household;
   }
 
+  public function addHouseholdMember(Household $household, Person $person): Household {
+    if ($household->isNew() || $household->id() === NULL) {
+      throw new InvalidArgumentException('Household must be persisted before a member can be added.');
+    }
+    if ($person->isNew() || $person->id() === NULL) {
+      throw new InvalidArgumentException('Person must be persisted before Household membership can be added.');
+    }
+
+    $householdStorage = $this->entityTypeManager->getStorage('personal_secretary_household');
+    $personStorage = $this->entityTypeManager->getStorage('personal_secretary_person');
+
+    $persistedHousehold = $householdStorage->load($household->id());
+    if (!$persistedHousehold instanceof Household) {
+      throw new InvalidArgumentException('Household membership requires an existing Household.');
+    }
+    $persistedPerson = $personStorage->load($person->id());
+    if (!$persistedPerson instanceof Person) {
+      throw new InvalidArgumentException('Household membership requires an existing Person.');
+    }
+
+    $personId = (int) $persistedPerson->id();
+    $memberIds = array_map(
+      static fn(array $item): int => (int) ($item['target_id'] ?? 0),
+      $persistedHousehold->get('members')->getValue(),
+    );
+    if (in_array($personId, $memberIds, TRUE)) {
+      throw new InvalidArgumentException('Person is already a member of this Household.');
+    }
+
+    $persistedHousehold->get('members')->appendItem(['target_id' => $personId]);
+    $persistedHousehold->save();
+    return $persistedHousehold;
+  }
+
   public function createActivitySeries(
     string $name,
     int $householdId,
