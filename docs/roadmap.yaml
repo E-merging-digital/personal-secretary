@@ -4,17 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: usable-household-member-correction
+  phase: current-user-domain-identity
   purpose: >-
-    Let one existing Household member correct the human-readable Person label
-    while preserving the exact Person identity and every existing reference.
+    Give the authenticated Drupal account one deterministic domain Person
+    identity without merging authentication, Household authorization or future
+    external-account authority.
 
 active_tasks:
-  - issue: 72
+  - issue: 76
     purpose: >-
-      Rename one current Household-member Person through the governed mutation
-      boundary without changing membership, responsibility, ActivitySeries or
-      preparation state.
+      Materialize accepted Decision #74 as Decision 0013, add the Core
+      configurable User-to-Person binding, CurrentPerson resolution and one
+      governed current-user linking surface.
 
 historical_context:
   - issue: 58
@@ -46,10 +47,19 @@ historical_context:
       Terminal recurring responsibility established future responsibility
       transition on the first real affected weekly occurrence while preserving
       ActivitySeries, explicit overrides and preparation state.
+  - issue: 72
+    purpose: >-
+      Terminal Household-member correction established safe Person label rename
+      while preserving stable identity and every existing domain reference.
+  - issue: 74
+    purpose: >-
+      Accepted User-to-Person architecture established a Core configurable
+      User entity-reference field, deterministic fail-closed CurrentPerson
+      resolution and strict separation from external account authority.
 
 planned_tasks:
   - purpose: >-
-      Reassess Household naming/removal versus the next identity or calendar
-      prerequisite after Household-member correction is terminal.
+      Reassess personalized Upcoming and the next filtered-calendar projection
+      prerequisite after current-user domain identity is terminal.
 
 deferred_decisions: []

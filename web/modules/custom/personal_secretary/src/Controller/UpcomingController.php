@@ -48,6 +48,7 @@ final class UpcomingController extends ControllerBase {
       if ($hasExistingContext) {
         $build['add_household_member'] = $this->addHouseholdMemberLink();
         $build['rename_household_member'] = $this->renameHouseholdMemberLink();
+        $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
         $build['add_activity'] = $this->addActivityLink();
       }
       else {
@@ -63,6 +64,7 @@ final class UpcomingController extends ControllerBase {
     if ($hasExistingContext) {
       $build['add_household_member'] = $this->addHouseholdMemberLink();
       $build['rename_household_member'] = $this->renameHouseholdMemberLink();
+      $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
     }
     $build['items'] = ['#type' => 'container'];
     foreach ($items as $delta => $item) {
@@ -182,6 +184,17 @@ final class UpcomingController extends ControllerBase {
       '#type' => 'link',
       '#title' => $this->t('Rename household member'),
       '#url' => Url::fromRoute('personal_secretary.rename_household_member'),
+    ];
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function linkCurrentUserToPersonLink(): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('Link my account to household member'),
+      '#url' => Url::fromRoute('personal_secretary.link_current_user_to_person'),
     ];
   }
 
