@@ -59,9 +59,10 @@ final class UpcomingController extends ControllerBase {
 
     $build['items'] = ['#type' => 'container'];
     foreach ($items as $delta => $item) {
+      $scheduleTarget = $item['schedule_target'];
       $responsibilityTarget = $item['responsibility_target'];
       $actionTarget = $item['cancel_target'];
-      unset($item['responsibility_target'], $item['cancel_target']);
+      unset($item['schedule_target'], $item['responsibility_target'], $item['cancel_target']);
       if ($item['responsibility_label'] === '') {
         $item['responsibility_label'] = (string) $this->t('Unassigned');
       }
@@ -69,6 +70,15 @@ final class UpcomingController extends ControllerBase {
         '#type' => 'component',
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
+      ];
+
+      $build['items'][$delta]['schedule'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Change recurring schedule'),
+        '#url' => Url::fromRoute(
+          'personal_secretary.edit_recurring_schedule',
+          ['series' => $scheduleTarget['series_id']],
+        ),
       ];
 
       $responsibilityRouteParameters = [
