@@ -1,8 +1,8 @@
 # 0013 — Liaison d'identité Drupal User → Person
 
-Status: **ACCEPTED**  
-Decision authority: GitHub issue #74  
-Project Lead acceptance: comment 5540468328  
+Status: **ACCEPTED**
+Decision authority: GitHub issue #74
+Project Lead acceptance: comment 5540468328
 Materialization task: #76
 
 ## Context
