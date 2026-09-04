@@ -4,17 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: usable-recurring-responsibility
+  phase: usable-household-member-correction
   purpose: >-
-    Let one existing weekly ActivitySeries change its normal responsible Person
-    from the first real recurring occurrence on or after a selected future date.
+    Let one existing Household member correct the human-readable Person label
+    while preserving the exact Person identity and every existing reference.
 
 active_tasks:
-  - issue: 70
+  - issue: 72
     purpose: >-
-      Retire the current aligned recurring ResponsibilityRule and create one
-      aligned replacement for another current Household member without changing
-      ActivitySeries or occurrence-specific overrides.
+      Rename one current Household-member Person through the governed mutation
+      boundary without changing membership, responsibility, ActivitySeries or
+      preparation state.
 
 historical_context:
   - issue: 58
@@ -41,10 +41,15 @@ historical_context:
     purpose: >-
       Terminal Household membership established atomic creation of one new Person
       and membership in one explicitly selected Household.
+  - issue: 70
+    purpose: >-
+      Terminal recurring responsibility established future responsibility
+      transition on the first real affected weekly occurrence while preserving
+      ActivitySeries, explicit overrides and preparation state.
 
 planned_tasks:
   - purpose: >-
-      Reassess activity naming correction versus broader Household/Person
-      management after recurring responsibility is terminal.
+      Reassess Household naming/removal versus the next identity or calendar
+      prerequisite after Household-member correction is terminal.
 
 deferred_decisions: []
