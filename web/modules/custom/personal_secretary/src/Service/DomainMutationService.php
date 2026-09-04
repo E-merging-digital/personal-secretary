@@ -40,6 +40,31 @@ final class DomainMutationService {
     return $person;
   }
 
+  public function renamePerson(Person $person, string $name): Person {
+    if ($person->isNew() || $person->id() === NULL) {
+      throw new InvalidArgumentException('Person must be persisted before it can be renamed.');
+    }
+
+    $name = $this->requiredLabel($name, 'Person name');
+    if (mb_strlen($name) > 255) {
+      throw new InvalidArgumentException('Person name must not exceed 255 characters.');
+    }
+
+    $storage = $this->entityTypeManager->getStorage('personal_secretary_person');
+    $storage->resetCache([(int) $person->id()]);
+    $persistedPerson = $storage->load($person->id());
+    if (!$persistedPerson instanceof Person) {
+      throw new InvalidArgumentException('Person rename requires an existing Person.');
+    }
+    if ($persistedPerson->uuid() !== $person->uuid()) {
+      throw new InvalidArgumentException('Person identity does not match the persisted Person.');
+    }
+
+    $persistedPerson->set('name', $name);
+    $persistedPerson->save();
+    return $persistedPerson;
+  }
+
   /**
    * @param int[] $memberIds
    *   Existing Person entity IDs.
