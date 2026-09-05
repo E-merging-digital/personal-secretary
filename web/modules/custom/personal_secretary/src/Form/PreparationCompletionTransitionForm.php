@@ -22,7 +22,7 @@ final class PreparationCompletionTransitionForm extends ConfirmFormBase {
 
   public function __construct(
     private readonly PreparationCompletionService $completionService,
-    private readonly RouteMatchInterface $routeMatch,
+    private readonly RouteMatchInterface $currentRouteMatch,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -105,23 +105,23 @@ final class PreparationCompletionTransitionForm extends ConfirmFormBase {
   }
 
   private function action(): string {
-    return (string) ($this->routeMatch->getRouteObject()?->getDefault('_preparation_completion_action') ?? '');
+    return (string) ($this->currentRouteMatch->getRouteObject()?->getDefault('_preparation_completion_action') ?? '');
   }
 
   private function seriesId(): int {
-    return (int) $this->routeMatch->getParameter('series');
+    return (int) $this->currentRouteMatch->getParameter('series');
   }
 
   private function originalOccurrenceKey(): string {
-    return (string) $this->routeMatch->getParameter('original_occurrence_key');
+    return (string) $this->currentRouteMatch->getParameter('original_occurrence_key');
   }
 
   private function requirementId(): int {
-    return (int) $this->routeMatch->getParameter('preparation_requirement');
+    return (int) $this->currentRouteMatch->getParameter('preparation_requirement');
   }
 
   private function returnRoute(): string {
-    return match ((string) $this->routeMatch->getParameter('return_surface')) {
+    return match ((string) $this->currentRouteMatch->getParameter('return_surface')) {
       'mine' => 'personal_secretary.my_preparations',
       'today' => 'personal_secretary.today',
       default => throw new NotFoundHttpException('Unknown preparation return surface.'),
