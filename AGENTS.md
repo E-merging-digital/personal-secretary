@@ -132,7 +132,7 @@ pas introduire de voies parallèles payantes de coding agents par défaut.
 Toute validation doit être attribuable au candidat réellement examiné.
 
 ```text
-THE PRODUCER MUST NOT BE THE ONLY_VERIFIER
+THE PRODUCER MUST NOT BE THE ONLY VERIFIER
 NO APPROVAL WITHOUT EVIDENCE
 ```
 
