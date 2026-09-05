@@ -53,13 +53,19 @@ privilégié. Il ne devient pas l'autorité normale du produit.
 La vérité de grant réutilise la Field API Core :
 
 ```text
-FIELD = field_personal_secretary_households
+FIELD = field_personal_sec_households
 ENTITY = Drupal User
 TARGET = personal_secretary_household
 CARDINALITY = 0..N
 REQUIRED = false
 TRANSLATABLE = false
 ```
+
+Le nom sémantique initialement attendu par la Task,
+`field_personal_secretary_households`, dépasse la limite Drupal Field API de
+32 caractères. Le runtime #101 a prouvé ce défaut au premier import canonique.
+Le nom matérialisé `field_personal_sec_households` est donc l'adaptation bornée
+équivalente et reste sous cette limite sans modifier le contrat métier.
 
 Le sens est :
 
