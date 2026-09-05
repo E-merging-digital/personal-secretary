@@ -88,11 +88,15 @@ final class TodayTaskQueryTest extends BrowserTestBase {
       'Autumn Today is the civil local day, not a fixed 24-hour interval.',
     );
 
+    $this->config('system.date')
+      ->set('timezone.default', 'Europe/Brussels')
+      ->set('timezone.user.default', UserInterface::TIMEZONE_EMPTY)
+      ->save();
     $fallbackUser = $this->drupalCreateUser();
     $this->assertInstanceOf(UserInterface::class, $fallbackUser);
     $fallbackUser->set('timezone', '');
     $fallbackUser->save();
-    $this->config('system.date')->set('timezone.default', 'Europe/Brussels')->save();
+    $this->assertSame('', (string) $fallbackUser->get('timezone')->value);
     $fallback = $today->windowFor(
       $fallbackUser,
       new DateTimeImmutable('2026-04-06 12:00:00', new DateTimeZone('UTC')),
