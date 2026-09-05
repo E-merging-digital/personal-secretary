@@ -149,7 +149,7 @@ final class PersonalTaskForm extends FormBase {
     if ($mode === PersonalTask::DUE_DATE && trim((string) $form_state->getValue('due_date')) === '') {
       $form_state->setErrorByName('due_date', $this->t('Enter a due date.'));
     }
-    if ($mode === PersonalTask::DUE_DATE_TIME && !$form_state->getValue('due_at') instanceof DrupalDateTime) {
+    if ($mode === PersonalTask::DUE_DATE_TIME && !($form_state->getValue('due_at') instanceof DrupalDateTime)) {
       $form_state->setErrorByName('due_at', $this->t('Enter a due date and time.'));
     }
   }
@@ -187,7 +187,7 @@ final class PersonalTaskForm extends FormBase {
         $this->messenger()->addStatus($this->t('Task added.'));
       }
     }
-    catch (InvalidArgumentException $exception) {
+    catch (InvalidArgumentException) {
       $this->messenger()->addError($this->t('The task could not be saved because its current authorization or data is no longer valid.'));
     }
 
