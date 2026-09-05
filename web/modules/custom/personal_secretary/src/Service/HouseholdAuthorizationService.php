@@ -15,7 +15,7 @@ use InvalidArgumentException;
  */
 final class HouseholdAuthorizationService {
 
-  public const FIELD_NAME = 'field_personal_secretary_households';
+  public const FIELD_NAME = 'field_personal_sec_households';
   public const PRODUCT_USE_PERMISSION = 'use personal secretary';
   public const ADMIN_PERMISSION = 'administer personal secretary domain';
 
