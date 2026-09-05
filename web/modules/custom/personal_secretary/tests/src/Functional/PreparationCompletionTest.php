@@ -162,7 +162,7 @@ final class PreparationCompletionTest extends BrowserTestBase {
 
     // Rescheduling preserves semantic identity and current display is recalculated.
     $base = $timeline->projectBaseWindow($series, $now, $now->modify('+1 day'))[0];
-    $exceptions->createReschedule($series, $base, $now->modify('+3 hours'), $now->modify('+4 hours'), 'UTC');
+    $exceptions->createReschedule($series, $base, $now->modify('+2 hours 30 minutes'), $now->modify('+3 hours 30 minutes'), 'UTC');
     $rescheduled = $this->item($this->readMine($u1, $now), 'Completion main preparation');
     $this->assertTrue($rescheduled['prepared']);
     $this->assertSame($item['_completion_original_occurrence_key'], $rescheduled['_completion_original_occurrence_key']);
