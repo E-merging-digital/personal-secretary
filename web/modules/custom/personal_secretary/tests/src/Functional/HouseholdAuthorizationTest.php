@@ -89,7 +89,7 @@ final class HouseholdAuthorizationTest extends BrowserTestBase {
     }
 
     // Household authorization itself does not require a CurrentPerson mapping.
-    $this->assertTrue($ordinary->get(CurrentPersonResolver::FIELD_NAME)->isEmpty());
+    $this->assertFalse($ordinary->hasField(CurrentPersonResolver::FIELD_NAME));
     $this->assertSame([(int) $h1->id()], $authorization->authorizedHouseholdIds($ordinary));
 
     $blocked = $this->drupalCreateUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
