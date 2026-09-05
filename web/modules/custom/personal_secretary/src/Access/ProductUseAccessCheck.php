@@ -21,11 +21,6 @@ final class ProductUseAccessCheck implements AccessInterface {
   ) {}
 
   public function access(Route $route, AccountInterface $account): AccessResultInterface {
-    if ($account->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)) {
-      return AccessResult::allowed()
-        ->addCacheContexts(['user.permissions']);
-    }
-
     $allowed = $this->householdAuthorization->authorizedHouseholdIds($account) !== [];
 
     return AccessResult::allowedIf($allowed)
