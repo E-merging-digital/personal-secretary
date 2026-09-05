@@ -4,18 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: normal-user-household-authorization
+  phase: standalone-personal-task
   purpose: >-
-    Materialize explicit account-scoped Household authorization and prove
-    authorized-scope-first normal-user access on My upcoming without broadening
-    mutation authority.
+    Materialize the first Household-scoped PersonalTask vertical with self-oriented
+    CurrentPerson assignment, real due semantics and governed normal-user lifecycle.
 
 active_tasks:
-  - issue: 101
+  - issue: 103
     purpose: >-
-      Materialize Decision 0015 with Core User-to-Household grants,
-      HouseholdAuthorizationService, administrative grant bootstrap and scoped
-      My upcoming.
+      Materialize Decision 0016 with PersonalTask persistence, My tasks,
+      create/edit/complete/reopen/delete and authorized-scope-first reads.
 
 historical_context:
   - issue: 58
@@ -81,12 +79,16 @@ historical_context:
       account-scoped grants as the prerequisite for normal-user product access.
   - issue: 100
     purpose: >-
-      Accepted standalone PersonalTask architecture established the next eligible
-      normal-user work-item slice once Household authorization is materialized.
+      Accepted standalone PersonalTask architecture established Household scope,
+      self-oriented Person assignment, due semantics and the bounded task lifecycle.
+  - issue: 101
+    purpose: >-
+      Terminal Household authorization materialized Decision 0015, explicit
+      User-to-Household grants and authorized-scope-first My upcoming access.
 
 planned_tasks:
   - purpose: >-
-      Select the highest-value normal-user product slice after issue 101 is
-      terminal; accepted PersonalTask Decision 100 is now an eligible candidate.
+      Add one bounded Today composition for standalone tasks after issue 103 is
+      terminal, unless Project Lead live reprioritizes first.
 
 deferred_decisions: []
