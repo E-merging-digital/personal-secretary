@@ -49,6 +49,15 @@ final class PreparationController extends ControllerBase {
       return $build;
     }
 
+    $toPrepare = array_values(array_filter(
+      $model['items'],
+      static fn(array $item): bool => ($item['prepared'] ?? FALSE) !== TRUE,
+    ));
+    $prepared = array_values(array_filter(
+      $model['items'],
+      static fn(array $item): bool => ($item['prepared'] ?? FALSE) === TRUE,
+    ));
+
     $build = [
       '#cache' => ['max-age' => 0],
       'window' => [
@@ -56,27 +65,127 @@ final class PreparationController extends ControllerBase {
         '#tag' => 'p',
         '#value' => $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
       ],
+      'to_prepare' => [
+        '#type' => 'container',
+        'heading' => [
+          '#type' => 'html_tag',
+          '#tag' => 'h2',
+          '#value' => $this->t('To prepare'),
+        ],
+      ],
+      'prepared' => [
+        '#type' => 'container',
+        'heading' => [
+          '#type' => 'html_tag',
+          '#tag' => 'h2',
+          '#value' => $this->t('Prepared'),
+        ],
+      ],
     ];
 
-    if ($model['items'] === []) {
-      $build['empty'] = [
+    if ($toPrepare === []) {
+      $build['to_prepare']['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('No active preparations are overdue or due in the next 7 days.'),
+        '#value' => $this->t('Nothing currently needs preparation.'),
+      ];
+    }
+    else {
+      $build['to_prepare']['items'] = ['#type' => 'container'];
+      foreach ($toPrepare as $delta => $item) {
+        $build['to_prepare']['items'][$delta] = $this->itemBuild($item, FALSE, 'mine');
+      }
+    }
+
+    if ($prepared === []) {
+      $build['prepared']['empty'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t('No current preparation has been marked prepared.'),
+      ];
+    }
+    else {
+      $build['prepared']['items'] = ['#type' => 'container'];
+      foreach ($prepared as $delta => $item) {
+        $build['prepared']['items'][$delta] = $this->itemBuild($item, TRUE, 'mine');
+      }
+    }
+
+    return $build;
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   *
+   * @return array<string, mixed>
+   */
+  private function itemBuild(array $item, bool $prepared, string $returnSurface): array {
+    $build = [
+      '#type' => 'container',
+      'item' => [
+        '#type' => 'component',
+        '#component' => 'personal_secretary:preparation-item',
+        '#props' => $this->presentationProps($item),
+      ],
+    ];
+
+    if ($prepared) {
+      $preparedTime = trim((string) ($item['prepared_time'] ?? ''));
+      $preparedTimeIso = trim((string) ($item['prepared_time_iso'] ?? ''));
+      $build['state'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $preparedTime !== ''
+          ? $this->t('Prepared at @time.', ['@time' => $preparedTime])
+          : $this->t('Prepared.'),
+      ];
+      if ($preparedTime !== '' && $preparedTimeIso !== '') {
+        $build['state']['#value'] = $this->t('Prepared at @time.', ['@time' => $preparedTime]);
+      }
+      $build['action'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Mark not prepared'),
+        '#url' => $this->actionUrl('personal_secretary.mark_preparation_not_prepared', $item, $returnSurface),
       ];
       return $build;
     }
 
-    $build['items'] = ['#type' => 'container'];
-    foreach ($model['items'] as $delta => $item) {
-      $build['items'][$delta] = [
-        '#type' => 'component',
-        '#component' => 'personal_secretary:preparation-item',
-        '#props' => $item,
-      ];
-    }
-
+    $build['action'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Mark prepared'),
+      '#url' => $this->actionUrl('personal_secretary.mark_preparation_prepared', $item, $returnSurface),
+    ];
     return $build;
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   *
+   * @return array<string, mixed>
+   */
+  private function presentationProps(array $item): array {
+    return [
+      'instruction' => (string) $item['instruction'],
+      'due_time' => (string) $item['due_time'],
+      'due_time_iso' => (string) $item['due_time_iso'],
+      'overdue' => (bool) $item['overdue'],
+      'activity_label' => (string) $item['activity_label'],
+      'activity_start' => (string) $item['activity_start'],
+      'activity_start_iso' => (string) $item['activity_start_iso'],
+      'display_timezone' => (string) $item['display_timezone'],
+    ];
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   */
+  private function actionUrl(string $route, array $item, string $returnSurface): Url {
+    return Url::fromRoute($route, [
+      'series' => (int) $item['_completion_series_id'],
+      'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
+      'preparation_requirement' => (int) $item['_completion_requirement_id'],
+      'return_surface' => $returnSurface,
+    ]);
   }
 
 }

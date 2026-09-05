@@ -65,11 +65,14 @@ final class TodayService {
       $window['utc_end'],
     );
 
-    $preparations = $this->currentUserPreparations->today(
-      $nowUtc,
-      $window['utc_start'],
-      $window['utc_end'],
-    )['items'];
+    $preparations = array_values(array_filter(
+      $this->currentUserPreparations->today(
+        $nowUtc,
+        $window['utc_start'],
+        $window['utc_end'],
+      )['items'],
+      static fn(array $item): bool => ($item['prepared'] ?? FALSE) !== TRUE,
+    ));
 
     $activities = $this->activities(
       $authorizedHouseholdIds,
