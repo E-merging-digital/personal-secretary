@@ -65,6 +65,11 @@ preuves sont des moyens, jamais des livrables en eux-mêmes.
 
 ```text
 VALUE_FIRST = YES
+DOD_FIRST = REQUIRED
+MINIMUM_NECESSARY = REQUIRED
+NO_CORRECTION_LOOP = REQUIRED
+NO_PROOF_FOR_PROOF_SAKE = REQUIRED
+STOP_WHEN_DOD_MET = REQUIRED
 SIMPLEST_SUFFICIENT_PROCESS = REQUIRED
 NEW_GATE_REQUIRES_EXPLICIT_RISK_JUSTIFICATION = YES
 EXISTING_SUFFICIENT_GATE = REUSE
@@ -85,9 +90,25 @@ WHAT_IS_THE_SMALLEST_CHANGE_THAT_DELIVERS_IT?
 WHAT_MATERIAL_RISK_MUST_BE_PROVEN?
 ```
 
+Le DoD est atteint lorsque la valeur attendue de la Task est livrée, que les
+risques matériels identifiés sont couverts et que les gates existants réellement
+applicables sont satisfaits. Toute correction doit répondre à un défaut matériel
+actuel qui empêche ce DoD; une correction réussie ne crée pas automatiquement un
+nouveau cycle de correction ou de revue.
+
+Dès que le DoD est atteint, arrêter la Task. Ne pas ajouter de test, preuve,
+refactor, abstraction, documentation ou gate sans gap matériel distinct. Une
+amélioration utile mais non nécessaire au DoD devient une future Task candidate;
+elle ne prolonge pas la Task courante.
+
 Réutiliser une preuve existante lorsqu'elle couvre déjà le risque; ne pas ajouter
-de processus pour le processus lui-même. Entre deux processus également sûrs,
-choisir le plus simple, le plus court et le moins coûteux.
+de processus pour le processus lui-même et ne pas relancer un gate vert pour
+symétrie ou confort. Un rerun sans mutation est autorisé uniquement lorsqu'une
+preuve requise n'a pas pu être produite à cause d'une défaillance transitoire
+externe; il ne doit pas devenir une boucle de reruns.
+
+Entre deux processus également sûrs, choisir le plus simple, le plus court et le
+moins coûteux.
 
 ## Exécution et Codex
 
@@ -111,7 +132,7 @@ pas introduire de voies parallèles payantes de coding agents par défaut.
 Toute validation doit être attribuable au candidat réellement examiné.
 
 ```text
-THE PRODUCER MUST NOT BE THE ONLY VERIFIER
+THE PRODUCER MUST NOT BE THE ONLY_VERIFIER
 NO APPROVAL WITHOUT EVIDENCE
 ```
 
