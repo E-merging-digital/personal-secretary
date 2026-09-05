@@ -1,0 +1,20 @@
+uuid: e471fe3d-78a3-4210-b4e4-d60066408562
+langcode: en
+status: true
+dependencies:
+  module:
+    - personal_secretary
+    - user
+id: user.field_personal_sec_households
+field_name: field_personal_sec_households
+entity_type: user
+type: entity_reference
+settings:
+  target_type: personal_secretary_household
+module: core
+locked: false
+cardinality: -1
+translatable: false
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false
