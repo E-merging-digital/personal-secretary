@@ -9,6 +9,7 @@ use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\TodayService;
 use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -136,16 +137,32 @@ final class TodayController extends ControllerBase {
       $build['preparations']['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('No active preparations are overdue or due today.'),
+        '#value' => $this->t('No unprepared active preparations are overdue or due today.'),
       ];
     }
     else {
       $build['preparations']['items'] = ['#type' => 'container'];
       foreach ($today['preparations'] as $delta => $item) {
+        if (($item['prepared'] ?? FALSE) === TRUE) {
+          throw new RuntimeException('Today preparation read exposed a prepared candidate.');
+        }
         $build['preparations']['items'][$delta] = [
-          '#type' => 'component',
-          '#component' => 'personal_secretary:preparation-item',
-          '#props' => $item,
+          '#type' => 'container',
+          'item' => [
+            '#type' => 'component',
+            '#component' => 'personal_secretary:preparation-item',
+            '#props' => $this->preparationProps($item),
+          ],
+          'action' => [
+            '#type' => 'link',
+            '#title' => $this->t('Mark prepared'),
+            '#url' => Url::fromRoute('personal_secretary.mark_preparation_prepared', [
+              'series' => (int) $item['_completion_series_id'],
+              'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
+              'preparation_requirement' => (int) $item['_completion_requirement_id'],
+              'return_surface' => 'today',
+            ]),
+          ],
         ];
       }
     }
@@ -190,6 +207,24 @@ final class TodayController extends ControllerBase {
     }
 
     return $build;
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   *
+   * @return array<string, mixed>
+   */
+  private function preparationProps(array $item): array {
+    return [
+      'instruction' => (string) $item['instruction'],
+      'due_time' => (string) $item['due_time'],
+      'due_time_iso' => (string) $item['due_time_iso'],
+      'overdue' => (bool) $item['overdue'],
+      'activity_label' => (string) $item['activity_label'],
+      'activity_start' => (string) $item['activity_start'],
+      'activity_start_iso' => (string) $item['activity_start_iso'],
+      'display_timezone' => (string) $item['display_timezone'],
+    ];
   }
 
 }

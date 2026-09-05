@@ -32,6 +32,7 @@ final class CurrentUserPreparationService {
     private readonly EffectiveOccurrenceProjectionService $effectiveOccurrences,
     private readonly EffectiveResponsibilityService $effectiveResponsibility,
     private readonly PreparationEligibilityService $preparationEligibility,
+    private readonly PreparationCompletionService $preparationCompletion,
     private readonly TimeInterface $time,
     private readonly ConfigFactoryInterface $configFactory,
   ) {}
@@ -214,6 +215,11 @@ final class CurrentUserPreparationService {
             'activity_start' => $startLocal->format('Y-m-d H:i'),
             'activity_start_iso' => $startLocal->format(DateTimeInterface::ATOM),
             'display_timezone' => $displayTimezoneId,
+            '_completion_series_id' => $seriesId,
+            '_completion_target_revision_id' => (int) $preparation->seriesRevisionId,
+            '_completion_original_occurrence_key' => $preparation->originalOccurrenceKey,
+            '_completion_requirement_id' => $preparation->requirementId,
+            '_completion_responsible_person_id' => $preparation->responsiblePersonId,
           ];
         }
       }
@@ -234,6 +240,7 @@ final class CurrentUserPreparationService {
       },
       $items,
     );
+    $items = $this->preparationCompletion->overlayCandidates($items);
 
     return [
       'timezone' => $displayTimezoneId,
