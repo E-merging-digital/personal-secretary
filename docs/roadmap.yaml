@@ -4,17 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: provider-agnostic-calendar-eligibility
+  phase: normal-user-household-authorization
   purpose: >-
-    Establish explicit domain truth for when an effectively responsible CurrentPerson
-    is occupied for the full effective occurrence, and derive a reconstructible
-    provider-agnostic calendar candidate without authorizing external calendar writes.
+    Materialize explicit account-scoped Household authorization and prove
+    authorized-scope-first normal-user access on My upcoming without broadening
+    mutation authority.
 
 active_tasks:
-  - issue: 81
+  - issue: 101
     purpose: >-
-      Materialize Decision 0014 with revisionable TimeCommitmentRule lifecycle,
-      deterministic calendar eligibility and a non-persisted projection candidate.
+      Materialize Decision 0015 with Core User-to-Household grants,
+      HouseholdAuthorizationService, administrative grant bootstrap and scoped
+      My upcoming.
 
 historical_context:
   - issue: 58
@@ -66,10 +67,26 @@ historical_context:
     purpose: >-
       Accepted time-commitment architecture selected an independent revisionable
       TimeCommitmentRule and provider-agnostic calendar eligibility contract.
+  - issue: 81
+    purpose: >-
+      Terminal provider-agnostic calendar eligibility materialized Decision 0014,
+      TimeCommitmentRule lifecycle and reconstructible calendar candidates.
+  - issue: 84
+    purpose: >-
+      Google Calendar account-connection delivery is suspended by its executable
+      environment blocker and remains frozen while another modifying work unit is active.
+  - issue: 93
+    purpose: >-
+      Accepted Household-authorization architecture established explicit
+      account-scoped grants as the prerequisite for normal-user product access.
+  - issue: 100
+    purpose: >-
+      Accepted standalone PersonalTask architecture established the next eligible
+      normal-user work-item slice once Household authorization is materialized.
 
 planned_tasks:
   - purpose: >-
-      Reassess the first external calendar account/provider integration only after
-      the provider-agnostic eligibility slice is terminal.
+      Select the highest-value normal-user product slice after issue 101 is
+      terminal; accepted PersonalTask Decision 100 is now an eligible candidate.
 
 deferred_decisions: []

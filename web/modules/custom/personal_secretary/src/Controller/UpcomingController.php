@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
+use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -21,6 +22,7 @@ final class UpcomingController extends ControllerBase {
     private readonly UpcomingActivityService $upcomingActivities,
     private readonly EntityTypeManagerInterface $domainEntityTypeManager,
     private readonly CurrentPersonResolver $currentPersonResolver,
+    private readonly HouseholdAuthorizationService $householdAuthorization,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -28,6 +30,7 @@ final class UpcomingController extends ControllerBase {
       $container->get('personal_secretary.upcoming_activity'),
       $container->get('entity_type.manager'),
       $container->get('personal_secretary.current_person'),
+      $container->get('personal_secretary.household_authorization'),
     );
   }
 
@@ -67,29 +70,37 @@ final class UpcomingController extends ControllerBase {
       $build['rename_household_member'] = $this->renameHouseholdMemberLink();
       $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
     }
-    $build['items'] = $this->buildItems($items);
+    $build['items'] = $this->buildItems($items, TRUE);
     $build['add_activity'] = $this->addActivityLink();
 
     return $build;
   }
 
   public function buildMine(): array {
+    $householdIds = $this->householdAuthorization->authorizedHouseholdIds($this->currentUser());
+
     try {
       $person = $this->currentPersonResolver->resolve($this->currentUser());
     }
     catch (InvalidArgumentException) {
-      return [
+      $build = [
         '#cache' => ['max-age' => 0],
         'remediation' => [
           '#type' => 'html_tag',
           '#tag' => 'p',
           '#value' => $this->t('Link your account to a Household member to see My upcoming.'),
         ],
-        'link_current_user_to_person' => $this->linkCurrentUserToPersonLink(),
       ];
+      if ($this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)) {
+        $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
+      }
+      return $build;
     }
 
-    $items = $this->upcomingActivities->upcomingForPerson($person);
+    $items = $this->upcomingActivities->upcomingForPersonInHouseholds(
+      $person,
+      $householdIds,
+    );
     $build = $this->windowBuild(
       (string) $this->t('Showing My upcoming activities for the next 7 days.'),
     );
@@ -103,7 +114,10 @@ final class UpcomingController extends ControllerBase {
       return $build;
     }
 
-    $build['items'] = $this->buildItems($items);
+    $build['items'] = $this->buildItems(
+      $items,
+      $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION),
+    );
     return $build;
   }
 
@@ -126,7 +140,7 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string|int, mixed>
    */
-  private function buildItems(array $items): array {
+  private function buildItems(array $items, bool $includeMutationLinks): array {
     $build = ['#type' => 'container'];
 
     foreach ($items as $delta => $item) {
@@ -144,6 +158,10 @@ final class UpcomingController extends ControllerBase {
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
       ];
+
+      if (!$includeMutationLinks) {
+        continue;
+      }
 
       $build[$delta]['schedule'] = [
         '#type' => 'link',

@@ -49,11 +49,14 @@ final class UpcomingActivityService {
   public function upcoming(): array {
     [$windowStart, $windowEnd] = $this->defaultWindow();
 
-    return $this->aggregateInternal($windowStart, $windowEnd, NULL);
+    return $this->aggregateInternal($windowStart, $windowEnd, NULL, NULL);
   }
 
   /**
    * Returns the default window filtered by effective responsibility for Person.
+   *
+   * This privileged-compatible path preserves the pre-#101 all-Household
+   * behavior. Ordinary product reads must use upcomingForPersonInHouseholds().
    *
    * @return array<int, array{
    *   activity_label: string,
@@ -70,8 +73,42 @@ final class UpcomingActivityService {
    * }>
    */
   public function upcomingForPerson(Person $person): array {
-    if ($person->isNew() || $person->id() === NULL) {
-      throw new InvalidArgumentException('Personalized upcoming requires a persisted Person.');
+    $personId = $this->requirePersistedPersonId($person);
+    [$windowStart, $windowEnd] = $this->defaultWindow();
+
+    return $this->aggregateInternal(
+      $windowStart,
+      $windowEnd,
+      $personId,
+      NULL,
+    );
+  }
+
+  /**
+   * Returns personalized upcoming data after restricting the Household scope.
+   *
+   * @param int[] $householdIds
+   *   Exact already-authorized Household IDs. An empty scope returns no data.
+   *
+   * @return array<int, array{
+   *   activity_label: string,
+   *   effective_start: string,
+   *   effective_end: string,
+   *   effective_start_iso: string,
+   *   effective_end_iso: string,
+   *   source_timezone: string,
+   *   responsibility_label: string,
+   *   preparations: array<int, array{instruction: string, due_time: string, due_time_iso: string}>,
+   *   schedule_target: array{series_id: int},
+   *   responsibility_target: array{series_id: int, original_occurrence_key: string},
+   *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
+   * }>
+   */
+  public function upcomingForPersonInHouseholds(Person $person, array $householdIds): array {
+    $personId = $this->requirePersistedPersonId($person);
+    $householdIds = $this->normalizeHouseholdIds($householdIds);
+    if ($householdIds === []) {
+      return [];
     }
 
     [$windowStart, $windowEnd] = $this->defaultWindow();
@@ -79,7 +116,8 @@ final class UpcomingActivityService {
     return $this->aggregateInternal(
       $windowStart,
       $windowEnd,
-      (int) $person->id(),
+      $personId,
+      $householdIds,
     );
   }
 
@@ -104,7 +142,7 @@ final class UpcomingActivityService {
     DateTimeImmutable $windowStart,
     DateTimeImmutable $windowEnd,
   ): array {
-    return $this->aggregateInternal($windowStart, $windowEnd, NULL);
+    return $this->aggregateInternal($windowStart, $windowEnd, NULL, NULL);
   }
 
   /**
@@ -121,6 +159,10 @@ final class UpcomingActivityService {
   }
 
   /**
+   * @param int[]|null $householdIds
+   *   NULL keeps the privileged all-Household aggregation. A non-NULL set is
+   *   applied to the ActivitySeries query before any entity is loaded.
+   *
    * @return array<int, array{
    *   activity_label: string,
    *   effective_start: string,
@@ -139,6 +181,7 @@ final class UpcomingActivityService {
     DateTimeImmutable $windowStart,
     DateTimeImmutable $windowEnd,
     ?int $responsiblePersonId,
+    ?array $householdIds,
   ): array {
     $windowStart = $this->utc($windowStart);
     $windowEnd = $this->utc($windowEnd);
@@ -146,13 +189,39 @@ final class UpcomingActivityService {
       throw new InvalidArgumentException('Upcoming activity aggregation requires a bounded window with end after start.');
     }
 
+    if ($householdIds !== NULL) {
+      $householdIds = $this->normalizeHouseholdIds($householdIds);
+      if ($householdIds === []) {
+        return [];
+      }
+    }
+
     $sortable = [];
     $seriesStorage = $this->entityTypeManager->getStorage('personal_sec_activity_series');
     $personStorage = $this->entityTypeManager->getStorage('personal_secretary_person');
 
-    foreach ($seriesStorage->loadMultiple() as $series) {
+    if ($householdIds === NULL) {
+      $seriesEntities = $seriesStorage->loadMultiple();
+    }
+    else {
+      $seriesIds = $seriesStorage
+        ->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('household', $householdIds, 'IN')
+        ->execute();
+      $seriesEntities = $seriesStorage->loadMultiple($seriesIds);
+    }
+
+    foreach ($seriesEntities as $series) {
       if (!$series instanceof ActivitySeries) {
         throw new RuntimeException('ActivitySeries storage returned an unexpected entity type.');
+      }
+
+      if ($householdIds !== NULL) {
+        $seriesHouseholdId = (int) ($series->get('household')->target_id ?? 0);
+        if (!in_array($seriesHouseholdId, $householdIds, TRUE)) {
+          throw new RuntimeException('Scoped ActivitySeries aggregation crossed its authorized Household boundary.');
+        }
       }
 
       $activityLabel = trim((string) $series->label());
@@ -242,6 +311,36 @@ final class UpcomingActivityService {
       },
       $sortable,
     );
+  }
+
+  private function requirePersistedPersonId(Person $person): int {
+    if ($person->isNew() || $person->id() === NULL) {
+      throw new InvalidArgumentException('Personalized upcoming requires a persisted Person.');
+    }
+
+    return (int) $person->id();
+  }
+
+  /**
+   * @param array<int, int|string> $householdIds
+   *
+   * @return int[]
+   */
+  private function normalizeHouseholdIds(array $householdIds): array {
+    $normalized = [];
+    foreach ($householdIds as $value) {
+      if (is_string($value) && ctype_digit($value)) {
+        $value = (int) $value;
+      }
+      if (!is_int($value) || $value <= 0) {
+        throw new InvalidArgumentException('Scoped upcoming Household IDs must be positive integers.');
+      }
+      $normalized[$value] = $value;
+    }
+
+    $normalized = array_values($normalized);
+    sort($normalized, SORT_NUMERIC);
+    return $normalized;
   }
 
   private function utc(DateTimeImmutable $value): DateTimeImmutable {
