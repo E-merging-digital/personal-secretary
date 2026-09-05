@@ -118,6 +118,38 @@ final class TodayController extends ControllerBase {
       }
     }
 
+    $build['preparations'] = [
+      '#type' => 'container',
+      'heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Preparations'),
+      ],
+      'all' => [
+        '#type' => 'link',
+        '#title' => $this->t('My preparations'),
+        '#url' => Url::fromRoute('personal_secretary.my_preparations'),
+      ],
+    ];
+
+    if ($today['preparations'] === []) {
+      $build['preparations']['empty'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t('No active preparations are overdue or due today.'),
+      ];
+    }
+    else {
+      $build['preparations']['items'] = ['#type' => 'container'];
+      foreach ($today['preparations'] as $delta => $item) {
+        $build['preparations']['items'][$delta] = [
+          '#type' => 'component',
+          '#component' => 'personal_secretary:preparation-item',
+          '#props' => $item,
+        ];
+      }
+    }
+
     $build['activities'] = [
       '#type' => 'container',
       'heading' => [
