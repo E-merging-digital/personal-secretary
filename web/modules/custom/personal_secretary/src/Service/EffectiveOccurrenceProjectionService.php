@@ -113,6 +113,106 @@ final class EffectiveOccurrenceProjectionService {
     return $limit === NULL ? $effective : array_slice($effective, 0, $limit);
   }
 
+  /**
+   * Projects effective occurrences whose effective ranges overlap a UTC window.
+   *
+   * The recurrence lookback is derived from the maximum persisted date_recur
+   * duration across the series revision timeline. It is therefore bounded by
+   * domain state rather than a fixed one-day assumption.
+   *
+   * @return \Drupal\personal_secretary\Value\EffectiveOccurrence[]
+   */
+  public function projectOverlapping(
+    ActivitySeries $series,
+    DateTimeImmutable $windowStart,
+    DateTimeImmutable $windowEnd,
+    ?int $limit = NULL,
+  ): array {
+    $windowStart = $this->utc($windowStart);
+    $windowEnd = $this->utc($windowEnd);
+    if ($windowEnd <= $windowStart) {
+      throw new InvalidArgumentException('Effective overlap projection requires a complete window with end after start.');
+    }
+    if ($limit !== NULL && $limit <= 0) {
+      throw new InvalidArgumentException('Effective overlap final limit must be positive.');
+    }
+
+    $lookbackSeconds = $this->maximumPersistedDurationSeconds($series);
+    $baseWindowStart = $windowStart->modify(sprintf('-%d seconds', $lookbackSeconds));
+
+    $exceptions = $this->activityExceptions->activeForSeries($series);
+    $byTarget = [];
+    foreach ($exceptions as $exception) {
+      $byTarget[$this->targetKeyFromException($exception)] = $exception;
+    }
+
+    $effective = [];
+    $matchedExceptionIds = [];
+
+    foreach ($this->revisionTimeline->projectBaseWindow($series, $baseWindowStart, $windowEnd) as $base) {
+      $key = $this->targetKeyFromBase($base);
+      $exception = $byTarget[$key] ?? NULL;
+      if ($exception === NULL) {
+        $occurrence = $this->fromBase($base);
+        if ($this->overlapsWindow($occurrence, $windowStart, $windowEnd)) {
+          $effective[] = $occurrence;
+        }
+        continue;
+      }
+
+      $matchedExceptionIds[(int) $exception->id()] = TRUE;
+      $action = (string) $exception->get('action')->value;
+      if ($action === ActivityException::ACTION_CANCEL) {
+        continue;
+      }
+      if ($action !== ActivityException::ACTION_RESCHEDULE) {
+        throw new RuntimeException('Unknown active ActivityException action.');
+      }
+
+      $rescheduled = $this->fromReschedule($exception);
+      if ($this->overlapsWindow($rescheduled, $windowStart, $windowEnd)) {
+        $effective[] = $rescheduled;
+      }
+    }
+
+    // A durable reschedule can move an original target whose base start lies
+    // outside the bounded recurrence probe into the requested overlap window.
+    // The exception row is already exact domain truth, so no wider recurrence
+    // expansion is needed to discover it.
+    foreach ($exceptions as $exception) {
+      if (
+        isset($matchedExceptionIds[(int) $exception->id()])
+        || (string) $exception->get('action')->value !== ActivityException::ACTION_RESCHEDULE
+      ) {
+        continue;
+      }
+      $rescheduled = $this->fromReschedule($exception);
+      if ($this->overlapsWindow($rescheduled, $windowStart, $windowEnd)) {
+        $effective[] = $rescheduled;
+      }
+    }
+
+    usort(
+      $effective,
+      static fn(EffectiveOccurrence $left, EffectiveOccurrence $right): int =>
+        [
+          $left->effectiveUtcStart,
+          $left->seriesRevisionId,
+          $left->originalOccurrenceKey,
+          $left->exceptionUuid ?? '',
+        ]
+        <=>
+        [
+          $right->effectiveUtcStart,
+          $right->seriesRevisionId,
+          $right->originalOccurrenceKey,
+          $right->exceptionUuid ?? '',
+        ],
+    );
+
+    return $limit === NULL ? $effective : array_slice($effective, 0, $limit);
+  }
+
   private function fromBase(BaseOccurrence $base): EffectiveOccurrence {
     return new EffectiveOccurrence(
       seriesUuid: $base->seriesUuid,
@@ -185,6 +285,44 @@ final class EffectiveOccurrenceProjectionService {
     return $start >= $windowStart && $start < $windowEnd;
   }
 
+  private function overlapsWindow(
+    EffectiveOccurrence $occurrence,
+    DateTimeImmutable $windowStart,
+    DateTimeImmutable $windowEnd,
+  ): bool {
+    $start = $this->utc(new DateTimeImmutable($occurrence->effectiveUtcStart));
+    $end = $this->utc(new DateTimeImmutable($occurrence->effectiveUtcEnd));
+    if ($end <= $start) {
+      throw new RuntimeException('Effective occurrence overlap requires a positive occurrence duration.');
+    }
+
+    return $start < $windowEnd && $end > $windowStart;
+  }
+
+  private function maximumPersistedDurationSeconds(ActivitySeries $series): int {
+    $maximum = 0;
+    foreach ($this->revisionTimeline->timeline($series) as $interval) {
+      $revision = $interval['revision'];
+      $item = $revision->get('recurrence')->first();
+      if ($item === NULL || $item->isEmpty()) {
+        throw new RuntimeException('ActivitySeries revision has no recurrence value.');
+      }
+      $raw = $item->getValue();
+      $start = $this->fromRecurrenceStorage((string) ($raw['value'] ?? ''));
+      $end = $this->fromRecurrenceStorage((string) ($raw['end_value'] ?? ''));
+      $duration = $end->getTimestamp() - $start->getTimestamp();
+      if ($duration <= 0) {
+        throw new RuntimeException('ActivitySeries persisted recurrence duration must be positive.');
+      }
+      $maximum = max($maximum, $duration);
+    }
+
+    if ($maximum <= 0) {
+      throw new RuntimeException('ActivitySeries overlap projection requires a persisted recurrence duration.');
+    }
+    return $maximum;
+  }
+
   private function atomFromStorage(string $value): string {
     return $this->fromStorage($value)->format(DateTimeInterface::ATOM);
   }
@@ -197,6 +335,18 @@ final class EffectiveOccurrenceProjectionService {
     );
     if (!$parsed instanceof DateTimeImmutable) {
       throw new RuntimeException('Stored ActivityException UTC datetime is invalid.');
+    }
+    return $parsed;
+  }
+
+  private function fromRecurrenceStorage(string $value): DateTimeImmutable {
+    $parsed = DateTimeImmutable::createFromFormat(
+      '!' . self::UTC_STORAGE_FORMAT,
+      $value,
+      new DateTimeZone('UTC'),
+    );
+    if (!$parsed instanceof DateTimeImmutable || $parsed->format(self::UTC_STORAGE_FORMAT) !== $value) {
+      throw new RuntimeException('Stored ActivitySeries recurrence datetime is invalid.');
     }
     return $parsed;
   }
