@@ -4,17 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: preparation-completion
+  phase: one-off-activity
   purpose: >-
-    Materialize sparse durable completion for exact derived preparations while
-    preserving PreparationEligibility as current obligation truth and keeping
-    Today action-oriented on unprepared preparation candidates only.
+    Add one-off activities to the existing Add activity flow by reusing
+    ActivitySeries with exactly one calculated occurrence and the existing
+    responsibility, preparation and effective-occurrence pipelines.
 
 active_tasks:
-  - issue: 109
+  - issue: 114
     purpose: >-
-      Materialize PreparationCompletion plus governed Mark prepared / Mark not
-      prepared actions across My preparations and Today.
+      Materialize One-off / Weekly choice in Add activity while preserving the
+      existing weekly path and using exact-occurrence responsibility only when
+      a responsible Person is selected for a one-off activity.
 
 historical_context:
   - issue: 58
@@ -107,10 +108,18 @@ historical_context:
       Terminal current-user preparation reads materialized My preparations and
       Today preparations with authorized scope, bounded long-lead discovery and
       derived-only preparation truth.
+  - issue: 109
+    purpose: >-
+      Terminal PreparationCompletion materialized sparse durable prepared state,
+      governed Mark prepared / Mark not prepared and Today/My preparations overlay.
+  - issue: 112
+    purpose: >-
+      Terminal delivery-governance update established durable DoD-first,
+      minimum-necessary and no-proof-for-proof-sake discipline.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after PreparationCompletion is terminal; reminders,
-      notifications and broader workflow remain candidates only and are not pre-authorized.
+      Project Lead reassessment after one-off activity is terminal; no subsequent
+      product slice is pre-authorized by this roadmap entry.
 
 deferred_decisions: []
