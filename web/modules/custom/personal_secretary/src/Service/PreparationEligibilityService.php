@@ -12,6 +12,7 @@ use Drupal\personal_secretary\Entity\PreparationRequirement;
 use Drupal\personal_secretary\Value\EffectiveOccurrence;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use Drupal\personal_secretary\Value\PreparationEligibility;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
@@ -33,7 +34,23 @@ final class PreparationEligibilityService {
     ActivitySeries $series,
     EffectiveOccurrence $occurrence,
   ): array {
-    $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
+    return $this->deriveForResponsibility(
+      $series,
+      $occurrence,
+      $this->effectiveResponsibility->resolve($series, $occurrence),
+    );
+  }
+
+  /**
+   * Derives preparation eligibility from already-resolved effective truth.
+   *
+   * @return \Drupal\personal_secretary\Value\PreparationEligibility[]
+   */
+  public function deriveForResponsibility(
+    ActivitySeries $series,
+    EffectiveOccurrence $occurrence,
+    EffectiveResponsibility $responsibility,
+  ): array {
     if ($responsibility->state === EffectiveResponsibility::STATE_NONE) {
       return [];
     }
@@ -89,6 +106,65 @@ final class PreparationEligibilityService {
     }
 
     return $results;
+  }
+
+  /**
+   * Returns the maximum current persisted lead time for an already-scoped set.
+   *
+   * PreparationRequirement entities are queried by authorized ActivitySeries IDs
+   * before loading. NULL means no current requirements exist in that scope.
+   *
+   * @param array<int, int|string> $seriesIds
+   */
+  public function maximumLeadTimeSecondsForSeriesIds(array $seriesIds): ?int {
+    $normalized = [];
+    foreach ($seriesIds as $value) {
+      if (is_string($value) && ctype_digit($value)) {
+        $value = (int) $value;
+      }
+      if (!is_int($value) || $value <= 0) {
+        throw new InvalidArgumentException('Preparation lead-time discovery requires positive ActivitySeries IDs.');
+      }
+      $normalized[$value] = $value;
+    }
+    if ($normalized === []) {
+      return NULL;
+    }
+
+    $normalized = array_values($normalized);
+    sort($normalized, SORT_NUMERIC);
+
+    $storage = $this->entityTypeManager->getStorage('personal_sec_prep_req');
+    $requirementIds = $storage
+      ->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('series', $normalized, 'IN')
+      ->execute();
+    if ($requirementIds === []) {
+      return NULL;
+    }
+
+    $requirements = $storage->loadMultiple($requirementIds);
+    $maximum = 0;
+    $found = FALSE;
+    foreach ($requirementIds as $requirementId) {
+      $requirement = $requirements[$requirementId] ?? NULL;
+      if (!$requirement instanceof PreparationRequirement) {
+        throw new RuntimeException('Preparation lead-time query returned an unexpected entity type.');
+      }
+      $seriesId = (int) ($requirement->get('series')->target_id ?? 0);
+      if (!in_array($seriesId, $normalized, TRUE)) {
+        throw new RuntimeException('Preparation lead-time discovery crossed its authorized ActivitySeries boundary.');
+      }
+      $leadTimeSeconds = (int) $requirement->get('lead_time_seconds')->value;
+      if ($leadTimeSeconds < 0) {
+        throw new RuntimeException('PreparationRequirement lead time must be zero or greater.');
+      }
+      $maximum = max($maximum, $leadTimeSeconds);
+      $found = TRUE;
+    }
+
+    return $found ? $maximum : NULL;
   }
 
   private function applies(

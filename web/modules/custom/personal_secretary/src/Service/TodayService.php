@@ -28,6 +28,7 @@ final class TodayService {
     private readonly HouseholdAuthorizationService $householdAuthorization,
     private readonly CurrentPersonResolver $currentPersonResolver,
     private readonly PersonalTaskQueryService $personalTaskQuery,
+    private readonly CurrentUserPreparationService $currentUserPreparations,
     private readonly EffectiveOccurrenceProjectionService $effectiveOccurrences,
     private readonly EffectiveResponsibilityService $effectiveResponsibility,
     private readonly TimeInterface $time,
@@ -43,6 +44,7 @@ final class TodayService {
    *   utc_start:string,
    *   utc_end:string,
    *   tasks:array<int, array<string, mixed>>,
+   *   preparations:array<int, array<string, mixed>>,
    *   activities:array<int, array<string, mixed>>
    * }
    */
@@ -63,6 +65,12 @@ final class TodayService {
       $window['utc_end'],
     );
 
+    $preparations = $this->currentUserPreparations->today(
+      $nowUtc,
+      $window['utc_start'],
+      $window['utc_end'],
+    )['items'];
+
     $activities = $this->activities(
       $authorizedHouseholdIds,
       (int) $person->id(),
@@ -80,6 +88,7 @@ final class TodayService {
       'utc_start' => $window['utc_start']->format(DateTimeInterface::ATOM),
       'utc_end' => $window['utc_end']->format(DateTimeInterface::ATOM),
       'tasks' => $tasks,
+      'preparations' => $preparations,
       'activities' => $activities,
     ];
   }

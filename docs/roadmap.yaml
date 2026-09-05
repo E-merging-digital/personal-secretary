@@ -4,16 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: current-user-today
+  phase: current-user-preparations
   purpose: >-
-    Materialize the first derived current-user Today composition from authorized
-    PersonalTask due truth and effective activities overlapping the viewer civil day.
+    Materialize derived current-user preparation visibility from authorized effective
+    occurrences and current PreparationEligibility, including My preparations and
+    Today composition without durable completion or reminder state.
 
 active_tasks:
-  - issue: 105
+  - issue: 107
     purpose: >-
-      Materialize /personal-secretary/today with authorized-scope-first task and
-      activity reads, DST-safe current-user day boundaries and true activity overlap.
+      Materialize /personal-secretary/preparations/mine and compose the same
+      authorized current-user preparation read model into Today.
 
 historical_context:
   - issue: 58
@@ -73,10 +74,14 @@ historical_context:
     purpose: >-
       Google Calendar account-connection delivery is suspended by its executable
       environment blocker and remains frozen while another modifying work unit is active.
+  - issue: 85
+    purpose: >-
+      Accepted preparation-surface architecture selected derived-only My preparations,
+      a seven-day due window, calculated overdue state and deferred durable interaction.
   - issue: 86
     purpose: >-
       Accepted Today architecture established Drupal User timezone civil-day
-      boundaries, derived-only composition and true activity overlap semantics.
+      boundaries, derived-only composition and Today preparation semantics.
   - issue: 93
     purpose: >-
       Accepted Household-authorization architecture established explicit
@@ -93,10 +98,15 @@ historical_context:
     purpose: >-
       Terminal standalone PersonalTask materialized Decision 0016, My tasks and
       the governed self-oriented task lifecycle.
+  - issue: 105
+    purpose: >-
+      Terminal Today materialized authorized current-user Tasks and effective
+      Activities with DST-safe civil-day grouping and true overlap semantics.
 
 planned_tasks:
   - purpose: >-
-      Reassess the next bounded product slice after Today is terminal;
-      preparation/completion composition is a candidate but is not pre-authorized.
+      Reassess the next bounded product slice after current-user preparation read
+      surfaces are terminal; PreparationCompletion or Mark prepared becomes a
+      candidate only if durable user interaction state is then justified.
 
 deferred_decisions: []

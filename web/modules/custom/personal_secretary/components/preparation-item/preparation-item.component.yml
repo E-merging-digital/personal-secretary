@@ -1,0 +1,39 @@
+$schema: https://git.drupalcode.org/project/drupal/-/raw/11.x/core/assets/schemas/v1/metadata.schema.json
+name: Preparation item
+status: stable
+props:
+  type: object
+  required:
+    - instruction
+    - due_time
+    - due_time_iso
+    - overdue
+    - activity_label
+    - activity_start
+    - activity_start_iso
+    - display_timezone
+  properties:
+    instruction:
+      type: string
+      title: Preparation instruction
+    due_time:
+      type: string
+      title: Viewer-local due display
+    due_time_iso:
+      type: string
+      title: Viewer-local due ISO datetime
+    overdue:
+      type: boolean
+      title: Whether the preparation due instant has passed
+    activity_label:
+      type: string
+      title: Related activity label
+    activity_start:
+      type: string
+      title: Viewer-local activity start display
+    activity_start_iso:
+      type: string
+      title: Viewer-local activity start ISO datetime
+    display_timezone:
+      type: string
+      title: Current User display timezone
