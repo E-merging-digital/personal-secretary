@@ -1,0 +1,14 @@
+<article class="personal-secretary-today-activity">
+  <h3>{{ activity_label }}</h3>
+  <dl>
+    <div>
+      <dt>{{ 'When'|t }}</dt>
+      <dd>
+        <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
+        –
+        <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
+        ({{ display_timezone }})
+      </dd>
+    </div>
+  </dl>
+</article>

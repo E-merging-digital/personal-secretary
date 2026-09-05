@@ -53,6 +53,86 @@ final class PersonalTaskQueryService {
       return [];
     }
 
+    return $this->loadAndPresent($ids, $user);
+  }
+
+  /**
+   * Returns only OPEN tasks whose due values are relevant to current-user Today.
+   *
+   * The Today predicate is part of the authorized EntityQuery before any task
+   * entities are loaded.
+   *
+   * @return array<int, array<string, mixed>>
+   */
+  public function todayOpenTasks(
+    DateTimeImmutable $nowUtc,
+    DateTimeImmutable $todayEndUtc,
+  ): array {
+    $nowUtc = $nowUtc->setTimezone(new DateTimeZone('UTC'));
+    $todayEndUtc = $todayEndUtc->setTimezone(new DateTimeZone('UTC'));
+    if ($todayEndUtc <= $nowUtc) {
+      throw new InvalidArgumentException('Today task query requires a future local-day end boundary.');
+    }
+
+    $user = $this->currentPersistedUser();
+    $authorizedIds = $this->householdAuthorization->authorizedHouseholdIds($user);
+    $person = $this->currentPersonResolver->resolve($user);
+    $eligibleIds = $this->eligibleHouseholdIds($authorizedIds, (int) $person->id());
+    if ($eligibleIds === []) {
+      return [];
+    }
+
+    $timezone = new DateTimeZone($this->timezoneId($user));
+    $localToday = $nowUtc->setTimezone($timezone)->format('Y-m-d');
+    $todayEndStorage = $todayEndUtc->format('Y-m-d\TH:i:s');
+
+    $storage = $this->entityTypeManager->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $query = $storage
+      ->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('household', $eligibleIds, 'IN')
+      ->condition('assigned_person', (int) $person->id())
+      ->condition('status', PersonalTask::STATUS_OPEN);
+
+    $dueToday = $query->orConditionGroup();
+
+    $dateDue = $query->andConditionGroup()
+      ->condition('due_mode', PersonalTask::DUE_DATE)
+      ->condition('due_date', $localToday, '<=');
+    $dueToday->condition($dateDue);
+
+    $dateTimeDue = $query->andConditionGroup()
+      ->condition('due_mode', PersonalTask::DUE_DATE_TIME)
+      ->condition('due_at', $todayEndStorage, '<');
+    $dueToday->condition($dateTimeDue);
+
+    $ids = $query
+      ->condition($dueToday)
+      ->execute();
+    if ($ids === []) {
+      return [];
+    }
+
+    return $this->loadAndPresent($ids, $user, $nowUtc);
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  public function present(PersonalTask $task): array {
+    return $this->presentation($task, $this->currentPersistedUser());
+  }
+
+  /**
+   * @param array<int|string, int|string> $ids
+   *
+   * @return array<int, array<string, mixed>>
+   */
+  private function loadAndPresent(
+    array $ids,
+    UserInterface $user,
+    ?DateTimeImmutable $nowUtc = NULL,
+  ): array {
     $tasks = $this->entityTypeManager
       ->getStorage(PersonalTask::ENTITY_TYPE_ID)
       ->loadMultiple($ids);
@@ -60,7 +140,7 @@ final class PersonalTaskQueryService {
     foreach ($ids as $id) {
       $task = $tasks[$id] ?? NULL;
       if ($task instanceof PersonalTask) {
-        $items[] = $this->presentation($task, $user);
+        $items[] = $this->presentation($task, $user, $nowUtc);
       }
     }
 
@@ -75,13 +155,6 @@ final class PersonalTaskQueryService {
     });
 
     return $items;
-  }
-
-  /**
-   * @return array<string, mixed>
-   */
-  public function present(PersonalTask $task): array {
-    return $this->presentation($task, $this->currentPersistedUser());
   }
 
   /**
@@ -117,10 +190,16 @@ final class PersonalTaskQueryService {
   /**
    * @return array<string, mixed>
    */
-  private function presentation(PersonalTask $task, UserInterface $user): array {
+  private function presentation(
+    PersonalTask $task,
+    UserInterface $user,
+    ?DateTimeImmutable $nowUtc = NULL,
+  ): array {
     $mode = (string) $task->get('due_mode')->value;
     $timezone = new DateTimeZone($this->timezoneId($user));
-    $nowUtc = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))->setTimezone(new DateTimeZone('UTC'));
+    $nowUtc ??= (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('UTC'));
+    $nowUtc = $nowUtc->setTimezone(new DateTimeZone('UTC'));
     $localToday = $nowUtc->setTimezone($timezone)->format('Y-m-d');
 
     $dueLabel = '';
@@ -138,7 +217,7 @@ final class PersonalTaskQueryService {
     }
     elseif ($mode === PersonalTask::DUE_DATE_TIME) {
       $stored = (string) $task->get('due_at')->value;
-      $dueUtc = DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i:s', $stored, new DateTimeZone('UTC'));
+      $dueUtc = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s', $stored, new DateTimeZone('UTC'));
       if (!$dueUtc instanceof DateTimeImmutable) {
         throw new InvalidArgumentException('Date-time PersonalTask has an invalid persisted due instant.');
       }

@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: standalone-personal-task
+  phase: current-user-today
   purpose: >-
-    Materialize the first Household-scoped PersonalTask vertical with self-oriented
-    CurrentPerson assignment, real due semantics and governed normal-user lifecycle.
+    Materialize the first derived current-user Today composition from authorized
+    PersonalTask due truth and effective activities overlapping the viewer civil day.
 
 active_tasks:
-  - issue: 103
+  - issue: 105
     purpose: >-
-      Materialize Decision 0016 with PersonalTask persistence, My tasks,
-      create/edit/complete/reopen/delete and authorized-scope-first reads.
+      Materialize /personal-secretary/today with authorized-scope-first task and
+      activity reads, DST-safe current-user day boundaries and true activity overlap.
 
 historical_context:
   - issue: 58
@@ -73,6 +73,10 @@ historical_context:
     purpose: >-
       Google Calendar account-connection delivery is suspended by its executable
       environment blocker and remains frozen while another modifying work unit is active.
+  - issue: 86
+    purpose: >-
+      Accepted Today architecture established Drupal User timezone civil-day
+      boundaries, derived-only composition and true activity overlap semantics.
   - issue: 93
     purpose: >-
       Accepted Household-authorization architecture established explicit
@@ -85,10 +89,14 @@ historical_context:
     purpose: >-
       Terminal Household authorization materialized Decision 0015, explicit
       User-to-Household grants and authorized-scope-first My upcoming access.
+  - issue: 103
+    purpose: >-
+      Terminal standalone PersonalTask materialized Decision 0016, My tasks and
+      the governed self-oriented task lifecycle.
 
 planned_tasks:
   - purpose: >-
-      Add one bounded Today composition for standalone tasks after issue 103 is
-      terminal, unless Project Lead live reprioritizes first.
+      Reassess the next bounded product slice after Today is terminal;
+      preparation/completion composition is a candidate but is not pre-authorized.
 
 deferred_decisions: []
