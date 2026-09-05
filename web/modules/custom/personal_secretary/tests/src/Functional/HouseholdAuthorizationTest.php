@@ -611,9 +611,10 @@ final class HouseholdAuthorizationTest extends BrowserTestBase {
       }
     }
 
+    $fieldName = HouseholdAuthorizationService::FIELD_NAME;
     foreach ([
-      'field.storage.user.field_personal_secretary_households',
-      'field.field.user.user.field_personal_secretary_households',
+      'field.storage.user.' . $fieldName,
+      'field.field.user.user.' . $fieldName,
     ] as $name) {
       $path = dirname(DRUPAL_ROOT) . '/config/sync/' . $name . '.yml';
       $contents = file_get_contents($path);
