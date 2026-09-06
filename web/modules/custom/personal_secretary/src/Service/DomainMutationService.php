@@ -132,8 +132,10 @@ final class DomainMutationService {
     DateTimeImmutable $localStart,
     DateTimeImmutable $localEnd,
     string $rrule,
+    string $location = '',
   ): ActivitySeries {
     $name = $this->requiredLabel($name, 'Activity series name');
+    $location = $this->optionalLocation($location);
     $this->requireHousehold($householdId);
     $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
 
@@ -143,6 +145,7 @@ final class DomainMutationService {
       'household' => $householdId,
       'recurrence' => [$recurrence],
       'effective_from' => $this->toStorage($localStart),
+      'location' => $location,
     ]);
     $series->save();
     return $series;
@@ -244,6 +247,14 @@ final class DomainMutationService {
     $value = trim($value);
     if ($value === '') {
       throw new InvalidArgumentException(sprintf('%s must not be empty.', $field));
+    }
+    return $value;
+  }
+
+  private function optionalLocation(string $value): string {
+    $value = trim($value);
+    if (mb_strlen($value) > 255) {
+      throw new InvalidArgumentException('Activity location must not exceed 255 characters.');
     }
     return $value;
   }

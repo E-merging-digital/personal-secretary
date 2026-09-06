@@ -198,6 +198,7 @@ final class TodayService {
           'sort_revision' => $occurrence->seriesRevisionId,
           'sort_occurrence' => $occurrence->originalOccurrenceKey,
           'activity_label' => $label,
+          'location' => trim((string) ($series->get('location')->value ?? '')),
           'effective_start' => $startLocal->format('Y-m-d H:i'),
           'effective_end' => $endLocal->format('Y-m-d H:i'),
           'effective_start_iso' => $startLocal->format(DateTimeInterface::ATOM),
@@ -269,6 +270,10 @@ final class TodayService {
     $normalized = array_values($normalized);
     sort($normalized, SORT_NUMERIC);
     return $normalized;
+  }
+
+  private function utc(DateTimeImmutable $value): DateTimeImmutable {
+    return $value->setTimezone(new DateTimeZone('UTC'));
   }
 
 }

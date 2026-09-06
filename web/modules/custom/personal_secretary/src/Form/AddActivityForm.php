@@ -97,6 +97,13 @@ final class AddActivityForm extends FormBase {
       '#required' => TRUE,
       '#maxlength' => 255,
     ];
+    $form['location'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Location'),
+      '#description' => $this->t('Optional.'),
+      '#required' => FALSE,
+      '#maxlength' => 255,
+    ];
     $form['first_occurrence_date'] = [
       '#type' => 'date',
       '#title' => $this->t('Activity date'),
@@ -229,6 +236,7 @@ final class AddActivityForm extends FormBase {
 
     $activityType = $form_state->get('personal_secretary_activity_type');
     $responsiblePersonId = $form_state->get('personal_secretary_responsible_person_id');
+    $location = (string) $form_state->getValue('location');
 
     try {
       if ($activityType === self::TYPE_WEEKLY) {
@@ -243,6 +251,7 @@ final class AddActivityForm extends FormBase {
           $localEnd,
           (string) $form_state->getValue('preparation_instruction'),
           (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
+          $location,
         );
       }
       elseif ($activityType === self::TYPE_ONE_OFF) {
@@ -254,6 +263,7 @@ final class AddActivityForm extends FormBase {
           $localEnd,
           (string) $form_state->getValue('preparation_instruction'),
           (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
+          $location,
         );
       }
       else {

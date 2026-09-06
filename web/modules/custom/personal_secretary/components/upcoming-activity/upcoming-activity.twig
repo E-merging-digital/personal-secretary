@@ -11,6 +11,12 @@
         ({{ source_timezone }})
       </dd>
     </div>
+    {% if location %}
+      <div>
+        <dt>{{ 'Location'|t }}</dt>
+        <dd>{{ location }}</dd>
+      </div>
+    {% endif %}
     <div>
       <dt>{{ 'Responsibility'|t }}</dt>
       <dd>{{ responsibility_label }}</dd>

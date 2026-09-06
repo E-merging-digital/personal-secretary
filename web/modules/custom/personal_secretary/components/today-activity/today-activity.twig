@@ -10,5 +10,11 @@
         ({{ display_timezone }})
       </dd>
     </div>
+    {% if location %}
+      <div>
+        <dt>{{ 'Location'|t }}</dt>
+        <dd>{{ location }}</dd>
+      </div>
+    {% endif %}
   </dl>
 </article>

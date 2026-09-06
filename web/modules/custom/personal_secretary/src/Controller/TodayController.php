@@ -196,6 +196,7 @@ final class TodayController extends ControllerBase {
           '#component' => 'personal_secretary:today-activity',
           '#props' => [
             'activity_label' => $item['activity_label'],
+            'location' => $item['location'],
             'effective_start' => $item['effective_start'],
             'effective_end' => $item['effective_end'],
             'effective_start_iso' => $item['effective_start_iso'],
