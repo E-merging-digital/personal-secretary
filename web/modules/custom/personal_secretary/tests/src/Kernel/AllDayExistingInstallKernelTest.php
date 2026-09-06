@@ -117,7 +117,7 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     $this->assertEquals($latestRecurrence, $persisted->get('recurrence')->getValue());
     $this->assertSame($latestEffectiveFrom, (string) $persisted->get('effective_from')->value);
     $this->assertSame($originalLocation, (string) $persisted->get('location')->value);
-    $this->assertSame($latestConcerned, $persisted->get('concerned_persons')->getValue());
+    $this->assertEquals($latestConcerned, $persisted->get('concerned_persons')->getValue());
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, $persisted->timeMode());
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, (string) $persisted->get('time_mode')->value);
 
@@ -129,7 +129,7 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     $this->assertEquals($originalRecurrence, $historical->get('recurrence')->getValue());
     $this->assertSame($originalEffectiveFrom, (string) $historical->get('effective_from')->value);
     $this->assertSame($originalLocation, (string) $historical->get('location')->value);
-    $this->assertSame($originalConcerned, $historical->get('concerned_persons')->getValue());
+    $this->assertEquals($originalConcerned, $historical->get('concerned_persons')->getValue());
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, $historical->timeMode());
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, (string) $historical->get('time_mode')->value);
   }
