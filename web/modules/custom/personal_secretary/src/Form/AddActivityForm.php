@@ -91,6 +91,13 @@ final class AddActivityForm extends FormBase {
       '#required' => FALSE,
       '#description' => $this->t('Required for weekly activities; optional for one-off activities.'),
     ];
+    $form['concerned_person_ids'] = [
+      '#type' => 'checkboxes',
+      '#title' => $this->t('Personnes concernées'),
+      '#options' => $people,
+      '#required' => FALSE,
+      '#description' => $this->t('Optional. Empty means no specific Person is expressed.'),
+    ];
     $form['activity_label'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Activity label'),
@@ -237,6 +244,7 @@ final class AddActivityForm extends FormBase {
     $activityType = $form_state->get('personal_secretary_activity_type');
     $responsiblePersonId = $form_state->get('personal_secretary_responsible_person_id');
     $location = (string) $form_state->getValue('location');
+    $concernedPersonIds = $this->selectedConcernedPersonIds($form_state);
 
     try {
       if ($activityType === self::TYPE_WEEKLY) {
@@ -252,6 +260,7 @@ final class AddActivityForm extends FormBase {
           (string) $form_state->getValue('preparation_instruction'),
           (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
           $location,
+          $concernedPersonIds,
         );
       }
       elseif ($activityType === self::TYPE_ONE_OFF) {
@@ -264,6 +273,7 @@ final class AddActivityForm extends FormBase {
           (string) $form_state->getValue('preparation_instruction'),
           (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
           $location,
+          $concernedPersonIds,
         );
       }
       else {
@@ -289,6 +299,20 @@ final class AddActivityForm extends FormBase {
     }
     natcasesort($options);
     return $options;
+  }
+
+  /**
+   * @return array<int, int|string>
+   */
+  private function selectedConcernedPersonIds(FormStateInterface $form_state): array {
+    $selected = [];
+    foreach ((array) $form_state->getValue('concerned_person_ids', []) as $value) {
+      if ($value === 0 || $value === '0' || $value === '' || $value === NULL || $value === FALSE) {
+        continue;
+      }
+      $selected[] = $value;
+    }
+    return $selected;
   }
 
   private function parseLocalDateTime(

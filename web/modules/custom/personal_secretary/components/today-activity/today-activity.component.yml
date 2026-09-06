@@ -17,6 +17,11 @@ props:
     location:
       type: string
       title: Optional activity location
+    concerned_person_labels:
+      type: array
+      title: Concerned Person labels
+      items:
+        type: string
     effective_start:
       type: string
       title: Viewer-local effective start display

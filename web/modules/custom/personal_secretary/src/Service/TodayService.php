@@ -12,6 +12,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Entity\Person;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use Drupal\user\UserInterface;
 use InvalidArgumentException;
@@ -199,6 +200,7 @@ final class TodayService {
           'sort_occurrence' => $occurrence->originalOccurrenceKey,
           'activity_label' => $label,
           'location' => trim((string) ($series->get('location')->value ?? '')),
+          'concerned_person_labels' => $this->concernedPersonLabels($series),
           'effective_start' => $startLocal->format('Y-m-d H:i'),
           'effective_end' => $endLocal->format('Y-m-d H:i'),
           'effective_start_iso' => $startLocal->format(DateTimeInterface::ATOM),
@@ -224,6 +226,36 @@ final class TodayService {
       },
       $items,
     );
+  }
+
+  /**
+   * @return string[]
+   */
+  private function concernedPersonLabels(ActivitySeries $series): array {
+    $field = $series->get('concerned_persons');
+    if ($field->isEmpty()) {
+      return [];
+    }
+
+    $values = $field->getValue();
+    $people = $field->referencedEntities();
+    if (count($people) !== count($values)) {
+      throw new RuntimeException('Concerned Person reference is not currently resolvable.');
+    }
+
+    $labels = [];
+    foreach ($values as $delta => $value) {
+      $person = $people[$delta] ?? NULL;
+      if (!$person instanceof Person || (int) $person->id() !== (int) ($value['target_id'] ?? 0)) {
+        throw new RuntimeException('Concerned Person reference does not match a current Person.');
+      }
+      $label = trim((string) $person->label());
+      if ($label === '') {
+        throw new RuntimeException('Concerned Person has no presentation label.');
+      }
+      $labels[] = $label;
+    }
+    return $labels;
   }
 
   private function currentPersistedUser(): UserInterface {

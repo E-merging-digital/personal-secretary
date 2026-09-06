@@ -8,6 +8,7 @@ use Drupal\Core\Entity\Attribute\ContentEntityType;
 use Drupal\Core\Entity\ContentEntityBase;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Field\BaseFieldDefinition;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\personal_secretary\Access\DomainEntityAccessControlHandler;
 
@@ -51,6 +52,13 @@ final class ActivitySeries extends ContentEntityBase {
       ->setRequired(TRUE)
       ->setRevisionable(TRUE)
       ->setSetting('target_type', 'personal_secretary_household');
+
+    $fields['concerned_persons'] = BaseFieldDefinition::create('entity_reference')
+      ->setLabel(new TranslatableMarkup('Concerned Persons'))
+      ->setRequired(FALSE)
+      ->setRevisionable(TRUE)
+      ->setCardinality(FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED)
+      ->setSetting('target_type', 'personal_secretary_person');
 
     $fields['recurrence'] = BaseFieldDefinition::create('date_recur')
       ->setLabel(new TranslatableMarkup('Recurrence'))

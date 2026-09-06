@@ -17,6 +17,12 @@
         <dd>{{ location }}</dd>
       </div>
     {% endif %}
+    {% if concerned_person_labels %}
+      <div>
+        <dt>{{ 'Pour'|t }}</dt>
+        <dd>{{ concerned_person_labels|join(', ') }}</dd>
+      </div>
+    {% endif %}
     <div>
       <dt>{{ 'Responsibility'|t }}</dt>
       <dd>{{ responsibility_label }}</dd>

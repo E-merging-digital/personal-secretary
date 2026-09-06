@@ -35,6 +35,7 @@ final class UpcomingActivityService {
    * @return array<int, array{
    *   activity_label: string,
    *   location: string,
+   *   concerned_person_labels: string[],
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -62,6 +63,7 @@ final class UpcomingActivityService {
    * @return array<int, array{
    *   activity_label: string,
    *   location: string,
+   *   concerned_person_labels: string[],
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -95,6 +97,7 @@ final class UpcomingActivityService {
    * @return array<int, array{
    *   activity_label: string,
    *   location: string,
+   *   concerned_person_labels: string[],
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -130,6 +133,7 @@ final class UpcomingActivityService {
    * @return array<int, array{
    *   activity_label: string,
    *   location: string,
+   *   concerned_person_labels: string[],
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -170,6 +174,7 @@ final class UpcomingActivityService {
    * @return array<int, array{
    *   activity_label: string,
    *   location: string,
+   *   concerned_person_labels: string[],
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -234,6 +239,7 @@ final class UpcomingActivityService {
         throw new RuntimeException('Upcoming ActivitySeries has no presentation label.');
       }
       $location = trim((string) ($series->get('location')->value ?? ''));
+      $concernedPersonLabels = $this->concernedPersonLabels($series);
 
       foreach ($this->effectiveOccurrences->project($series, $windowStart, $windowEnd) as $occurrence) {
         $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
@@ -289,6 +295,7 @@ final class UpcomingActivityService {
           'sort_start' => $occurrence->effectiveUtcStart,
           'activity_label' => $activityLabel,
           'location' => $location,
+          'concerned_person_labels' => $concernedPersonLabels,
           'effective_start' => (new DateTimeImmutable($occurrence->effectiveSourceLocalStart))->format('Y-m-d H:i'),
           'effective_end' => (new DateTimeImmutable($occurrence->effectiveSourceLocalEnd))->format('Y-m-d H:i'),
           'effective_start_iso' => $occurrence->effectiveSourceLocalStart,
@@ -318,6 +325,36 @@ final class UpcomingActivityService {
       },
       $sortable,
     );
+  }
+
+  /**
+   * @return string[]
+   */
+  private function concernedPersonLabels(ActivitySeries $series): array {
+    $field = $series->get('concerned_persons');
+    if ($field->isEmpty()) {
+      return [];
+    }
+
+    $values = $field->getValue();
+    $people = $field->referencedEntities();
+    if (count($people) !== count($values)) {
+      throw new RuntimeException('Concerned Person reference is not currently resolvable.');
+    }
+
+    $labels = [];
+    foreach ($values as $delta => $value) {
+      $person = $people[$delta] ?? NULL;
+      if (!$person instanceof Person || (int) $person->id() !== (int) ($value['target_id'] ?? 0)) {
+        throw new RuntimeException('Concerned Person reference does not match a current Person.');
+      }
+      $label = trim((string) $person->label());
+      if ($label === '') {
+        throw new RuntimeException('Concerned Person has no presentation label.');
+      }
+      $labels[] = $label;
+    }
+    return $labels;
   }
 
   private function requirePersistedPersonId(Person $person): int {
