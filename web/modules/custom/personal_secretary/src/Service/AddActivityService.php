@@ -37,6 +37,7 @@ final class AddActivityService {
     string $preparationInstruction = '',
     int $preparationLeadMinutes = 0,
     string $location = '',
+    array $concernedPersonIds = [],
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -48,6 +49,7 @@ final class AddActivityService {
         $localEnd,
         self::WEEKLY_RRULE,
         $location,
+        $concernedPersonIds,
       );
       $this->responsibilityMutations->createResponsibilityRule(
         $series,
@@ -85,6 +87,7 @@ final class AddActivityService {
     string $preparationInstruction = '',
     int $preparationLeadMinutes = 0,
     string $location = '',
+    array $concernedPersonIds = [],
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -96,6 +99,7 @@ final class AddActivityService {
         $localEnd,
         self::ONE_OFF_RRULE,
         $location,
+        $concernedPersonIds,
       );
 
       if ($responsiblePersonId !== NULL) {

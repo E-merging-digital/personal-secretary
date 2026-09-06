@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: activity-location
+  phase: concerned-persons
   purpose: >-
-    Add optional human-readable location metadata to ActivitySeries at creation
-    and present it through the existing Upcoming, My upcoming and Today surfaces.
+    Add optional explicit concerned Person references to ActivitySeries at creation
+    and present them without changing responsibility, Today or My upcoming filters.
 
 active_tasks:
-  - issue: 116
+  - issue: 118
     purpose: >-
-      Materialize optional trimmed ActivitySeries location for One-off and Weekly
-      creation, existing-install update 11004 and existing activity presentation.
+      Materialize revisionable optional ActivitySeries concerned Persons for One-off
+      and Weekly creation, existing-install update 11005 and activity presentation.
 
 historical_context:
   - issue: 58
@@ -118,10 +118,14 @@ historical_context:
     purpose: >-
       Terminal one-off activity delivery added One-off / Weekly creation through
       the existing Add activity flow using ActivitySeries and COUNT=1 projection.
+  - issue: 116
+    purpose: >-
+      Terminal optional activity location added creation-time ActivitySeries
+      location metadata and Upcoming, My upcoming and Today presentation.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after activity location is terminal; no subsequent
+      Project Lead reassessment after concerned Persons are terminal; no subsequent
       product slice is pre-authorized by this roadmap entry.
 
 deferred_decisions: []

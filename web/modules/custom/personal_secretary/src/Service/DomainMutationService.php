@@ -133,16 +133,23 @@ final class DomainMutationService {
     DateTimeImmutable $localEnd,
     string $rrule,
     string $location = '',
+    array $concernedPersonIds = [],
   ): ActivitySeries {
     $name = $this->requiredLabel($name, 'Activity series name');
     $location = $this->optionalLocation($location);
-    $this->requireHousehold($householdId);
+    $household = $this->requireHousehold($householdId);
+    $concernedPersonIds = $this->normalizeConcernedPersonIds($concernedPersonIds);
+    $this->assertConcernedPersonsInHousehold($household, $concernedPersonIds);
     $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
 
     /** @var \Drupal\personal_secretary\Entity\ActivitySeries $series */
     $series = $this->seriesStorage()->create([
       'name' => $name,
       'household' => $householdId,
+      'concerned_persons' => array_map(
+        static fn(int $id): array => ['target_id' => $id],
+        $concernedPersonIds,
+      ),
       'recurrence' => [$recurrence],
       'effective_from' => $this->toStorage($localStart),
       'location' => $location,
@@ -233,6 +240,54 @@ final class DomainMutationService {
       throw new InvalidArgumentException('ActivitySeries must reference an existing Household.');
     }
     return $household;
+  }
+
+  /**
+   * @param array<int, int|string> $concernedPersonIds
+   *
+   * @return int[]
+   */
+  private function normalizeConcernedPersonIds(array $concernedPersonIds): array {
+    $normalized = [];
+    foreach ($concernedPersonIds as $value) {
+      if (is_string($value) && ctype_digit($value)) {
+        $value = (int) $value;
+      }
+      if (!is_int($value) || $value <= 0) {
+        throw new InvalidArgumentException('Concerned Person IDs must be positive integers.');
+      }
+      $normalized[$value] = $value;
+    }
+
+    $normalized = array_values($normalized);
+    sort($normalized, SORT_NUMERIC);
+    return $normalized;
+  }
+
+  /**
+   * @param int[] $concernedPersonIds
+   */
+  private function assertConcernedPersonsInHousehold(Household $household, array $concernedPersonIds): void {
+    if ($concernedPersonIds === []) {
+      return;
+    }
+
+    $people = $this->entityTypeManager
+      ->getStorage('personal_secretary_person')
+      ->loadMultiple($concernedPersonIds);
+    if (count($people) !== count($concernedPersonIds)) {
+      throw new InvalidArgumentException('Every concerned Person must reference an existing Person.');
+    }
+
+    $memberIds = array_map(
+      static fn(array $item): int => (int) ($item['target_id'] ?? 0),
+      $household->get('members')->getValue(),
+    );
+    foreach ($concernedPersonIds as $personId) {
+      if (!in_array($personId, $memberIds, TRUE)) {
+        throw new InvalidArgumentException('Every concerned Person must belong to the selected Household.');
+      }
+    }
   }
 
   private function seriesStorage(): RevisionableStorageInterface {

@@ -197,6 +197,7 @@ final class TodayController extends ControllerBase {
           '#props' => [
             'activity_label' => $item['activity_label'],
             'location' => $item['location'],
+            'concerned_person_labels' => $item['concerned_person_labels'],
             'effective_start' => $item['effective_start'],
             'effective_end' => $item['effective_end'],
             'effective_start_iso' => $item['effective_start_iso'],
