@@ -7,6 +7,7 @@ namespace Drupal\personal_secretary\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\personal_secretary\Entity\ActivityException;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use InvalidArgumentException;
 
 /**
@@ -23,7 +24,11 @@ final class RescheduleOccurrenceService {
    * @return array{series: \Drupal\personal_secretary\Entity\ActivitySeries, occurrence: \Drupal\personal_secretary\Value\BaseOccurrence}
    */
   public function resolve(int $seriesId, string $originalOccurrenceKey): array {
-    return $this->targets->resolve($seriesId, $originalOccurrenceKey);
+    $resolved = $this->targets->resolve($seriesId, $originalOccurrenceKey);
+    if ($resolved['series']->timeMode() !== ActivitySeries::TIME_MODE_TIMED) {
+      throw new InvalidArgumentException('ALL_DAY occurrence rescheduling is deferred.');
+    }
+    return $resolved;
   }
 
   public function reschedule(
@@ -32,7 +37,7 @@ final class RescheduleOccurrenceService {
     DateTimeImmutable $newLocalStart,
     DateTimeImmutable $newLocalEnd,
   ): ActivityException {
-    $resolved = $this->targets->resolve($seriesId, $originalOccurrenceKey);
+    $resolved = $this->resolve($seriesId, $originalOccurrenceKey);
     $target = $resolved['occurrence'];
     if (
       $newLocalStart->getTimezone()->getName() !== $target->sourceTimezone

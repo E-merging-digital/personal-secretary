@@ -12,6 +12,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\AddActivityService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -84,6 +85,16 @@ final class AddActivityForm extends FormBase {
       '#default_value' => self::TYPE_WEEKLY,
       '#required' => TRUE,
     ];
+    $form['time_mode'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Time mode'),
+      '#options' => [
+        ActivitySeries::TIME_MODE_TIMED => $this->t('Horaire'),
+        ActivitySeries::TIME_MODE_ALL_DAY => $this->t('Toute la journée'),
+      ],
+      '#default_value' => ActivitySeries::TIME_MODE_TIMED,
+      '#required' => TRUE,
+    ];
     $form['responsible_person_id'] = [
       '#type' => 'select',
       '#title' => $this->t('Responsible Person'),
@@ -116,17 +127,34 @@ final class AddActivityForm extends FormBase {
       '#title' => $this->t('Activity date'),
       '#required' => TRUE,
     ];
+    $form['all_day_end_date'] = [
+      '#type' => 'date',
+      '#title' => $this->t('Date de fin (incluse)'),
+      '#description' => $this->t('Optional for all-day activities. Leave blank for one day.'),
+      '#required' => FALSE,
+      '#states' => [
+        'visible' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_ALL_DAY]],
+      ],
+    ];
     $form['start_local_time'] = [
       '#type' => 'date',
       '#title' => $this->t('Start time'),
       '#attributes' => ['type' => 'time'],
-      '#required' => TRUE,
+      '#required' => FALSE,
+      '#states' => [
+        'visible' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_TIMED]],
+        'required' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_TIMED]],
+      ],
     ];
     $form['end_local_time'] = [
       '#type' => 'date',
       '#title' => $this->t('End time'),
       '#attributes' => ['type' => 'time'],
-      '#required' => TRUE,
+      '#required' => FALSE,
+      '#states' => [
+        'visible' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_TIMED]],
+        'required' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_TIMED]],
+      ],
     ];
     $form['source_timezone'] = [
       '#type' => 'select',
@@ -168,6 +196,14 @@ final class AddActivityForm extends FormBase {
       $form_state->set('personal_secretary_activity_type', $activityType);
     }
 
+    $timeMode = trim((string) $form_state->getValue('time_mode'));
+    if (!ActivitySeries::supportsTimeMode($timeMode)) {
+      $form_state->setErrorByName('time_mode', $this->t('Select a valid time mode.'));
+    }
+    else {
+      $form_state->set('personal_secretary_time_mode', $timeMode);
+    }
+
     $responsiblePersonId = NULL;
     $responsiblePersonValue = trim((string) $form_state->getValue('responsible_person_id'));
     if ($responsiblePersonValue !== '') {
@@ -189,27 +225,52 @@ final class AddActivityForm extends FormBase {
       $form_state->setErrorByName('source_timezone', $this->t('Select a valid source timezone.'));
       return;
     }
-
-    $date = (string) $form_state->getValue('first_occurrence_date');
-    $startTime = (string) $form_state->getValue('start_local_time');
-    $endTime = (string) $form_state->getValue('end_local_time');
     $timezone = new DateTimeZone($timezoneName);
-    $localStart = $this->parseLocalDateTime($date, $startTime, $timezone);
-    $localEnd = $this->parseLocalDateTime($date, $endTime, $timezone);
+    $date = (string) $form_state->getValue('first_occurrence_date');
 
-    if (!$localStart instanceof DateTimeImmutable) {
-      $form_state->setErrorByName('start_local_time', $this->t('Enter a valid start date and time.'));
-    }
-    if (!$localEnd instanceof DateTimeImmutable) {
-      $form_state->setErrorByName('end_local_time', $this->t('Enter a valid end date and time.'));
-    }
-    if ($localStart instanceof DateTimeImmutable && $localEnd instanceof DateTimeImmutable) {
-      if ($localEnd <= $localStart) {
-        $form_state->setErrorByName('end_local_time', $this->t('End time must be after start time.'));
+    if ($timeMode === ActivitySeries::TIME_MODE_ALL_DAY) {
+      $localStart = $this->parseLocalDate($date, $timezone);
+      $inclusiveEndDate = trim((string) $form_state->getValue('all_day_end_date'));
+      if ($inclusiveEndDate === '') {
+        $inclusiveEndDate = $date;
       }
-      else {
-        $form_state->set('personal_secretary_local_start', $localStart);
-        $form_state->set('personal_secretary_local_end', $localEnd);
+      $inclusiveEnd = $this->parseLocalDate($inclusiveEndDate, $timezone);
+      if (!$localStart instanceof DateTimeImmutable) {
+        $form_state->setErrorByName('first_occurrence_date', $this->t('Enter a valid all-day start date.'));
+      }
+      if (!$inclusiveEnd instanceof DateTimeImmutable) {
+        $form_state->setErrorByName('all_day_end_date', $this->t('Enter a valid inclusive all-day end date.'));
+      }
+      if ($localStart instanceof DateTimeImmutable && $inclusiveEnd instanceof DateTimeImmutable) {
+        if ($inclusiveEnd < $localStart) {
+          $form_state->setErrorByName('all_day_end_date', $this->t('All-day end date must not precede the start date.'));
+        }
+        else {
+          $form_state->set('personal_secretary_local_start', $localStart);
+          $form_state->set('personal_secretary_local_end', $inclusiveEnd->modify('+1 day'));
+        }
+      }
+    }
+    elseif ($timeMode === ActivitySeries::TIME_MODE_TIMED) {
+      $startTime = (string) $form_state->getValue('start_local_time');
+      $endTime = (string) $form_state->getValue('end_local_time');
+      $localStart = $this->parseLocalDateTime($date, $startTime, $timezone);
+      $localEnd = $this->parseLocalDateTime($date, $endTime, $timezone);
+
+      if (!$localStart instanceof DateTimeImmutable) {
+        $form_state->setErrorByName('start_local_time', $this->t('Enter a valid start date and time.'));
+      }
+      if (!$localEnd instanceof DateTimeImmutable) {
+        $form_state->setErrorByName('end_local_time', $this->t('Enter a valid end date and time.'));
+      }
+      if ($localStart instanceof DateTimeImmutable && $localEnd instanceof DateTimeImmutable) {
+        if ($localEnd <= $localStart) {
+          $form_state->setErrorByName('end_local_time', $this->t('End time must be after start time.'));
+        }
+        else {
+          $form_state->set('personal_secretary_local_start', $localStart);
+          $form_state->set('personal_secretary_local_end', $localEnd);
+        }
       }
     }
 
@@ -242,6 +303,10 @@ final class AddActivityForm extends FormBase {
     }
 
     $activityType = $form_state->get('personal_secretary_activity_type');
+    $timeMode = $form_state->get('personal_secretary_time_mode');
+    if (!is_string($timeMode) || !ActivitySeries::supportsTimeMode($timeMode)) {
+      throw new \LogicException('Validated activity time mode is unavailable.');
+    }
     $responsiblePersonId = $form_state->get('personal_secretary_responsible_person_id');
     $location = (string) $form_state->getValue('location');
     $concernedPersonIds = $this->selectedConcernedPersonIds($form_state);
@@ -261,6 +326,7 @@ final class AddActivityForm extends FormBase {
           (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
           $location,
           $concernedPersonIds,
+          $timeMode,
         );
       }
       elseif ($activityType === self::TYPE_ONE_OFF) {
@@ -274,6 +340,7 @@ final class AddActivityForm extends FormBase {
           (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
           $location,
           $concernedPersonIds,
+          $timeMode,
         );
       }
       else {
@@ -313,6 +380,14 @@ final class AddActivityForm extends FormBase {
       $selected[] = $value;
     }
     return $selected;
+  }
+
+  private function parseLocalDate(string $date, DateTimeZone $timezone): ?DateTimeImmutable {
+    $value = DateTimeImmutable::createFromFormat('!Y-m-d', $date, $timezone);
+    if (!$value instanceof DateTimeImmutable) {
+      return NULL;
+    }
+    return $value->format('Y-m-d') === $date ? $value : NULL;
   }
 
   private function parseLocalDateTime(

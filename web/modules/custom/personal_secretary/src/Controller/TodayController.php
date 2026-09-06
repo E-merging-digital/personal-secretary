@@ -198,11 +198,15 @@ final class TodayController extends ControllerBase {
             'activity_label' => $item['activity_label'],
             'location' => $item['location'],
             'concerned_person_labels' => $item['concerned_person_labels'],
+            'all_day' => $item['all_day'],
+            'all_day_start_date' => $item['all_day_start_date'],
+            'all_day_end_date' => $item['all_day_end_date'],
             'effective_start' => $item['effective_start'],
             'effective_end' => $item['effective_end'],
             'effective_start_iso' => $item['effective_start_iso'],
             'effective_end_iso' => $item['effective_end_iso'],
             'display_timezone' => $item['display_timezone'],
+            'source_timezone' => $item['source_timezone'],
           ],
         ];
       }

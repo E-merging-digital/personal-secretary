@@ -36,6 +36,9 @@ final class UpcomingActivityService {
    *   activity_label: string,
    *   location: string,
    *   concerned_person_labels: string[],
+   *   all_day: bool,
+   *   all_day_start_date: string,
+   *   all_day_end_date: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -64,6 +67,9 @@ final class UpcomingActivityService {
    *   activity_label: string,
    *   location: string,
    *   concerned_person_labels: string[],
+   *   all_day: bool,
+   *   all_day_start_date: string,
+   *   all_day_end_date: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -98,6 +104,9 @@ final class UpcomingActivityService {
    *   activity_label: string,
    *   location: string,
    *   concerned_person_labels: string[],
+   *   all_day: bool,
+   *   all_day_start_date: string,
+   *   all_day_end_date: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -134,6 +143,9 @@ final class UpcomingActivityService {
    *   activity_label: string,
    *   location: string,
    *   concerned_person_labels: string[],
+   *   all_day: bool,
+   *   all_day_start_date: string,
+   *   all_day_end_date: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -175,6 +187,9 @@ final class UpcomingActivityService {
    *   activity_label: string,
    *   location: string,
    *   concerned_person_labels: string[],
+   *   all_day: bool,
+   *   all_day_start_date: string,
+   *   all_day_end_date: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -240,6 +255,7 @@ final class UpcomingActivityService {
       }
       $location = trim((string) ($series->get('location')->value ?? ''));
       $concernedPersonLabels = $this->concernedPersonLabels($series);
+      $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
       foreach ($this->effectiveOccurrences->project($series, $windowStart, $windowEnd) as $occurrence) {
         $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
@@ -290,12 +306,18 @@ final class UpcomingActivityService {
           'series_id' => (int) $seriesId,
           'original_occurrence_key' => $occurrence->originalOccurrenceKey,
         ];
+        [$allDayStartDate, $allDayEndDate] = $allDay
+          ? $this->allDayDates($occurrence->effectiveSourceLocalStart, $occurrence->effectiveSourceLocalEnd)
+          : ['', ''];
 
         $sortable[] = [
           'sort_start' => $occurrence->effectiveUtcStart,
           'activity_label' => $activityLabel,
           'location' => $location,
           'concerned_person_labels' => $concernedPersonLabels,
+          'all_day' => $allDay,
+          'all_day_start_date' => $allDayStartDate,
+          'all_day_end_date' => $allDayEndDate,
           'effective_start' => (new DateTimeImmutable($occurrence->effectiveSourceLocalStart))->format('Y-m-d H:i'),
           'effective_end' => (new DateTimeImmutable($occurrence->effectiveSourceLocalEnd))->format('Y-m-d H:i'),
           'effective_start_iso' => $occurrence->effectiveSourceLocalStart,
@@ -325,6 +347,18 @@ final class UpcomingActivityService {
       },
       $sortable,
     );
+  }
+
+  /**
+   * @return array{0:string,1:string}
+   */
+  private function allDayDates(string $sourceLocalStart, string $sourceLocalEnd): array {
+    $start = new DateTimeImmutable($sourceLocalStart);
+    $end = new DateTimeImmutable($sourceLocalEnd);
+    if ($start->format('H:i:s') !== '00:00:00' || $end->format('H:i:s') !== '00:00:00' || $end <= $start) {
+      throw new RuntimeException('ALL_DAY presentation requires positive source-local midnight boundaries.');
+    }
+    return [$start->format('Y-m-d'), $end->modify('-1 day')->format('Y-m-d')];
   }
 
   /**
