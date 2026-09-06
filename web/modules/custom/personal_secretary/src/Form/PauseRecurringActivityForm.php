@@ -20,8 +20,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class PauseRecurringActivityForm extends FormBase {
 
   public function __construct(
-    private readonly PauseRecurringActivityService $pause,
-    private readonly RouteMatchInterface $pauseRouteMatch,
+    protected readonly PauseRecurringActivityService $pause,
+    protected readonly RouteMatchInterface $pauseRouteMatch,
   ) {}
 
   public static function create(ContainerInterface $container): static {
