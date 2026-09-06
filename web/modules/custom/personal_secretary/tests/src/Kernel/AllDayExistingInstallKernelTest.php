@@ -34,6 +34,7 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
       'personal_secretary_person',
       'personal_secretary_household',
       'personal_sec_activity_series',
+      'personal_sec_activity_exception',
     ] as $entityTypeId) {
       $this->installEntitySchema($entityTypeId);
     }
