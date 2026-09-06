@@ -9,6 +9,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
+use Drupal\personal_secretary\Service\PauseRecurringActivityService;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -23,6 +24,7 @@ final class UpcomingController extends ControllerBase {
     private readonly EntityTypeManagerInterface $domainEntityTypeManager,
     private readonly CurrentPersonResolver $currentPersonResolver,
     private readonly HouseholdAuthorizationService $householdAuthorization,
+    private readonly PauseRecurringActivityService $pauseRecurringActivity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -31,6 +33,7 @@ final class UpcomingController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('personal_secretary.current_person'),
       $container->get('personal_secretary.household_authorization'),
+      $container->get('personal_secretary.pause_recurring_activity'),
     );
   }
 
@@ -190,6 +193,16 @@ final class UpcomingController extends ControllerBase {
           ['series' => $scheduleTarget['series_id']],
         ),
       ];
+      if ($this->pauseRecurringActivity->canPause((int) $scheduleTarget['series_id'])) {
+        $build[$delta]['pause'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Pause recurring activity'),
+          '#url' => Url::fromRoute(
+            'personal_secretary.pause_recurring_activity',
+            ['series' => $scheduleTarget['series_id']],
+          ),
+        ];
+      }
 
       $responsibilityRouteParameters = [
         'series' => $responsibilityTarget['series_id'],
