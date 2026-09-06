@@ -114,7 +114,7 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     $this->assertSame($seriesId, (int) $persisted->id());
     $this->assertSame($seriesUuid, $persisted->uuid());
     $this->assertSame($latestRevisionId, (int) $persisted->getRevisionId());
-    $this->assertSame($latestRecurrence, $persisted->get('recurrence')->getValue());
+    $this->assertEquals($latestRecurrence, $persisted->get('recurrence')->getValue());
     $this->assertSame($latestEffectiveFrom, (string) $persisted->get('effective_from')->value);
     $this->assertSame($originalLocation, (string) $persisted->get('location')->value);
     $this->assertSame($latestConcerned, $persisted->get('concerned_persons')->getValue());
@@ -126,7 +126,7 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     $this->assertSame($seriesId, (int) $historical->id());
     $this->assertSame($seriesUuid, $historical->uuid());
     $this->assertSame($originalRevisionId, (int) $historical->getRevisionId());
-    $this->assertSame($originalRecurrence, $historical->get('recurrence')->getValue());
+    $this->assertEquals($originalRecurrence, $historical->get('recurrence')->getValue());
     $this->assertSame($originalEffectiveFrom, (string) $historical->get('effective_from')->value);
     $this->assertSame($originalLocation, (string) $historical->get('location')->value);
     $this->assertSame($originalConcerned, $historical->get('concerned_persons')->getValue());
