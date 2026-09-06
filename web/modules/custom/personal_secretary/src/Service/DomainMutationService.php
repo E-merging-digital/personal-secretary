@@ -134,12 +134,17 @@ final class DomainMutationService {
     string $rrule,
     string $location = '',
     array $concernedPersonIds = [],
+    string $timeMode = ActivitySeries::TIME_MODE_TIMED,
   ): ActivitySeries {
     $name = $this->requiredLabel($name, 'Activity series name');
     $location = $this->optionalLocation($location);
+    $timeMode = $this->timeMode($timeMode);
     $household = $this->requireHousehold($householdId);
     $concernedPersonIds = $this->normalizeConcernedPersonIds($concernedPersonIds);
     $this->assertConcernedPersonsInHousehold($household, $concernedPersonIds);
+    if ($timeMode === ActivitySeries::TIME_MODE_ALL_DAY) {
+      $this->assertAllDayBoundaries($localStart, $localEnd);
+    }
     $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
 
     /** @var \Drupal\personal_secretary\Entity\ActivitySeries $series */
@@ -153,6 +158,7 @@ final class DomainMutationService {
       'recurrence' => [$recurrence],
       'effective_from' => $this->toStorage($localStart),
       'location' => $location,
+      'time_mode' => $timeMode,
     ]);
     $series->save();
     return $series;
@@ -182,6 +188,9 @@ final class DomainMutationService {
     }
 
     $this->requireHousehold((int) $series->get('household')->target_id);
+    if ($series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY) {
+      $this->assertAllDayBoundaries($localStart, $localEnd);
+    }
     $recurrence = $this->recurrenceValue($localStart, $localEnd, $rrule);
 
     $transaction = $this->database->startTransaction();
@@ -287,6 +296,23 @@ final class DomainMutationService {
       if (!in_array($personId, $memberIds, TRUE)) {
         throw new InvalidArgumentException('Every concerned Person must belong to the selected Household.');
       }
+    }
+  }
+
+  private function timeMode(string $timeMode): string {
+    $timeMode = trim($timeMode);
+    if (!ActivitySeries::supportsTimeMode($timeMode)) {
+      throw new InvalidArgumentException('Activity time mode must be TIMED or ALL_DAY.');
+    }
+    return $timeMode;
+  }
+
+  private function assertAllDayBoundaries(DateTimeImmutable $localStart, DateTimeImmutable $localEnd): void {
+    if (
+      $localStart->format('H:i:s') !== '00:00:00'
+      || $localEnd->format('H:i:s') !== '00:00:00'
+    ) {
+      throw new InvalidArgumentException('ALL_DAY ActivitySeries boundaries must be source-local midnights.');
     }
   }
 

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -42,6 +43,9 @@ final class EditRecurringScheduleService {
    */
   public function context(int $seriesId): array {
     $resolved = $this->currentResponsibility->resolve($seriesId);
+    if ($resolved['series']->timeMode() !== ActivitySeries::TIME_MODE_TIMED) {
+      throw new InvalidArgumentException('ALL_DAY recurring schedule editing is deferred.');
+    }
     $sourceTimezone = new DateTimeZone($resolved['source_timezone']);
     $latestEffectiveFrom = $this->fromStorage((string) $resolved['series']->get('effective_from')->value);
 

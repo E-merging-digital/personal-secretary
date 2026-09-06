@@ -116,9 +116,9 @@ final class EffectiveOccurrenceProjectionService {
   /**
    * Projects effective occurrences whose effective ranges overlap a UTC window.
    *
-   * The recurrence lookback is derived from the maximum persisted date_recur
-   * duration across the series revision timeline. It is therefore bounded by
-   * domain state rather than a fixed one-day assumption.
+   * The recurrence lookback is bounded by persisted domain state. TIMED series
+   * retain the existing elapsed-duration probe. ALL_DAY revisions additionally
+   * contribute their civil-day span so DST cannot shorten the discovery window.
    *
    * @return \Drupal\personal_secretary\Value\EffectiveOccurrence[]
    */
@@ -139,6 +139,15 @@ final class EffectiveOccurrenceProjectionService {
 
     $lookbackSeconds = $this->maximumPersistedDurationSeconds($series);
     $baseWindowStart = $windowStart->modify(sprintf('-%d seconds', $lookbackSeconds));
+    $allDayCivilSpan = $this->maximumAllDayCivilDaySpan($series);
+    if ($allDayCivilSpan > 0) {
+      // This is only a bounded recurrence discovery probe. Occurrence ends are
+      // still derived exclusively from source-local civil-day semantics.
+      $civilProbeStart = $windowStart->modify(sprintf('-%d days', $allDayCivilSpan + 1));
+      if ($civilProbeStart < $baseWindowStart) {
+        $baseWindowStart = $civilProbeStart;
+      }
+    }
 
     $exceptions = $this->activityExceptions->activeForSeries($series);
     $byTarget = [];
@@ -319,6 +328,17 @@ final class EffectiveOccurrenceProjectionService {
 
     if ($maximum <= 0) {
       throw new RuntimeException('ActivitySeries overlap projection requires a persisted recurrence duration.');
+    }
+    return $maximum;
+  }
+
+  private function maximumAllDayCivilDaySpan(ActivitySeries $series): int {
+    $maximum = 0;
+    foreach ($this->revisionTimeline->timeline($series) as $interval) {
+      $revision = $interval['revision'];
+      if ($revision->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY) {
+        $maximum = max($maximum, $revision->allDayCivilDaySpan());
+      }
     }
     return $maximum;
   }

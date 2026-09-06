@@ -147,6 +147,7 @@ final class UpcomingController extends ControllerBase {
       $scheduleTarget = $item['schedule_target'];
       $responsibilityTarget = $item['responsibility_target'];
       $actionTarget = $item['cancel_target'];
+      $allDay = (bool) ($item['all_day'] ?? FALSE);
       unset($item['schedule_target'], $item['responsibility_target'], $item['cancel_target']);
 
       if ($item['responsibility_label'] === '') {
@@ -163,14 +164,16 @@ final class UpcomingController extends ControllerBase {
         continue;
       }
 
-      $build[$delta]['schedule'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Change recurring schedule'),
-        '#url' => Url::fromRoute(
-          'personal_secretary.edit_recurring_schedule',
-          ['series' => $scheduleTarget['series_id']],
-        ),
-      ];
+      if (!$allDay) {
+        $build[$delta]['schedule'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Change recurring schedule'),
+          '#url' => Url::fromRoute(
+            'personal_secretary.edit_recurring_schedule',
+            ['series' => $scheduleTarget['series_id']],
+          ),
+        ];
+      }
       $build[$delta]['recurring_responsibility'] = [
         '#type' => 'link',
         '#title' => $this->t('Change recurring responsibility'),
@@ -206,14 +209,16 @@ final class UpcomingController extends ControllerBase {
           'series' => $actionTarget['series_id'],
           'original_occurrence_key' => $actionTarget['original_occurrence_key'],
         ];
-        $build[$delta]['reschedule'] = [
-          '#type' => 'link',
-          '#title' => $this->t('Reschedule occurrence'),
-          '#url' => Url::fromRoute(
-            'personal_secretary.reschedule_occurrence',
-            $routeParameters,
-          ),
-        ];
+        if (!$allDay) {
+          $build[$delta]['reschedule'] = [
+            '#type' => 'link',
+            '#title' => $this->t('Reschedule occurrence'),
+            '#url' => Url::fromRoute(
+              'personal_secretary.reschedule_occurrence',
+              $routeParameters,
+            ),
+          ];
+        }
         $build[$delta]['cancel'] = [
           '#type' => 'link',
           '#title' => $this->t('Cancel occurrence'),

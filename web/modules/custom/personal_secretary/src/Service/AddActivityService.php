@@ -38,6 +38,7 @@ final class AddActivityService {
     int $preparationLeadMinutes = 0,
     string $location = '',
     array $concernedPersonIds = [],
+    string $timeMode = ActivitySeries::TIME_MODE_TIMED,
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -50,6 +51,7 @@ final class AddActivityService {
         self::WEEKLY_RRULE,
         $location,
         $concernedPersonIds,
+        $timeMode,
       );
       $this->responsibilityMutations->createResponsibilityRule(
         $series,
@@ -88,6 +90,7 @@ final class AddActivityService {
     int $preparationLeadMinutes = 0,
     string $location = '',
     array $concernedPersonIds = [],
+    string $timeMode = ActivitySeries::TIME_MODE_TIMED,
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -100,6 +103,7 @@ final class AddActivityService {
         self::ONE_OFF_RRULE,
         $location,
         $concernedPersonIds,
+        $timeMode,
       );
 
       if ($responsiblePersonId !== NULL) {

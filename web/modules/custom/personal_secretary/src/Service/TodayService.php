@@ -168,6 +168,7 @@ final class TodayService {
       if (!in_array($householdId, $authorizedHouseholdIds, TRUE)) {
         throw new RuntimeException('Today activity read crossed its authorized Household boundary.');
       }
+      $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
       foreach ($this->effectiveOccurrences->projectOverlapping($series, $todayStartUtc, $todayEndUtc) as $occurrence) {
         $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
@@ -193,6 +194,9 @@ final class TodayService {
         if ($label === '') {
           throw new RuntimeException('Today ActivitySeries has no presentation label.');
         }
+        [$allDayStartDate, $allDayEndDate] = $allDay
+          ? $this->allDayDates($occurrence->effectiveSourceLocalStart, $occurrence->effectiveSourceLocalEnd)
+          : ['', ''];
 
         $items[] = [
           'sort_start' => $effectiveStartUtc->format(DateTimeInterface::ATOM),
@@ -201,6 +205,9 @@ final class TodayService {
           'activity_label' => $label,
           'location' => trim((string) ($series->get('location')->value ?? '')),
           'concerned_person_labels' => $this->concernedPersonLabels($series),
+          'all_day' => $allDay,
+          'all_day_start_date' => $allDayStartDate,
+          'all_day_end_date' => $allDayEndDate,
           'effective_start' => $startLocal->format('Y-m-d H:i'),
           'effective_end' => $endLocal->format('Y-m-d H:i'),
           'effective_start_iso' => $startLocal->format(DateTimeInterface::ATOM),
@@ -226,6 +233,18 @@ final class TodayService {
       },
       $items,
     );
+  }
+
+  /**
+   * @return array{0:string,1:string}
+   */
+  private function allDayDates(string $sourceLocalStart, string $sourceLocalEnd): array {
+    $start = new DateTimeImmutable($sourceLocalStart);
+    $end = new DateTimeImmutable($sourceLocalEnd);
+    if ($start->format('H:i:s') !== '00:00:00' || $end->format('H:i:s') !== '00:00:00' || $end <= $start) {
+      throw new RuntimeException('ALL_DAY Today presentation requires positive source-local midnight boundaries.');
+    }
+    return [$start->format('Y-m-d'), $end->modify('-1 day')->format('Y-m-d')];
   }
 
   /**

@@ -4,10 +4,21 @@
     <div>
       <dt>{{ 'When'|t }}</dt>
       <dd>
-        <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
-        –
-        <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
-        ({{ display_timezone }})
+        {% if all_day %}
+          {{ 'Toute la journée'|t }} —
+          {% if all_day_start_date == all_day_end_date %}
+            <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
+          {% else %}
+            {{ 'du'|t }} <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
+            {{ 'au'|t }} <time datetime="{{ all_day_end_date }}">{{ all_day_end_date }}</time>
+          {% endif %}
+          ({{ source_timezone }})
+        {% else %}
+          <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
+          –
+          <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
+          ({{ display_timezone }})
+        {% endif %}
       </dd>
     </div>
     {% if location %}

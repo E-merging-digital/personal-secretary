@@ -5,11 +5,15 @@ props:
   type: object
   required:
     - activity_label
+    - all_day
+    - all_day_start_date
+    - all_day_end_date
     - effective_start
     - effective_end
     - effective_start_iso
     - effective_end_iso
     - display_timezone
+    - source_timezone
   properties:
     activity_label:
       type: string
@@ -22,6 +26,15 @@ props:
       title: Concerned Person labels
       items:
         type: string
+    all_day:
+      type: boolean
+      title: Whether the activity uses all-day civil-date semantics
+    all_day_start_date:
+      type: string
+      title: Source-local all-day start date
+    all_day_end_date:
+      type: string
+      title: Source-local inclusive all-day end date
     effective_start:
       type: string
       title: Viewer-local effective start display
@@ -37,3 +50,6 @@ props:
     display_timezone:
       type: string
       title: Current User display timezone
+    source_timezone:
+      type: string
+      title: Activity source timezone

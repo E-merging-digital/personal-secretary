@@ -63,14 +63,31 @@ final class OccurrenceProjectionService {
     $sourceTimezone = new DateTimeZone($timezoneName);
     $helper = $item->getHelper();
     $occurrences = $helper->getOccurrences($windowStart, $windowEnd, $limit);
+    $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
+    $civilDaySpan = $allDay ? $series->allDayCivilDaySpan() : NULL;
 
     $utc = new DateTimeZone('UTC');
     $seriesUuid = $series->uuid();
     $projected = [];
 
     foreach ($occurrences as $occurrence) {
+      // Date Recur remains the sole authority for every occurrence start.
       $start = DateTimeImmutable::createFromInterface($occurrence->getStart());
-      $end = DateTimeImmutable::createFromInterface($occurrence->getEnd());
+      $sourceLocalStart = $start->setTimezone($sourceTimezone);
+      if ($allDay) {
+        if ($sourceLocalStart->format('H:i:s') !== '00:00:00' || $civilDaySpan === NULL) {
+          throw new RuntimeException('Generated ALL_DAY occurrence start must be a source-local midnight.');
+        }
+        // Preserve the canonical civil-day span across DST. This is calendar
+        // arithmetic in the source timezone, never fixed elapsed-duration math.
+        $sourceLocalEnd = $sourceLocalStart->modify(sprintf('+%d days', $civilDaySpan));
+        $end = $sourceLocalEnd;
+      }
+      else {
+        $end = DateTimeImmutable::createFromInterface($occurrence->getEnd());
+        $sourceLocalEnd = $end->setTimezone($sourceTimezone);
+      }
+
       $utcStart = $start->setTimezone($utc);
       $utcEnd = $end->setTimezone($utc);
 
@@ -80,8 +97,8 @@ final class OccurrenceProjectionService {
         originalOccurrenceKey: $utcStart->format('Y-m-d\\TH:i:s\\Z'),
         utcStart: $utcStart->format(DateTimeInterface::ATOM),
         utcEnd: $utcEnd->format(DateTimeInterface::ATOM),
-        sourceLocalStart: $start->setTimezone($sourceTimezone)->format(DateTimeInterface::ATOM),
-        sourceLocalEnd: $end->setTimezone($sourceTimezone)->format(DateTimeInterface::ATOM),
+        sourceLocalStart: $sourceLocalStart->format(DateTimeInterface::ATOM),
+        sourceLocalEnd: $sourceLocalEnd->format(DateTimeInterface::ATOM),
         sourceTimezone: $sourceTimezone->getName(),
       );
     }
