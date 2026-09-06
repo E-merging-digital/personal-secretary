@@ -98,10 +98,16 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     $this->assertSession()->buttonExists('Confirm pause');
 
     $this->submitForm([], 'Confirm pause');
-    $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->pageTextContains('Pause applied');
-    $this->assertSession()->pageTextNotContains('Synthetic recurring pause UI');
-    $this->assertSession()->pageTextContains('Synthetic one-off pause UI');
+
+    $errorLogPath = $this->siteDirectory . '/error.log';
+    $errorLog = is_readable($errorLogPath) ? file_get_contents($errorLogPath) : FALSE;
+    $diagnostic = sprintf(
+      "Confirm pause diagnostic:\nURL: %s\nHTTP: %d\nResponse:\n%s\nError log:\n%s",
+      $this->getSession()->getCurrentUrl(),
+      $this->getSession()->getStatusCode(),
+      $this->getSession()->getPage()->getContent(),
+      is_string($errorLog) ? $errorLog : '[not readable]',
+    );
 
     $exceptionStorage = $entityTypeManager->getStorage('personal_sec_activity_exception');
     $created = $exceptionStorage->loadByProperties([
@@ -109,12 +115,18 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
       'action' => ActivityException::ACTION_CANCEL,
       'status' => ActivityException::STATUS_ACTIVE,
     ]);
-    $this->assertCount(1, $created);
+    $this->assertCount(1, $created, $diagnostic);
     $exception = reset($created);
     $this->assertInstanceOf(ActivityException::class, $exception);
     $this->assertSame($targetKey, (string) $exception->get('original_occurrence_key')->value);
     $this->assertSame((string) $recurring->getRevisionId(), (string) $exception->get('target_revision_id')->value);
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, $recurring->timeMode());
+
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame(200, $this->getSession()->getStatusCode(), $diagnostic);
+    $this->assertSession()->pageTextContains('Pause applied');
+    $this->assertSession()->pageTextNotContains('Synthetic recurring pause UI');
+    $this->assertSession()->pageTextContains('Synthetic one-off pause UI');
 
     $remaining = $effective->project(
       $recurring,
