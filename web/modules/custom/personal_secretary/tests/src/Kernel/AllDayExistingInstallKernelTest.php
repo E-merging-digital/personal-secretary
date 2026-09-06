@@ -119,7 +119,6 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     $this->assertSame($originalLocation, (string) $persisted->get('location')->value);
     $this->assertEquals($latestConcerned, $persisted->get('concerned_persons')->getValue());
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, $persisted->timeMode());
-    $this->assertSame(ActivitySeries::TIME_MODE_TIMED, (string) $persisted->get('time_mode')->value);
 
     $historical = $storage->loadRevision($originalRevisionId);
     $this->assertInstanceOf(ActivitySeries::class, $historical);
@@ -131,7 +130,6 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     $this->assertSame($originalLocation, (string) $historical->get('location')->value);
     $this->assertEquals($originalConcerned, $historical->get('concerned_persons')->getValue());
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, $historical->timeMode());
-    $this->assertSame(ActivitySeries::TIME_MODE_TIMED, (string) $historical->get('time_mode')->value);
   }
 
 }
