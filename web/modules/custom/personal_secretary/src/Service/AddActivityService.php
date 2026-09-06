@@ -36,6 +36,7 @@ final class AddActivityService {
     DateTimeImmutable $localEnd,
     string $preparationInstruction = '',
     int $preparationLeadMinutes = 0,
+    string $location = '',
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -46,6 +47,7 @@ final class AddActivityService {
         $localStart,
         $localEnd,
         self::WEEKLY_RRULE,
+        $location,
       );
       $this->responsibilityMutations->createResponsibilityRule(
         $series,
@@ -82,6 +84,7 @@ final class AddActivityService {
     DateTimeImmutable $localEnd,
     string $preparationInstruction = '',
     int $preparationLeadMinutes = 0,
+    string $location = '',
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -92,6 +95,7 @@ final class AddActivityService {
         $localStart,
         $localEnd,
         self::ONE_OFF_RRULE,
+        $location,
       );
 
       if ($responsiblePersonId !== NULL) {

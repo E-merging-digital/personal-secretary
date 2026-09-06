@@ -16,6 +16,9 @@ props:
     activity_label:
       type: string
       title: Activity label
+    location:
+      type: string
+      title: Optional activity location
     effective_start:
       type: string
       title: Effective local start display

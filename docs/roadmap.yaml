@@ -4,18 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: one-off-activity
+  phase: activity-location
   purpose: >-
-    Add one-off activities to the existing Add activity flow by reusing
-    ActivitySeries with exactly one calculated occurrence and the existing
-    responsibility, preparation and effective-occurrence pipelines.
+    Add optional human-readable location metadata to ActivitySeries at creation
+    and present it through the existing Upcoming, My upcoming and Today surfaces.
 
 active_tasks:
-  - issue: 114
+  - issue: 116
     purpose: >-
-      Materialize One-off / Weekly choice in Add activity while preserving the
-      existing weekly path and using exact-occurrence responsibility only when
-      a responsible Person is selected for a one-off activity.
+      Materialize optional trimmed ActivitySeries location for One-off and Weekly
+      creation, existing-install update 11004 and existing activity presentation.
 
 historical_context:
   - issue: 58
@@ -116,10 +114,14 @@ historical_context:
     purpose: >-
       Terminal delivery-governance update established durable DoD-first,
       minimum-necessary and no-proof-for-proof-sake discipline.
+  - issue: 114
+    purpose: >-
+      Terminal one-off activity delivery added One-off / Weekly creation through
+      the existing Add activity flow using ActivitySeries and COUNT=1 projection.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after one-off activity is terminal; no subsequent
+      Project Lead reassessment after activity location is terminal; no subsequent
       product slice is pre-authorized by this roadmap entry.
 
 deferred_decisions: []

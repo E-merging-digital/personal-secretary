@@ -63,6 +63,12 @@ final class ActivitySeries extends ContentEntityBase {
       ->setRevisionable(TRUE)
       ->setSetting('datetime_type', 'datetime');
 
+    $fields['location'] = BaseFieldDefinition::create('string')
+      ->setLabel(new TranslatableMarkup('Location'))
+      ->setRequired(FALSE)
+      ->setRevisionable(FALSE)
+      ->setSetting('max_length', 255);
+
     return $fields;
   }
 

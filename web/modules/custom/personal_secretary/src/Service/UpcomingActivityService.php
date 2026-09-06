@@ -34,6 +34,7 @@ final class UpcomingActivityService {
    *
    * @return array<int, array{
    *   activity_label: string,
+   *   location: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -60,6 +61,7 @@ final class UpcomingActivityService {
    *
    * @return array<int, array{
    *   activity_label: string,
+   *   location: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -92,6 +94,7 @@ final class UpcomingActivityService {
    *
    * @return array<int, array{
    *   activity_label: string,
+   *   location: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -126,6 +129,7 @@ final class UpcomingActivityService {
    *
    * @return array<int, array{
    *   activity_label: string,
+   *   location: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -165,6 +169,7 @@ final class UpcomingActivityService {
    *
    * @return array<int, array{
    *   activity_label: string,
+   *   location: string,
    *   effective_start: string,
    *   effective_end: string,
    *   effective_start_iso: string,
@@ -228,6 +233,7 @@ final class UpcomingActivityService {
       if ($activityLabel === '') {
         throw new RuntimeException('Upcoming ActivitySeries has no presentation label.');
       }
+      $location = trim((string) ($series->get('location')->value ?? ''));
 
       foreach ($this->effectiveOccurrences->project($series, $windowStart, $windowEnd) as $occurrence) {
         $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
@@ -282,6 +288,7 @@ final class UpcomingActivityService {
         $sortable[] = [
           'sort_start' => $occurrence->effectiveUtcStart,
           'activity_label' => $activityLabel,
+          'location' => $location,
           'effective_start' => (new DateTimeImmutable($occurrence->effectiveSourceLocalStart))->format('Y-m-d H:i'),
           'effective_end' => (new DateTimeImmutable($occurrence->effectiveSourceLocalEnd))->format('Y-m-d H:i'),
           'effective_start_iso' => $occurrence->effectiveSourceLocalStart,
