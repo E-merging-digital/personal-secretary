@@ -106,7 +106,7 @@ final class PauseRecurringActivityForm extends FormBase {
     $form_state->setRebuild(TRUE);
   }
 
-  public function confirmSubmit(array &$form, FormStateInterface $form_state): void {
+  public function submitForm(array &$form, FormStateInterface $form_state): void {
     $startDate = (string) $form_state->get('pause_start_date');
     $endDate = (string) $form_state->get('pause_end_date');
 
@@ -183,7 +183,7 @@ final class PauseRecurringActivityForm extends FormBase {
         '#type' => 'submit',
         '#value' => $this->t('Confirm pause'),
         '#button_type' => 'primary',
-        '#submit' => ['::confirmSubmit'],
+        '#submit' => ['::submitForm'],
       ];
     }
     $form['actions']['change'] = [
