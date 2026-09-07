@@ -1,0 +1,19 @@
+uuid: 4a3eea2e-2e1c-4e52-b262-579ca2b62017
+langcode: en
+status: true
+dependencies:
+  module:
+    - personal_secretary
+    - user
+id: user.field_personal_sec_prep_reminder
+field_name: field_personal_sec_prep_reminder
+entity_type: user
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: false
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

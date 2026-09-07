@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: bounded-pause
+  phase: proactive-preparation-reminders
   purpose: >-
-    Add a finite source-local pause operation for recurring TIMED and ALL_DAY
-    activities by reusing ordinary exact ActivityException CANCEL rows.
+    Materialize the first proactive preparation reminder with bounded Core cron,
+    Core Queue and local/synthetic Core Mail only, without real external egress.
 
 active_tasks:
-  - issue: 122
+  - issue: 124
     purpose: >-
-      Materialize bounded inclusive local-date pause preview and atomic exact
-      cancellation while preserving Date Recur as the sole recurrence authority.
+      Materialize opt-in preparation reminder candidates and sparse conservative
+      delivery state while preserving preparation truth and current-user surfaces.
 
 historical_context:
   - issue: 58
@@ -130,10 +130,14 @@ historical_context:
     purpose: >-
       Terminal all-day activity delivery added explicit TIMED/ALL_DAY semantics,
       civil-day spans and DST-safe effective occurrence presentation.
+  - issue: 122
+    purpose: >-
+      Terminal bounded pause reused exact ActivityException CANCEL rows for finite
+      recurring TIMED and ALL_DAY pause ranges.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after bounded pause is terminal; no subsequent
-      product slice is pre-authorized by this roadmap entry.
+      Project Lead reassessment after proactive preparation reminders; likely real
+      SMTP transport proof/enablement or AI quick capture depending live gates.
 
 deferred_decisions: []

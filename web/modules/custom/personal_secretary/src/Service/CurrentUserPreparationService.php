@@ -12,6 +12,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Entity\PreparationRequirement;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use Drupal\user\UserInterface;
 use InvalidArgumentException;
@@ -37,42 +38,44 @@ final class CurrentUserPreparationService {
     private readonly ConfigFactoryInterface $configFactory,
   ) {}
 
-  /**
-   * Returns active overdue preparations plus preparations due in the next 7 days.
-   *
-   * @return array{
-   *   timezone:string,
-   *   due_window_start:string,
-   *   due_window_end:string,
-   *   max_lead_time_seconds:int,
-   *   occurrence_projection_end:string,
-   *   items:array<int, array<string, mixed>>
-   * }
-   */
   public function mine(?DateTimeImmutable $nowUtc = NULL): array {
-    $nowUtc = $nowUtc === NULL ? $this->nowUtc() : $this->utc($nowUtc);
-    $windowEnd = $nowUtc->modify('+' . self::DEFAULT_WINDOW_DAYS . ' days');
-
-    return $this->readActiveDueBefore($nowUtc, $nowUtc, $windowEnd);
+    return $this->mineForUser($this->currentPersistedUser(), $nowUtc);
   }
 
   /**
-   * Returns active overdue preparations plus preparations due during local Today.
-   *
-   * @return array{
-   *   timezone:string,
-   *   due_window_start:string,
-   *   due_window_end:string,
-   *   max_lead_time_seconds:int,
-   *   occurrence_projection_end:string,
-   *   items:array<int, array<string, mixed>>
-   * }
+   * Account-parameterized equivalent of mine() for background product work.
    */
+  public function mineForUser(UserInterface $user, ?DateTimeImmutable $nowUtc = NULL): array {
+    $user = $this->persistedActiveUser($user);
+    $nowUtc = $nowUtc === NULL ? $this->nowUtc() : $this->utc($nowUtc);
+    $windowEnd = $nowUtc->modify('+' . self::DEFAULT_WINDOW_DAYS . ' days');
+
+    return $this->readActiveDueBefore($user, $nowUtc, $nowUtc, $windowEnd);
+  }
+
   public function today(
     DateTimeImmutable $nowUtc,
     DateTimeImmutable $todayStartUtc,
     DateTimeImmutable $todayEndUtc,
   ): array {
+    return $this->todayForUser(
+      $this->currentPersistedUser(),
+      $nowUtc,
+      $todayStartUtc,
+      $todayEndUtc,
+    );
+  }
+
+  /**
+   * Account-parameterized equivalent of today() for shared deterministic truth.
+   */
+  public function todayForUser(
+    UserInterface $user,
+    DateTimeImmutable $nowUtc,
+    DateTimeImmutable $todayStartUtc,
+    DateTimeImmutable $todayEndUtc,
+  ): array {
+    $user = $this->persistedActiveUser($user);
     $nowUtc = $this->utc($nowUtc);
     $todayStartUtc = $this->utc($todayStartUtc);
     $todayEndUtc = $this->utc($todayEndUtc);
@@ -83,20 +86,11 @@ final class CurrentUserPreparationService {
       throw new InvalidArgumentException('Today preparation read requires now inside the supplied Today interval.');
     }
 
-    return $this->readActiveDueBefore($nowUtc, $todayStartUtc, $todayEndUtc);
+    return $this->readActiveDueBefore($user, $nowUtc, $todayStartUtc, $todayEndUtc);
   }
 
-  /**
-   * @return array{
-   *   timezone:string,
-   *   due_window_start:string,
-   *   due_window_end:string,
-   *   max_lead_time_seconds:int,
-   *   occurrence_projection_end:string,
-   *   items:array<int, array<string, mixed>>
-   * }
-   */
   private function readActiveDueBefore(
+    UserInterface $user,
     DateTimeImmutable $nowUtc,
     DateTimeImmutable $dueWindowStartUtc,
     DateTimeImmutable $dueWindowEndUtc,
@@ -108,7 +102,6 @@ final class CurrentUserPreparationService {
       throw new InvalidArgumentException('Preparation due window must contain the current instant and end in the future.');
     }
 
-    $user = $this->currentPersistedUser();
     $authorizedHouseholdIds = $this->normalizeHouseholdIds(
       $this->householdAuthorization->authorizedHouseholdIds($user),
     );
@@ -126,8 +119,7 @@ final class CurrentUserPreparationService {
     $displayTimezone = new DateTimeZone($displayTimezoneId);
 
     $seriesStorage = $this->entityTypeManager->getStorage('personal_sec_activity_series');
-    $seriesIds = $seriesStorage
-      ->getQuery()
+    $seriesIds = $seriesStorage->getQuery()
       ->accessCheck(FALSE)
       ->condition('household', $authorizedHouseholdIds, 'IN')
       ->execute();
@@ -166,6 +158,7 @@ final class CurrentUserPreparationService {
 
     $projectionEndUtc = $dueWindowEndUtc->modify(sprintf('+%d seconds', $maximumLeadTimeSeconds));
     $items = [];
+    $requirementStorage = $this->entityTypeManager->getStorage('personal_sec_prep_req');
 
     foreach ($seriesIds as $seriesId) {
       $series = $seriesEntities[$seriesId];
@@ -194,6 +187,10 @@ final class CurrentUserPreparationService {
           if ($dueAtUtc >= $dueWindowEndUtc) {
             continue;
           }
+          $requirement = $requirementStorage->load($preparation->requirementId);
+          if (!$requirement instanceof PreparationRequirement || $requirement->uuid() === '') {
+            throw new RuntimeException('Derived preparation requirement has no stable persisted identity.');
+          }
 
           $dueLocal = $dueAtUtc->setTimezone($displayTimezone);
           $startLocal = $effectiveStartUtc->setTimezone($displayTimezone);
@@ -220,6 +217,10 @@ final class CurrentUserPreparationService {
             '_completion_original_occurrence_key' => $preparation->originalOccurrenceKey,
             '_completion_requirement_id' => $preparation->requirementId,
             '_completion_responsible_person_id' => $preparation->responsiblePersonId,
+            '_reminder_series_uuid' => $preparation->seriesUuid,
+            '_reminder_requirement_uuid' => $requirement->uuid(),
+            '_reminder_due_at_utc' => $dueAtUtc->format(DateTimeInterface::ATOM),
+            '_reminder_effective_start_utc' => $effectiveStartUtc->format(DateTimeInterface::ATOM),
           ];
         }
       }
@@ -256,14 +257,23 @@ final class CurrentUserPreparationService {
     if ($this->currentUser->isAnonymous() || (int) $this->currentUser->id() <= 0) {
       throw new InvalidArgumentException('Current-user preparations require an authenticated Drupal User.');
     }
-
-    $user = $this->entityTypeManager
-      ->getStorage('user')
-      ->load((int) $this->currentUser->id());
+    $user = $this->entityTypeManager->getStorage('user')->load((int) $this->currentUser->id());
     if (!$user instanceof UserInterface || !$user->isActive()) {
       throw new InvalidArgumentException('Current-user preparations require an active persisted Drupal User.');
     }
     return $user;
+  }
+
+  private function persistedActiveUser(UserInterface $user): UserInterface {
+    $uid = (int) $user->id();
+    if ($uid <= 0) {
+      throw new InvalidArgumentException('Account-parameterized preparations require a persisted Drupal User.');
+    }
+    $persisted = $this->entityTypeManager->getStorage('user')->load($uid);
+    if (!$persisted instanceof UserInterface || !$persisted->isActive()) {
+      throw new InvalidArgumentException('Account-parameterized preparations require an active persisted Drupal User.');
+    }
+    return $persisted;
   }
 
   private function timezoneId(UserInterface $user): string {
@@ -271,16 +281,10 @@ final class CurrentUserPreparationService {
     if ($timezone !== '') {
       return $timezone;
     }
-
     $fallback = trim((string) $this->configFactory->get('system.date')->get('timezone.default'));
     return $fallback !== '' ? $fallback : 'UTC';
   }
 
-  /**
-   * @param array<int, int|string> $householdIds
-   *
-   * @return int[]
-   */
   private function normalizeHouseholdIds(array $householdIds): array {
     $normalized = [];
     foreach ($householdIds as $value) {
@@ -292,15 +296,13 @@ final class CurrentUserPreparationService {
       }
       $normalized[$value] = $value;
     }
-
     $normalized = array_values($normalized);
     sort($normalized, SORT_NUMERIC);
     return $normalized;
   }
 
   private function nowUtc(): DateTimeImmutable {
-    return (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
-      ->setTimezone(new DateTimeZone('UTC'));
+    return (new DateTimeImmutable('@' . $this->time->getCurrentTime()))->setTimezone(new DateTimeZone('UTC'));
   }
 
   private function utc(DateTimeImmutable $value): DateTimeImmutable {
