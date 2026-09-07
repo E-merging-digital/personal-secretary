@@ -214,8 +214,11 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
     $completionCount = $this->completionCount();
 
     $originalDdev = getenv('IS_DDEV_PROJECT');
+    $mailOverrideExisted = array_key_exists('system.mail', $GLOBALS['config']);
+    $originalMailOverride = $GLOBALS['config']['system.mail'] ?? NULL;
     putenv('IS_DDEV_PROJECT=false');
-    $this->config('system.mail')->set('interface.default', 'php_mail')->save();
+    $GLOBALS['config']['system.mail']['interface']['default'] = 'php_mail';
+    $this->container->get('config.factory')->reset('system.mail');
     try {
       $deliveryService->processPayload($disabledCandidate->queuePayload());
     }
@@ -226,6 +229,13 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
       else {
         putenv('IS_DDEV_PROJECT=' . $originalDdev);
       }
+      if ($mailOverrideExisted) {
+        $GLOBALS['config']['system.mail'] = $originalMailOverride;
+      }
+      else {
+        unset($GLOBALS['config']['system.mail']);
+      }
+      $this->container->get('config.factory')->reset('system.mail');
     }
 
     $this->assertSame($completionCount, $this->completionCount());
