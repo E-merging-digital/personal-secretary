@@ -179,13 +179,17 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
 
     [, $lockRequirement] = $this->seriesWithRequirement('Queue lock', (int) $household->id(), (int) $personA->id(), $now->modify('+2 hours 30 minutes'), 3 * 3600, $now);
     $lockCandidate = $this->candidateForRequirement($candidateService, $user, (int) $lockRequirement->id(), $now);
-    Database::getConnection()->insert('semaphore')->fields([
-      'name' => 'personal_secretary:prep-reminder:' . $lockCandidate->identityHash(),
-      'value' => 'other-worker',
-      'expire' => microtime(TRUE) + 60,
-    ])->execute();
-    $deliveryService->processPayload($lockCandidate->queuePayload());
-    $this->assertSame(0, $this->deliveryCount());
+    $lockName = 'personal_secretary:prep-reminder:' . $lockCandidate->identityHash();
+    $foreignWorkerLock = new DatabaseLockBackend(Database::getConnection());
+    $this->assertNotSame($this->container->get('lock'), $foreignWorkerLock);
+    $this->assertTrue($foreignWorkerLock->acquire($lockName, 60.0));
+    try {
+      $deliveryService->processPayload($lockCandidate->queuePayload());
+      $this->assertSame(0, $this->deliveryCount());
+    }
+    finally {
+      $foreignWorkerLock->release($lockName);
+    }
 
     [, $disabledRequirement] = $this->seriesWithRequirement('Disabled mail', (int) $household->id(), (int) $personA->id(), $now->modify('+2 hours 40 minutes'), 3 * 3600, $now);
     $disabledCandidate = $this->candidateForRequirement($candidateService, $user, (int) $disabledRequirement->id(), $now);
