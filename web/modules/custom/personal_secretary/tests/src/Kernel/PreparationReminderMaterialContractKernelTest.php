@@ -7,6 +7,7 @@ namespace Drupal\Tests\personal_secretary\Kernel;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Database\Database;
+use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\Core\Lock\DatabaseLockBackend;
 use Drupal\Core\Queue\DatabaseQueue;
@@ -23,6 +24,7 @@ use Drupal\personal_secretary\Service\PreparationReminderDeliveryService;
 use Drupal\personal_secretary\Value\PreparationReminderCandidate;
 use Drupal\user\Entity\Role;
 use Drupal\user\UserInterface;
+use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Proves the missing bounded material contracts from #124 post-green review.
@@ -42,6 +44,13 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
   ];
 
   private string $roleId = 'personal_secretary_reminder_test';
+
+  public function register(ContainerBuilder $container): void {
+    parent::register($container);
+
+    $container->register('lock', DatabaseLockBackend::class)
+      ->addArgument(new Reference('database'));
+  }
 
   protected function setUp(): void {
     parent::setUp();
@@ -307,7 +316,7 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
       'target_revision_id' => $candidate->targetRevisionId,
       'original_occurrence_key' => $candidate->originalOccurrenceKey,
       'preparation_requirement' => $candidate->requirementId,
-      'intended_due_at' => (new DateTimeImmutable($candidate->intendedDueAtUtc))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s'),
+      'intended_due_at' => (new DateTimeImmutable($candidate->intendedDueAtUtc))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s'),
       'channel' => PreparationReminderDelivery::CHANNEL_EMAIL,
       'state' => PreparationReminderDelivery::STATE_SUBMITTED,
       'attempt_count' => 1,
