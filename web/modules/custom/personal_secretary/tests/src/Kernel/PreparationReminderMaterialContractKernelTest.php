@@ -144,7 +144,15 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
     $personA = $domain->createPerson('Queue Person A');
     $personB = $domain->createPerson('Queue Person B');
     $household = $domain->createHousehold('Queue Household', [(int) $personA->id(), (int) $personB->id()]);
+
+    $inertUser = $this->container->get('entity_type.manager')->getStorage('user')->create([
+      'name' => 'uid1-inert-fixture',
+      'status' => 0,
+    ]);
+    $inertUser->save();
+
     $user = $this->productUser((int) $personA->id(), [(int) $household->id()], TRUE, 'queue@example.test');
+    $this->assertGreaterThan(1, (int) $user->id(), 'Queue recipient must be an ordinary Drupal User, not uid=1 super-user.');
 
     [, $completionRequirement] = $this->seriesWithRequirement('Queue completion', (int) $household->id(), (int) $personA->id(), $now->modify('+2 hours'), 3 * 3600, $now);
     $completionCandidate = $this->candidateForRequirement($candidateService, $user, (int) $completionRequirement->id(), $now);
