@@ -51,27 +51,42 @@ final class PreparationReminderDeliveryService {
   /** Returns number of enqueued items. */
   public function enqueueDueReminders(): int {
     $storage = $this->entityTypeManager->getStorage('user');
-    $ids = $storage->getQuery()->accessCheck(FALSE)->condition('status', 1)->sort('uid')->range(0, self::USER_SCAN_LIMIT + 1)->execute();
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('status', 1)
+      ->condition(PreparationReminderCandidateService::OPT_IN_FIELD, 1)
+      ->sort('uid')
+      ->range(0, self::USER_SCAN_LIMIT + 1)
+      ->execute();
     if (count($ids) > self::USER_SCAN_LIMIT) {
       return 0;
     }
-    $queue = $this->queueFactory->get(self::QUEUE_ID);
-    $count = 0;
+
+    $candidates = [];
     foreach ($storage->loadMultiple($ids) as $user) {
       if (!$user instanceof UserInterface) {
         continue;
       }
       foreach ($this->candidates->dueForUser($user) as $candidate) {
-        if (++$count > self::CANDIDATE_LIMIT) {
+        $candidates[] = $candidate;
+        if (count($candidates) > self::CANDIDATE_LIMIT) {
           return 0;
         }
-        if ($this->shouldSuppress($candidate)) {
-          continue;
-        }
-        $queue->createItem($candidate->queuePayload());
       }
     }
-    return $count;
+
+    $accepted = [];
+    foreach ($candidates as $candidate) {
+      if (!$this->shouldSuppress($candidate)) {
+        $accepted[] = $candidate;
+      }
+    }
+
+    $queue = $this->queueFactory->get(self::QUEUE_ID);
+    foreach ($accepted as $candidate) {
+      $queue->createItem($candidate->queuePayload());
+    }
+    return count($accepted);
   }
 
   public function processPayload(array $payload): void {
