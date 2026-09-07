@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Lock\DatabaseLockBackend;
+use Drupal\Core\Queue\DatabaseQueue;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\KernelTests\KernelTestBase;
@@ -54,8 +56,15 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
     $this->installEntitySchema('personal_sec_prep_req');
     $this->installEntitySchema(PreparationCompletion::ENTITY_TYPE_ID);
     $this->installEntitySchema(PreparationReminderDelivery::ENTITY_TYPE_ID);
-    $this->installSchema('system', ['queue', 'semaphore']);
     $this->installConfig(['system', 'user']);
+
+    // Queue and lock tables are owned by their Core database backends in
+    // Drupal 11, not by system.install's hook_schema(). Materialize only those
+    // test seams explicitly instead of inventing module schema authority.
+    $connection = Database::getConnection();
+    $schema = $connection->schema();
+    $schema->createTable(DatabaseQueue::TABLE_NAME, (new DatabaseQueue(self::class, $connection))->schemaDefinition());
+    $schema->createTable(DatabaseLockBackend::TABLE_NAME, (new DatabaseLockBackend($connection))->schemaDefinition());
 
     Role::create(['id' => $this->roleId, 'label' => 'Personal Secretary reminder test'])
       ->grantPermission(HouseholdAuthorizationService::PRODUCT_USE_PERMISSION)
