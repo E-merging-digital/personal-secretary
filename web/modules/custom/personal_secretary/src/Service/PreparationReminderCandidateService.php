@@ -92,7 +92,9 @@ final class PreparationReminderCandidateService {
     if ($uid <= 0) {
       return NULL;
     }
-    $user = $this->entityTypeManager->getStorage('user')->load($uid);
+    $userStorage = $this->entityTypeManager->getStorage('user');
+    $userStorage->resetCache([$uid]);
+    $user = $userStorage->load($uid);
     if (!$user instanceof UserInterface) {
       return NULL;
     }

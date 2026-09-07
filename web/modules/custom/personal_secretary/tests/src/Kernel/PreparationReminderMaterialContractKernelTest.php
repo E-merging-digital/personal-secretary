@@ -123,7 +123,7 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
     [$rescheduleSeries, $rescheduleRequirement] = $this->seriesWithRequirement('Reschedule', (int) $household->id(), (int) $personA->id(), $now->modify('+3 hours'), 5 * 3600, $now);
     $before = $this->candidateForRequirement($candidateService, $userA, (int) $rescheduleRequirement->id(), $now);
     $base = $timeline->projectBaseWindow($rescheduleSeries, $now, $now->modify('+1 day'))[0];
-    $exceptions->createReschedule($rescheduleSeries, $base, $now->modify('+4 hours'), $now->modify('+5 hours'), 'UTC');
+    $exceptions->createReschedule($rescheduleSeries, $base, $now->modify('+3 hours 30 minutes'), $now->modify('+4 hours 30 minutes'), 'UTC');
     $after = $this->candidateForRequirement($candidateService, $userA, (int) $rescheduleRequirement->id(), $now);
     $this->assertNotSame($before->intendedDueAtUtc, $after->intendedDueAtUtc);
     $this->assertNotSame($before->identityHash(), $after->identityHash());
