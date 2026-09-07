@@ -179,12 +179,18 @@ final class PreparationReminderMaterialContractKernelTest extends KernelTestBase
 
     [, $lockRequirement] = $this->seriesWithRequirement('Queue lock', (int) $household->id(), (int) $personA->id(), $now->modify('+2 hours 30 minutes'), 3 * 3600, $now);
     $lockCandidate = $this->candidateForRequirement($candidateService, $user, (int) $lockRequirement->id(), $now);
+    $payload = $lockCandidate->queuePayload();
+    $rederived = $candidateService->rederiveExact($payload, $now);
+    $this->assertInstanceOf(PreparationReminderCandidate::class, $rederived);
+    $this->assertSame($lockCandidate->identityHash(), $rederived->identityHash());
     $lockName = 'personal_secretary:prep-reminder:' . $lockCandidate->identityHash();
-    $foreignWorkerLock = new DatabaseLockBackend(Database::getConnection());
+    $foreignWorkerLock = new DatabaseLockBackend($this->container->get('database'));
     $this->assertNotSame($this->container->get('lock'), $foreignWorkerLock);
     $this->assertTrue($foreignWorkerLock->acquire($lockName, 60.0));
     try {
-      $deliveryService->processPayload($lockCandidate->queuePayload());
+      $serviceLock = $this->container->get('lock');
+      $this->assertFalse($serviceLock->lockMayBeAvailable($lockName), 'The Drupal lock service must see the foreign worker lock as unavailable.');
+      $deliveryService->processPayload($payload);
       $this->assertSame(0, $this->deliveryCount());
     }
     finally {
