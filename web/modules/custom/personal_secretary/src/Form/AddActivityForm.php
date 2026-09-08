@@ -14,7 +14,10 @@ use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\AddActivityService;
+use Drupal\personal_secretary\Service\CurrentUserActivityCreationService;
+use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -28,6 +31,7 @@ final class AddActivityForm extends FormBase {
 
   public function __construct(
     private readonly AddActivityService $addActivity,
+    private readonly CurrentUserActivityCreationService $currentUserActivityCreation,
     private readonly EntityTypeManagerInterface $domainEntityTypeManager,
     private readonly ConfigFactoryInterface $addConfigFactory,
   ) {}
@@ -35,6 +39,7 @@ final class AddActivityForm extends FormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.add_activity'),
+      $container->get('personal_secretary.current_user_activity_creation'),
       $container->get('entity_type.manager'),
       $container->get('config.factory'),
     );
@@ -45,20 +50,40 @@ final class AddActivityForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    $households = $this->entityOptions('personal_secretary_household');
-    $people = $this->entityOptions('personal_secretary_person');
-    if ($households === [] || $people === []) {
-      $form['empty_context'] = [
-        '#type' => 'html_tag',
-        '#tag' => 'p',
-        '#value' => $this->t('Set up your first household and activity before adding another activity.'),
-      ];
-      $form['setup'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Add your first activity'),
-        '#url' => Url::fromRoute('personal_secretary.setup'),
-      ];
-      return $form;
+    $isAdministrator = $this->isAdministrator();
+    $currentPersonId = NULL;
+
+    if ($isAdministrator) {
+      $households = $this->entityOptions('personal_secretary_household');
+      $people = $this->entityOptions('personal_secretary_person');
+      if ($households === [] || $people === []) {
+        $form['empty_context'] = [
+          '#type' => 'html_tag',
+          '#tag' => 'p',
+          '#value' => $this->t('Set up your first household and activity before adding another activity.'),
+        ];
+        $form['setup'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Add your first activity'),
+          '#url' => Url::fromRoute('personal_secretary.setup'),
+        ];
+        return $form;
+      }
+    }
+    else {
+      try {
+        $scope = $this->currentUserActivityCreation->creationScope();
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        return $this->ordinaryRemediationForm($form);
+      }
+
+      $households = $this->entityObjectOptions($scope['households']);
+      $people = $this->entityObjectOptions($scope['people']);
+      $currentPersonId = (int) $scope['current_person']->id();
+      if ($currentPersonId <= 0 || $households === []) {
+        return $this->ordinaryRemediationForm($form);
+      }
     }
 
     $timezones = TimeZoneFormHelper::getOptionsList();
@@ -75,6 +100,10 @@ final class AddActivityForm extends FormBase {
       '#options' => $households,
       '#required' => TRUE,
     ];
+    if (!$isAdministrator && count($households) === 1) {
+      $form['household_id']['#default_value'] = (string) array_key_first($households);
+    }
+
     $form['activity_type'] = [
       '#type' => 'radios',
       '#title' => $this->t('Activity type'),
@@ -95,13 +124,32 @@ final class AddActivityForm extends FormBase {
       '#default_value' => ActivitySeries::TIME_MODE_TIMED,
       '#required' => TRUE,
     ];
-    $form['responsible_person_id'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Responsible Person'),
-      '#options' => ['' => $this->t('- None -')] + $people,
-      '#required' => FALSE,
-      '#description' => $this->t('Required for weekly activities; optional for one-off activities.'),
-    ];
+
+    if ($isAdministrator) {
+      $form['responsible_person_id'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Responsible Person'),
+        '#options' => ['' => $this->t('- None -')] + $people,
+        '#required' => FALSE,
+        '#description' => $this->t('Required for weekly activities; optional for one-off activities.'),
+      ];
+    }
+    else {
+      $form['responsible_person_id'] = [
+        '#type' => 'hidden',
+        '#default_value' => (string) $currentPersonId,
+      ];
+      $form['ordinary_current_person_id'] = [
+        '#type' => 'hidden',
+        '#default_value' => (string) $currentPersonId,
+      ];
+      $form['responsibility_notice'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Responsibility'),
+        '#markup' => $this->t('You will be responsible for this activity.'),
+      ];
+    }
+
     $form['concerned_person_ids'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Personnes concernées'),
@@ -205,20 +253,34 @@ final class AddActivityForm extends FormBase {
     }
 
     $responsiblePersonId = NULL;
-    $responsiblePersonValue = trim((string) $form_state->getValue('responsible_person_id'));
-    if ($responsiblePersonValue !== '') {
-      $validatedResponsiblePersonId = filter_var($responsiblePersonValue, FILTER_VALIDATE_INT);
-      if ($validatedResponsiblePersonId === FALSE || $validatedResponsiblePersonId <= 0) {
-        $form_state->setErrorByName('responsible_person_id', $this->t('Select a valid responsible Person.'));
+    if ($this->isAdministrator()) {
+      $responsiblePersonValue = trim((string) $form_state->getValue('responsible_person_id'));
+      if ($responsiblePersonValue !== '') {
+        $validatedResponsiblePersonId = filter_var($responsiblePersonValue, FILTER_VALIDATE_INT);
+        if ($validatedResponsiblePersonId === FALSE || $validatedResponsiblePersonId <= 0) {
+          $form_state->setErrorByName('responsible_person_id', $this->t('Select a valid responsible Person.'));
+        }
+        else {
+          $responsiblePersonId = $validatedResponsiblePersonId;
+        }
+      }
+      if ($activityType === self::TYPE_WEEKLY && $responsiblePersonId === NULL) {
+        $form_state->setErrorByName('responsible_person_id', $this->t('Select a responsible Person for a weekly activity.'));
+      }
+      $form_state->set('personal_secretary_responsible_person_id', $responsiblePersonId);
+    }
+    else {
+      $renderedCurrentPersonId = filter_var(
+        $form_state->getValue('ordinary_current_person_id'),
+        FILTER_VALIDATE_INT,
+      );
+      if ($renderedCurrentPersonId === FALSE || $renderedCurrentPersonId <= 0) {
+        $form_state->setErrorByName('ordinary_current_person_id', $this->t('Your current Person context is no longer valid.'));
       }
       else {
-        $responsiblePersonId = $validatedResponsiblePersonId;
+        $form_state->set('personal_secretary_rendered_current_person_id', $renderedCurrentPersonId);
       }
     }
-    if ($activityType === self::TYPE_WEEKLY && $responsiblePersonId === NULL) {
-      $form_state->setErrorByName('responsible_person_id', $this->t('Select a responsible Person for a weekly activity.'));
-    }
-    $form_state->set('personal_secretary_responsible_person_id', $responsiblePersonId);
 
     $timezoneName = (string) $form_state->getValue('source_timezone');
     if (!isset(TimeZoneFormHelper::getOptionsList()[$timezoneName])) {
@@ -307,53 +369,101 @@ final class AddActivityForm extends FormBase {
     if (!is_string($timeMode) || !ActivitySeries::supportsTimeMode($timeMode)) {
       throw new \LogicException('Validated activity time mode is unavailable.');
     }
-    $responsiblePersonId = $form_state->get('personal_secretary_responsible_person_id');
     $location = (string) $form_state->getValue('location');
     $concernedPersonIds = $this->selectedConcernedPersonIds($form_state);
+    $householdId = (int) $form_state->getValue('household_id');
+    $isAdministrator = $this->isAdministrator();
 
     try {
-      if ($activityType === self::TYPE_WEEKLY) {
-        if (!is_int($responsiblePersonId)) {
-          throw new \LogicException('Validated weekly responsible Person is unavailable.');
+      if ($isAdministrator) {
+        $responsiblePersonId = $form_state->get('personal_secretary_responsible_person_id');
+        if ($activityType === self::TYPE_WEEKLY) {
+          if (!is_int($responsiblePersonId)) {
+            throw new \LogicException('Validated weekly responsible Person is unavailable.');
+          }
+          $this->addActivity->addWeeklyActivity(
+            $householdId,
+            $responsiblePersonId,
+            (string) $form_state->getValue('activity_label'),
+            $localStart,
+            $localEnd,
+            (string) $form_state->getValue('preparation_instruction'),
+            (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
+            $location,
+            $concernedPersonIds,
+            $timeMode,
+          );
         }
-        $this->addActivity->addWeeklyActivity(
-          (int) $form_state->getValue('household_id'),
-          $responsiblePersonId,
-          (string) $form_state->getValue('activity_label'),
-          $localStart,
-          $localEnd,
-          (string) $form_state->getValue('preparation_instruction'),
-          (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
-          $location,
-          $concernedPersonIds,
-          $timeMode,
-        );
-      }
-      elseif ($activityType === self::TYPE_ONE_OFF) {
-        $this->addActivity->addOneOffActivity(
-          (int) $form_state->getValue('household_id'),
-          is_int($responsiblePersonId) ? $responsiblePersonId : NULL,
-          (string) $form_state->getValue('activity_label'),
-          $localStart,
-          $localEnd,
-          (string) $form_state->getValue('preparation_instruction'),
-          (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
-          $location,
-          $concernedPersonIds,
-          $timeMode,
-        );
+        elseif ($activityType === self::TYPE_ONE_OFF) {
+          $this->addActivity->addOneOffActivity(
+            $householdId,
+            is_int($responsiblePersonId) ? $responsiblePersonId : NULL,
+            (string) $form_state->getValue('activity_label'),
+            $localStart,
+            $localEnd,
+            (string) $form_state->getValue('preparation_instruction'),
+            (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
+            $location,
+            $concernedPersonIds,
+            $timeMode,
+          );
+        }
+        else {
+          throw new \LogicException('Validated activity type is unavailable.');
+        }
       }
       else {
-        throw new \LogicException('Validated activity type is unavailable.');
+        $renderedCurrentPersonId = $form_state->get('personal_secretary_rendered_current_person_id');
+        if (!is_int($renderedCurrentPersonId) || $renderedCurrentPersonId <= 0) {
+          throw new InvalidArgumentException('Rendered Current Person context is unavailable.');
+        }
+
+        if ($activityType === self::TYPE_WEEKLY) {
+          $this->currentUserActivityCreation->addWeeklyActivity(
+            $renderedCurrentPersonId,
+            $householdId,
+            (string) $form_state->getValue('activity_label'),
+            $localStart,
+            $localEnd,
+            (string) $form_state->getValue('preparation_instruction'),
+            (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
+            $location,
+            $concernedPersonIds,
+            $timeMode,
+          );
+        }
+        elseif ($activityType === self::TYPE_ONE_OFF) {
+          $this->currentUserActivityCreation->addOneOffActivity(
+            $renderedCurrentPersonId,
+            $householdId,
+            (string) $form_state->getValue('activity_label'),
+            $localStart,
+            $localEnd,
+            (string) $form_state->getValue('preparation_instruction'),
+            (int) $form_state->get('personal_secretary_preparation_lead_minutes'),
+            $location,
+            $concernedPersonIds,
+            $timeMode,
+          );
+        }
+        else {
+          throw new \LogicException('Validated activity type is unavailable.');
+        }
       }
     }
     catch (InvalidArgumentException) {
-      $this->messenger()->addError($this->t('The activity could not be created for the selected household and options.'));
+      $this->messenger()->addError($this->t(
+        $isAdministrator
+          ? 'The activity could not be created for the selected household and options.'
+          : 'The activity could not be created for your current Household access and Person context.',
+      ));
       $form_state->setRedirect('personal_secretary.add_activity');
       return;
     }
 
-    $form_state->setRedirect('personal_secretary.upcoming');
+    $form_state->setRedirect(
+      $isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming',
+    );
   }
 
   /**
@@ -362,6 +472,23 @@ final class AddActivityForm extends FormBase {
   private function entityOptions(string $entityTypeId): array {
     $options = [];
     foreach ($this->domainEntityTypeManager->getStorage($entityTypeId)->loadMultiple() as $entity) {
+      $options[(string) $entity->id()] = (string) $entity->label();
+    }
+    natcasesort($options);
+    return $options;
+  }
+
+  /**
+   * @param array<int, \Drupal\Core\Entity\EntityInterface> $entities
+   *
+   * @return array<string, string>
+   */
+  private function entityObjectOptions(array $entities): array {
+    $options = [];
+    foreach ($entities as $entity) {
+      if ($entity->id() === NULL) {
+        continue;
+      }
       $options[(string) $entity->id()] = (string) $entity->label();
     }
     natcasesort($options);
@@ -380,6 +507,19 @@ final class AddActivityForm extends FormBase {
       $selected[] = $value;
     }
     return $selected;
+  }
+
+  private function ordinaryRemediationForm(array $form): array {
+    $form['remediation'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => $this->t('Activity creation requires a current linked Person who belongs to one of your authorized Households.'),
+    ];
+    return $form;
+  }
+
+  private function isAdministrator(): bool {
+    return $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
   }
 
   private function parseLocalDate(string $date, DateTimeZone $timezone): ?DateTimeImmutable {

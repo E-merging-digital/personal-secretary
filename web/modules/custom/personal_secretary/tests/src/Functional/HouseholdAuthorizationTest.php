@@ -318,7 +318,7 @@ final class HouseholdAuthorizationTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalGet('/personal-secretary/activities/add');
-    $this->assertSession()->statusCodeEquals(403);
+    $this->assertSession()->statusCodeEquals(200);
 
     // User B maps to the same Person but receives no grant via that identity.
     $this->drupalLogout();
