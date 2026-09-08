@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: authorized-self-occurrence-cancellation
+  phase: mvp-pwa-installability
   purpose: >-
-    Let an authorized ordinary User cancel one exact occurrence they are currently
-    responsible for while reusing existing ActivityException CANCEL semantics.
+    Make Personal Secretary installable as a privacy-safe PWA while keeping
+    authenticated personal data network-only and preserving Drupal authority.
 
 active_tasks:
-  - issue: 131
+  - issue: 132
     purpose: >-
-      Materialize current-user self-cancellation from My upcoming with exact current
-      Household, CurrentPerson and effective-responsibility authority.
+      Materialize the bounded web-standards PWA shell with manifest, install icons,
+      same-origin Service Worker and generic non-sensitive offline fallback.
 
 historical_context:
   - issue: 58
@@ -141,15 +141,19 @@ historical_context:
   - issue: 126
     purpose: >-
       SMTP transport proof is suspended by a Composer-capable execution-environment
-      blocker and remains frozen while current-user self-cancellation executes.
+      blocker and remains frozen while the MVP PWA work unit executes.
   - issue: 127
     purpose: >-
       Terminal authorized normal-user activity creation added bounded One-off and
       Weekly creation with server-derived CurrentPerson responsibility.
+  - issue: 131
+    purpose: >-
+      Terminal authorized self-cancellation added exact current-occurrence cancellation
+      from My upcoming while preserving current Household and responsibility authority.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after self-cancellation; likely bounded self-reschedule
-      or broader activity self-management before Composer-blocked integrations resume.
+      Project Lead MVP reassessment after installable PWA; then remaining bounded
+      MVP usability gaps such as self-reschedule if still required.
 
 deferred_decisions: []
