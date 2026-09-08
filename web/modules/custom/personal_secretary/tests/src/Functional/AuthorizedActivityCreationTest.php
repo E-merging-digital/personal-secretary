@@ -162,12 +162,20 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $weeklyDate = $nowLocal->modify('+2 days')->format('Y-m-d');
     $this->drupalGet('/personal-secretary/activities/add');
+    // This hidden value is intentionally forged. It is not mutation authority.
+    $hiddenResponsible = $this->getSession()
+      ->getPage()
+      ->find(
+        'css',
+        'input[type="hidden"][name="responsible_person_id"]',
+      );
+    $this->assertNotNull($hiddenResponsible);
+    $hiddenResponsible->setValue((string) $concerned->id());
+
     $this->submitForm([
       'household_id' => (string) $household->id(),
       'activity_type' => 'weekly',
       'time_mode' => ActivitySeries::TIME_MODE_TIMED,
-      // This hidden value is intentionally forged. It is not mutation authority.
-      'responsible_person_id' => (string) $concerned->id(),
       'concerned_person_ids[' . $concerned->id() . ']' => (string) $concerned->id(),
       'activity_label' => 'Authorized weekly creation',
       'location' => 'Synthetic authorized location',
@@ -195,11 +203,19 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $oneOffDate = $nowLocal->modify('+3 days')->format('Y-m-d');
     $this->drupalGet('/personal-secretary/activities/add');
+    $hiddenResponsible = $this->getSession()
+      ->getPage()
+      ->find(
+        'css',
+        'input[type="hidden"][name="responsible_person_id"]',
+      );
+    $this->assertNotNull($hiddenResponsible);
+    $hiddenResponsible->setValue((string) $concerned->id());
+
     $this->submitForm([
       'household_id' => (string) $household->id(),
       'activity_type' => 'one_off',
       'time_mode' => ActivitySeries::TIME_MODE_TIMED,
-      'responsible_person_id' => (string) $concerned->id(),
       'activity_label' => 'Authorized one-off creation',
       'first_occurrence_date' => $oneOffDate,
       'start_local_time' => '14:00',
