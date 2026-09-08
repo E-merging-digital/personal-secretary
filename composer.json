@@ -22,6 +22,7 @@
         "drupal/gin": "^5.0",
         "drupal/gin_toolbar": "^3.0",
         "drupal/pathauto": "^1.15",
+        "drupal/pwa": ">=2.1.0-beta7 <2.1.0-beta7.1",
         "drupal/token": "^1.17",
         "drush/drush": "^13.7"
     },
