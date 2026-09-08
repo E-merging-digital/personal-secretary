@@ -103,7 +103,6 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
       '/personal-secretary/activities/1/pause',
       '/personal-secretary/activities/1/occurrences/synthetic-key/responsibility',
       '/personal-secretary/activities/1/occurrences/synthetic-key/reschedule',
-      '/personal-secretary/activities/1/occurrences/synthetic-key/cancel',
     ] as $adminOnlyPath) {
       $this->drupalGet($adminOnlyPath);
       $this->assertSession()->statusCodeEquals(403);

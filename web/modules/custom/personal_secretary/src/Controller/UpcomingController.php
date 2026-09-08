@@ -73,7 +73,7 @@ final class UpcomingController extends ControllerBase {
       $build['rename_household_member'] = $this->renameHouseholdMemberLink();
       $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
     }
-    $build['items'] = $this->buildItems($items, TRUE);
+    $build['items'] = $this->buildItems($items, TRUE, FALSE);
     $build['add_activity'] = $this->addActivityLink();
 
     return $build;
@@ -81,7 +81,6 @@ final class UpcomingController extends ControllerBase {
 
   public function buildMine(): array {
     $householdIds = $this->householdAuthorization->authorizedHouseholdIds($this->currentUser());
-
     try {
       $person = $this->currentPersonResolver->resolve($this->currentUser());
     }
@@ -107,6 +106,7 @@ final class UpcomingController extends ControllerBase {
     $build = $this->windowBuild(
       (string) $this->t('Showing My upcoming activities for the next 7 days.'),
     );
+    $build['add_activity'] = $this->addActivityLink();
 
     if ($items === []) {
       $build['empty'] = [
@@ -117,10 +117,8 @@ final class UpcomingController extends ControllerBase {
       return $build;
     }
 
-    $build['items'] = $this->buildItems(
-      $items,
-      $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION),
-    );
+    $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin);
     return $build;
   }
 
@@ -143,7 +141,11 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string|int, mixed>
    */
-  private function buildItems(array $items, bool $includeMutationLinks): array {
+  private function buildItems(
+    array $items,
+    bool $includeAdminMutationLinks,
+    bool $includeSelfCancelLinks,
+  ): array {
     $build = ['#type' => 'container'];
 
     foreach ($items as $delta => $item) {
@@ -163,7 +165,10 @@ final class UpcomingController extends ControllerBase {
         '#props' => $item,
       ];
 
-      if (!$includeMutationLinks) {
+      if (!$includeAdminMutationLinks) {
+        if ($includeSelfCancelLinks && $actionTarget !== NULL) {
+          $build[$delta]['cancel'] = $this->cancelLink($actionTarget);
+        }
         continue;
       }
 
@@ -232,18 +237,30 @@ final class UpcomingController extends ControllerBase {
             ),
           ];
         }
-        $build[$delta]['cancel'] = [
-          '#type' => 'link',
-          '#title' => $this->t('Cancel occurrence'),
-          '#url' => Url::fromRoute(
-            'personal_secretary.cancel_occurrence',
-            $routeParameters,
-          ),
-        ];
+        $build[$delta]['cancel'] = $this->cancelLink($actionTarget);
       }
     }
 
     return $build;
+  }
+
+  /**
+   * @param array{series_id: int, original_occurrence_key: string} $target
+   *
+   * @return array<string, mixed>
+   */
+  private function cancelLink(array $target): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel occurrence'),
+      '#url' => Url::fromRoute(
+        'personal_secretary.cancel_occurrence',
+        [
+          'series' => $target['series_id'],
+          'original_occurrence_key' => $target['original_occurrence_key'],
+        ],
+      ),
+    ];
   }
 
   private function hasExistingContext(): bool {

@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: authorized-normal-user-activity-creation
+  phase: authorized-self-occurrence-cancellation
   purpose: >-
-    Open bounded Add activity creation to authorized ordinary Users inside their
-    exact Household and CurrentPerson scope while reusing existing activity semantics.
+    Let an authorized ordinary User cancel one exact occurrence they are currently
+    responsible for while reusing existing ActivityException CANCEL semantics.
 
 active_tasks:
-  - issue: 127
+  - issue: 131
     purpose: >-
-      Materialize authorized-scope-first normal-user One-off and Weekly creation
-      with server-derived CurrentPerson responsibility and fail-closed current truth.
+      Materialize current-user self-cancellation from My upcoming with exact current
+      Household, CurrentPerson and effective-responsibility authority.
 
 historical_context:
   - issue: 58
@@ -141,11 +141,15 @@ historical_context:
   - issue: 126
     purpose: >-
       SMTP transport proof is suspended by a Composer-capable execution-environment
-      blocker and remains frozen while normal-user activity creation executes.
+      blocker and remains frozen while current-user self-cancellation executes.
+  - issue: 127
+    purpose: >-
+      Terminal authorized normal-user activity creation added bounded One-off and
+      Weekly creation with server-derived CurrentPerson responsibility.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after normal-user Add activity is terminal; resume
-      SMTP transport proof only in a Composer-capable execution environment.
+      Project Lead reassessment after self-cancellation; likely bounded self-reschedule
+      or broader activity self-management before Composer-blocked integrations resume.
 
 deferred_decisions: []

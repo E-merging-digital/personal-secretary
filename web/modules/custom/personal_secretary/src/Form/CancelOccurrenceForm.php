@@ -7,9 +7,11 @@ namespace Drupal\personal_secretary\Form;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
-use Drupal\personal_secretary\Service\CancelOccurrenceService;
+use Drupal\personal_secretary\Service\CurrentUserOccurrenceCancellationService;
+use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -20,14 +22,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class CancelOccurrenceForm extends ConfirmFormBase {
 
   public function __construct(
-    private readonly CancelOccurrenceService $cancelOccurrence,
+    private readonly CurrentUserOccurrenceCancellationService $currentUserCancellation,
     private readonly RouteMatchInterface $cancelRouteMatch,
+    private readonly AccountInterface $cancelCurrentUser,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('personal_secretary.cancel_occurrence'),
+      $container->get('personal_secretary.current_user_occurrence_cancellation'),
       $container->get('current_route_match'),
+      $container->get('current_user'),
     );
   }
 
@@ -37,7 +41,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
 
   public function getQuestion(): TranslatableMarkup {
     try {
-      $resolved = $this->cancelOccurrence->resolve(
+      $resolved = $this->currentUserCancellation->authorize(
         $this->seriesId(),
         $this->originalOccurrenceKey(),
       );
@@ -56,7 +60,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
   }
 
   public function getCancelUrl(): Url {
-    return Url::fromRoute('personal_secretary.upcoming');
+    return Url::fromRoute($this->returnRoute());
   }
 
   public function getConfirmText(): TranslatableMarkup {
@@ -65,7 +69,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     try {
-      $this->cancelOccurrence->cancel(
+      $this->currentUserCancellation->cancel(
         $this->seriesId(),
         $this->originalOccurrenceKey(),
       );
@@ -74,7 +78,13 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
       $this->messenger()->addError($this->t('This occurrence can no longer be cancelled.'));
     }
 
-    $form_state->setRedirect('personal_secretary.upcoming');
+    $form_state->setRedirect($this->returnRoute());
+  }
+
+  private function returnRoute(): string {
+    return $this->cancelCurrentUser->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)
+      ? 'personal_secretary.upcoming'
+      : 'personal_secretary.my_upcoming';
   }
 
   private function seriesId(): int {
