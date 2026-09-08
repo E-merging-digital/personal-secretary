@@ -12,8 +12,8 @@ current_goal:
 active_tasks:
   - issue: 132
     purpose: >-
-      Materialize the bounded web-standards PWA shell with manifest, install icons,
-      same-origin Service Worker and generic non-sensitive offline fallback.
+      Deliver the hybrid MVP PWA using drupal/pwa for manifest integration,
+      project branding icons and the bounded privacy-safe project Service Worker.
 
 historical_context:
   - issue: 58
@@ -155,5 +155,15 @@ planned_tasks:
   - purpose: >-
       Project Lead MVP reassessment after installable PWA; then remaining bounded
       MVP usability gaps such as self-reschedule if still required.
+
+dependency_re_evaluation:
+  - package: drupal/pwa
+    accepted_version: 2.1.0-beta7
+    triggers:
+      - new beta, RC or stable release
+      - upstream issue 3386780 or 3562199 materially resolved
+      - Security Team-covered stable release available
+      - Drupal or PHP compatibility change
+      - material production defect
 
 deferred_decisions: []

@@ -7,24 +7,68 @@ namespace Drupal\Tests\personal_secretary\Functional;
 use Drupal\Tests\BrowserTestBase;
 
 /**
- * Proves the bounded privacy-safe PWA shell contract.
+ * Proves the hybrid contrib-manifest / project-worker PWA contract.
  *
  * @group personal_secretary
  */
 final class PwaMvpTest extends BrowserTestBase {
 
-  protected static $modules = ['personal_secretary'];
+  protected static $modules = ['pwa', 'personal_secretary'];
 
   protected $defaultTheme = 'olivero';
 
-  public function testManifestInstallabilityAndGlobalAttachment(): void {
-    $admin = $this->drupalCreateUser(['administer personal secretary domain']);
-    $this->drupalLogin($admin);
+  protected function setUp(): void {
+    parent::setUp();
+    $this->config('pwa.config')
+      ->set('name', 'Personal Secretary')
+      ->set('short_name', 'Secretary')
+      ->set('app_id', '/personal-secretary/')
+      ->set('start_url', '/personal-secretary/today')
+      ->set('scope', '/')
+      ->set('display', 'standalone')
+      ->set('theme_color', '#1b9ae4')
+      ->set('background_color', '#ffffff')
+      ->save();
+  }
+
+  public function testAcceptedPackageAndDisabledContribSubmodules(): void {
+    $handler = $this->container->get('module_handler');
+    $this->assertTrue($handler->moduleExists('pwa'));
+    $this->assertFalse($handler->moduleExists('pwa_service_worker'));
+    $this->assertFalse($handler->moduleExists('pwa_extras'));
+    $this->assertFalse($handler->moduleExists('pwa_a2hs'));
+
+    $info = $this->container->get('extension.list.module')->getExtensionInfo('pwa');
+    $this->assertSame('2.1.0-beta7', $info['version'] ?? NULL);
+
+    $coreExtension = file_get_contents(dirname(DRUPAL_ROOT) . '/config/sync/core.extension.yml');
+    $this->assertIsString($coreExtension);
+    $this->assertStringContainsString("  pwa: 0\n", $coreExtension);
+    foreach (['pwa_service_worker:', 'pwa_extras:', 'pwa_a2hs:'] as $disabled) {
+      $this->assertStringNotContainsString($disabled, $coreExtension);
+    }
+
+    $lock = json_decode(
+      (string) file_get_contents(dirname(DRUPAL_ROOT) . '/composer.lock'),
+      TRUE,
+      512,
+      JSON_THROW_ON_ERROR,
+    );
+    $packages = array_column($lock['packages'], NULL, 'name');
+    $this->assertSame('2.1.0-beta7', $packages['drupal/pwa']['version'] ?? NULL);
+  }
+
+  public function testContribManifestAndProjectBrandingAreGloballyAttached(): void {
+    $user = $this->drupalCreateUser([
+      'access pwa',
+      'administer personal secretary domain',
+    ]);
+    $this->drupalLogin($user);
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists(
       'css',
-      'link[rel="manifest"][href="/personal-secretary.webmanifest"]',
+      'link[rel="manifest"][href="/manifest.json"]',
     );
     $this->assertSession()->elementExists(
       'css',
@@ -39,13 +83,9 @@ final class PwaMvpTest extends BrowserTestBase {
       'script[src*="/modules/custom/personal_secretary/js/pwa-register.js"]',
     );
 
-    $this->drupalGet('/personal-secretary.webmanifest');
+    $this->drupalGet('/manifest.json');
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->responseHeaderContains(
-      'Content-Type',
-      'application/manifest+json',
-    );
-
+    $this->assertSession()->responseHeaderContains('Content-Type', 'application/json');
     $manifest = json_decode(
       $this->getSession()->getPage()->getContent(),
       TRUE,
@@ -60,46 +100,37 @@ final class PwaMvpTest extends BrowserTestBase {
     $this->assertSame('standalone', $manifest['display']);
     $this->assertSame('#ffffff', $manifest['background_color']);
     $this->assertSame('#1b9ae4', $manifest['theme_color']);
-    $this->assertFalse($manifest['prefer_related_applications']);
 
     $icons = [];
     foreach ($manifest['icons'] as $icon) {
       $icons[$icon['sizes']] = $icon;
     }
     $this->assertSame('/pwa-icon-192.png', $icons['192x192']['src']);
-    $this->assertSame('image/png', $icons['192x192']['type']);
     $this->assertSame('/pwa-icon-512.png', $icons['512x512']['src']);
-    $this->assertSame('image/png', $icons['512x512']['type']);
-
     $this->assertPngDimensions('pwa-icon-192.png', 192);
     $this->assertPngDimensions('pwa-icon-512.png', 512);
+    $this->assertFileDoesNotExist(DRUPAL_ROOT . '/personal-secretary.webmanifest');
   }
 
-  public function testWorkerIsNetworkOnlyOutsideGenericOfflineFallback(): void {
+  public function testProjectWorkerIsNetworkOnlyOutsideGenericOfflineFallback(): void {
+    $this->assertFalse($this->container->get('module_handler')->moduleExists('pwa_service_worker'));
     $this->drupalGet('/personal-secretary-service-worker.js');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->responseHeaderContains('Content-Type', 'javascript');
 
     $worker = $this->getSession()->getPage()->getContent();
-    $this->assertStringContainsString(
+    foreach ([
       "const CACHE_PREFIX = 'personal-secretary-pwa-';",
-      $worker,
-    );
-    $this->assertStringContainsString(
-      "const CACHE_NAME = `${CACHE_PREFIX}v1`;",
-      $worker,
-    );
-    $this->assertStringContainsString(
       "const OFFLINE_URL = '/personal-secretary-offline.html';",
-      $worker,
-    );
-    $this->assertStringContainsString('cache.add(OFFLINE_URL)', $worker);
-    $this->assertStringContainsString("request.method !== 'GET'", $worker);
-    $this->assertStringContainsString("request.mode !== 'navigate'", $worker);
-    $this->assertStringContainsString('fetch(request).catch(', $worker);
-    $this->assertStringContainsString('key.startsWith(CACHE_PREFIX)', $worker);
-    $this->assertStringContainsString('caches.delete(key)', $worker);
-
+      'cache.add(OFFLINE_URL)',
+      "request.method !== 'GET'",
+      "request.mode !== 'navigate'",
+      'fetch(request).catch(',
+      'key.startsWith(CACHE_PREFIX)',
+      'caches.delete(key)',
+    ] as $required) {
+      $this->assertStringContainsString($required, $worker);
+    }
     foreach ([
       'cache.put(',
       'cache.addAll(',
@@ -120,6 +151,7 @@ final class PwaMvpTest extends BrowserTestBase {
       ".register('/personal-secretary-service-worker.js', { scope: '/' })",
       $registration,
     );
+    $this->assertStringNotContainsString('/service-worker-data', $registration);
   }
 
   public function testOfflineFallbackIsGenericAndLoggedOutLaunchKeepsDrupalAuthority(): void {
@@ -141,11 +173,8 @@ final class PwaMvpTest extends BrowserTestBase {
       'PreparationCompletion',
       'csrf_token',
       'session',
-    ] as $personal_or_authority_marker) {
-      $this->assertStringNotContainsString(
-        $personal_or_authority_marker,
-        $fallback,
-      );
+    ] as $personalOrAuthorityMarker) {
+      $this->assertStringNotContainsString($personalOrAuthorityMarker, $fallback);
     }
 
     $this->drupalGet('/personal-secretary/today');
@@ -157,12 +186,10 @@ final class PwaMvpTest extends BrowserTestBase {
     $contents = file_get_contents($path);
     $this->assertIsString($contents);
     $this->assertSame("\x89PNG\r\n\x1a\n", substr($contents, 0, 8));
-
     $dimensions = unpack('Nwidth/Nheight', substr($contents, 16, 8));
     $this->assertIsArray($dimensions);
     $this->assertSame($expected, $dimensions['width']);
     $this->assertSame($expected, $dimensions['height']);
-
     $this->drupalGet('/' . $filename);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->responseHeaderContains('Content-Type', 'image/png');

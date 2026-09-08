@@ -1,0 +1,24 @@
+name: 'Personal Secretary'
+short_name: Secretary
+app_id: /personal-secretary/
+description: ''
+start_url: /personal-secretary/today
+scope: /
+lang: ''
+dir: auto
+orientation: any
+categories: {  }
+theme_color: '#1b9ae4'
+background_color: '#ffffff'
+display: standalone
+cross_origin: false
+image_fid: null
+image_small_fid: null
+image_very_small_fid: null
+manifest_path_mode: all_except_listed
+manifest_paths: |-
+  /admin
+  /admin/*
+  /batch
+  /node/add*
+  /node/*/*
