@@ -26,45 +26,98 @@ Avant toute capacité custom substantielle, évaluer dans cet ordre :
 Drupal Core
 -> Drupal APIs / Drush
 -> Recipes
--> stable + maintained + Drupal Security Team-covered contrib for production dependencies
+-> relevant maintained contrib, including credible pre-stable candidates
 -> Drupal AI Initiative primitives when AI-related
--> EXTEND EXISTING
--> BUILD CUSTOM only with demonstrated gap
+-> EXTEND / WRAP EXISTING
+-> BUILD CUSTOM only with demonstrated material gap
 ```
 
-L'évaluation doit être proportionnée au besoin. Elle doit vérifier les
-capacités réellement pertinentes, leur maintenance, leur stabilité, leur
-compatibilité Drupal, leur statut de couverture sécurité et les frontières
-produit applicables.
+L'évaluation doit être proportionnée au besoin et à la surface réellement
+activée. Une release stable, maintenue et couverte par la Drupal Security Team
+reste le choix préféré lorsqu'elle satisfait le besoin. Ce critère est une
+préférence de risque, pas un veto absolu.
 
-Pour une dépendance Drupal contrib pertinente pour la production, la cible par
-défaut est :
+Une release ou branche alpha, beta, RC ou `-dev` pertinente n'est donc pas
+rejetée automatiquement. L'absence de couverture par la Drupal Security Team
+est un signal de risque matériel qui doit être évalué et accepté explicitement;
+elle n'est pas, à elle seule, un motif suffisant de rejet.
+
+Lorsqu'un candidat pré-stable est pertinent, l'évaluation doit examiner
+proportionnellement au minimum :
 
 ```text
-stable
-+ maintained
-+ covered by Drupal Security Team
+exact Drupal/PHP compatibility
+maintainer/project activity
+release maturity + changelog
+usage/adoption signal where meaningful
+security coverage
+dependencies
+exact enabled modules/submodules/surfaces
+relevant Critical/Major/security/regression issues
+exact-use blockers
+ability to isolate risky components
+patch/fork requirement
+upgrade/removal path
+re-evaluation trajectory
+exact-stack testability
 ```
 
-Les capacités upstream expérimentales, `-dev`, alpha, beta, RC ou autrement non
-couvertes par la Drupal Security Team peuvent être recherchées, évaluées,
-prototypées ou testées. Cette règle ne constitue pas une interdiction de suivre
-les capacités émergentes de Drupal ou de la Drupal AI Initiative.
+Une longue issue queue n'est pas un blocker en soi. Les issues doivent être
+qualifiées par rapport aux modules, sous-modules et comportements que Personal
+Secretary prévoit réellement d'activer. Un défaut matériel dans un composant
+optionnel peut justifier de laisser ce composant désactivé sans rejeter tout le
+projet contrib.
 
-En revanche, faire d'une telle capacité une dépendance de production exige une
-décision/exception bornée et explicite documentant au minimum :
+Lorsqu'une surface contrib sûre couvre une partie du besoin, préférer :
 
 ```text
-necessity
-risk
-security/stability status
-scope
-upgrade/removal/re-evaluation trajectory
+SAFE CONTRIB SURFACE
++ CUSTOM ONLY FOR PROVEN GAP
 ```
 
-`BUILD CUSTOM` exige un gap précis et démontré. L'absence de recherche, la
-préférence personnelle ou le fait qu'une implémentation custom soit déjà
+à une réimplémentation custom 100 %. `BUILD CUSTOM` exige toujours un gap
+matériel précis et démontré. L'absence de recherche, la préférence personnelle,
+le statut pré-stable à lui seul ou le fait qu'une implémentation custom soit déjà
 commencée ne constituent pas un gap.
+
+Accepter une release pré-stable n'autorise pas implicitement une escalade de
+maintenance. Les opérations suivantes exigent une justification et une autorité
+distinctes :
+
+```text
+PATCH
+FORK
+DEV OVERRIDE
+```
+
+Pour toute release pré-stable acceptée en production :
+
+```text
+ACCEPTED_PRE_STABLE_RELEASE = EXACTLY IDENTIFIED
+LOCKFILE_RESOLUTION = EXACT ACCEPTED RELEASE
+ROOT_CONSTRAINT = BOUNDED SO IT CANNOT SILENTLY ADVANCE
+LITERAL_EXACT_COMPOSER_CONSTRAINT = NOT REQUIRED IF IT BREAKS EXISTING VALIDATION
+RISK_ACCEPTANCE = EXPLICIT
+PROPORTIONATE_EXACT_STACK_TESTS = REQUIRED
+```
+
+La sémantique de pin porte donc sur l'identité exacte de la release acceptée,
+la résolution exacte du lockfile et une contrainte racine empêchant tout
+avancement silencieux. Une contrainte Composer littéralement exacte n'est pas
+requise lorsqu'elle rend une validation existante incompatible. Une borne doit
+rester spécifique au risque accepté; un pattern propre à un package ne devient
+pas une règle universelle.
+
+Une capacité pré-stable acceptée doit être réévaluée au minimum lorsqu'apparaît :
+
+```text
+new release / beta / RC / stable
+security advisory or security-relevant issue
+new blocker in enabled surface
+Drupal compatibility change
+PHP compatibility change
+material production defect
+```
 
 `USE EXISTING FIRST` ne signifie pas ajouter une dépendance à chaque besoin :
 une API Drupal ou une primitive système standard peut être préférable à une
@@ -139,9 +192,13 @@ substantielle, y compris les implications liées à Drupal.
 
 - Epic 0 n'ajoute aucune dépendance Drupal ou IA.
 - Chaque futur custom substantiel doit pouvoir montrer son audit de capacités
-  existantes.
-- Une dépendance contrib de production non stable/maintenue/security-covered
-  exige une exception bornée explicite avec trajectoire de réévaluation ou retrait.
+  existantes et son gap matériel démontré.
+- Une dépendance contrib pré-stable de production suit le contrat d'évaluation,
+  d'acceptation de risque, de lock/bornage, de test et de réévaluation ci-dessus;
+  son niveau de maturité ou son absence de couverture sécurité ne constitue pas,
+  seul, un rejet automatique.
+- Lorsqu'une surface contrib sûre couvre une partie du besoin, la réutilisation
+  hybride est préférée au custom 100 %.
 - Les futures fonctions IA restent provider-agnostic via Drupal AI par défaut.
 - Les trajectoires Inside AI et Outside AI peuvent partager des capacités
   gouvernées sans dupliquer la logique métier.

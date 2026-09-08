@@ -34,9 +34,19 @@ Un export personnel réel anonymisé ne constitue pas une fixture synthétique.
 Avant tout custom substantiel, appliquer la décision
 `docs/decisions/0002-drupal-foundations-and-ai-boundaries.md`.
 
-Évaluer d'abord Drupal Core, APIs Drupal/Drush, Recipes, contrib stable et
-maintenu, primitives Drupal AI lorsqu'elles sont pertinentes, puis l'extension
-de l'existant. Construire du custom uniquement lorsqu'un gap réel est démontré.
+Évaluer d'abord Drupal Core, APIs Drupal/Drush, Recipes, contrib maintenu
+pertinent — y compris les candidats pré-stables crédibles —, primitives Drupal
+AI lorsqu'elles sont pertinentes, puis l'extension ou l'encapsulation de
+l'existant. Construire du custom uniquement lorsqu'un gap matériel est démontré.
+
+Une release stable, maintenue et couverte par la Drupal Security Team reste
+préférée lorsqu'elle satisfait le besoin, mais l'absence de stabilité ou de
+couverture sécurité n'est pas à elle seule un veto. Toute capacité pré-stable
+pertinente exige l'évaluation proportionnée prévue par Decision 0002.
+
+Lorsqu'une surface contrib sûre couvre une partie du besoin, préférer la
+réutilisation hybride au custom 100 %. Ne pas rejeter tout un projet contrib si
+les composants ou comportements risqués peuvent rester désactivés.
 
 ## Drupal AI
 
