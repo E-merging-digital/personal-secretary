@@ -14,7 +14,6 @@ use Drupal\personal_secretary\Service\CurrentUserOccurrenceCancellationService;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -26,7 +25,6 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
     private readonly CurrentUserOccurrenceCancellationService $currentUserCancellation,
     private readonly RouteMatchInterface $cancelRouteMatch,
     private readonly AccountInterface $cancelCurrentUser,
-    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -34,7 +32,6 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
       $container->get('personal_secretary.current_user_occurrence_cancellation'),
       $container->get('current_route_match'),
       $container->get('current_user'),
-      $container->get('request_stack'),
     );
   }
 
@@ -43,7 +40,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
   }
 
   public function getQuestion(): TranslatableMarkup {
-    if ($this->requestStack->getCurrentRequest()?->isMethod('POST')) {
+    if ($this->getRequest()->isMethod('POST')) {
       return $this->t('Cancel this occurrence?');
     }
 
