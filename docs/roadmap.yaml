@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: proactive-preparation-reminders
+  phase: authorized-normal-user-activity-creation
   purpose: >-
-    Materialize the first proactive preparation reminder with bounded Core cron,
-    Core Queue and local/synthetic Core Mail only, without real external egress.
+    Open bounded Add activity creation to authorized ordinary Users inside their
+    exact Household and CurrentPerson scope while reusing existing activity semantics.
 
 active_tasks:
-  - issue: 124
+  - issue: 127
     purpose: >-
-      Materialize opt-in preparation reminder candidates and sparse conservative
-      delivery state while preserving preparation truth and current-user surfaces.
+      Materialize authorized-scope-first normal-user One-off and Weekly creation
+      with server-derived CurrentPerson responsibility and fail-closed current truth.
 
 historical_context:
   - issue: 58
@@ -134,10 +134,18 @@ historical_context:
     purpose: >-
       Terminal bounded pause reused exact ActivityException CANCEL rows for finite
       recurring TIMED and ALL_DAY pause ranges.
+  - issue: 124
+    purpose: >-
+      Terminal proactive preparation reminders added opted-in bounded Core Queue
+      delivery state while preserving preparation truth and current-user surfaces.
+  - issue: 126
+    purpose: >-
+      SMTP transport proof is suspended by a Composer-capable execution-environment
+      blocker and remains frozen while normal-user activity creation executes.
 
 planned_tasks:
   - purpose: >-
-      Project Lead reassessment after proactive preparation reminders; likely real
-      SMTP transport proof/enablement or AI quick capture depending live gates.
+      Project Lead reassessment after normal-user Add activity is terminal; resume
+      SMTP transport proof only in a Composer-capable execution environment.
 
 deferred_decisions: []
