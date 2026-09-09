@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: mvp-pwa-installability
+  phase: authorized-self-occurrence-reschedule
   purpose: >-
-    Make Personal Secretary installable as a privacy-safe PWA while keeping
-    authenticated personal data network-only and preserving Drupal authority.
+    Let an authorized ordinary User reschedule one exact current TIMED occurrence
+    from My upcoming while reusing existing occurrence and authority primitives.
 
 active_tasks:
-  - issue: 132
+  - issue: 138
     purpose: >-
-      Deliver the hybrid MVP PWA using drupal/pwa for manifest integration,
-      project branding icons and the bounded privacy-safe project Service Worker.
+      Add bounded current-user occurrence reschedule authority and My upcoming
+      affordance while preserving existing admin and domain reschedule semantics.
 
 historical_context:
   - issue: 58
@@ -71,8 +71,8 @@ historical_context:
       TimeCommitmentRule lifecycle and reconstructible calendar candidates.
   - issue: 84
     purpose: >-
-      Google Calendar account-connection delivery is suspended by its executable
-      environment blocker and remains frozen while another modifying work unit is active.
+      Google Calendar account-connection delivery remains suspended and frozen
+      while the authorized self-reschedule work unit executes.
   - issue: 85
     purpose: >-
       Accepted preparation-surface architecture selected derived-only My preparations,
@@ -140,8 +140,8 @@ historical_context:
       delivery state while preserving preparation truth and current-user surfaces.
   - issue: 126
     purpose: >-
-      SMTP transport proof is suspended by a Composer-capable execution-environment
-      blocker and remains frozen while the MVP PWA work unit executes.
+      SMTP transport proof remains suspended and frozen; Composer/DDEV execution
+      capability is restored for later Project Lead reassessment.
   - issue: 127
     purpose: >-
       Terminal authorized normal-user activity creation added bounded One-off and
@@ -150,11 +150,19 @@ historical_context:
     purpose: >-
       Terminal authorized self-cancellation added exact current-occurrence cancellation
       from My upcoming while preserving current Household and responsibility authority.
+  - issue: 132
+    purpose: >-
+      Terminal privacy-safe PWA installability reused drupal/pwa manifest integration
+      with a bounded project Service Worker that keeps personal data network-only.
+  - issue: 136
+    purpose: >-
+      Terminal trust-root update materialized Decision 134 and the governed
+      USE EXISTING FIRST doctrine for credible pre-stable contrib evaluation.
 
 planned_tasks:
   - purpose: >-
-      Project Lead MVP reassessment after installable PWA; then remaining bounded
-      MVP usability gaps such as self-reschedule if still required.
+      Project Lead MVP reassessment after authorized self-reschedule; likely resume
+      the #126 transport chain unless a smaller user-facing MVP gap remains.
 
 dependency_re_evaluation:
   - package: drupal/pwa

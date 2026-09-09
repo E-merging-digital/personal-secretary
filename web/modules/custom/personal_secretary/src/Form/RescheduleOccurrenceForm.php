@@ -10,25 +10,31 @@ use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\personal_secretary\Service\RescheduleOccurrenceService;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\Core\Url;
+use Drupal\personal_secretary\Service\CurrentUserOccurrenceRescheduleService;
+use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Reschedules one exact upcoming base occurrence in its source timezone.
+ * Reschedules one authorized exact occurrence in its source timezone.
  */
 final class RescheduleOccurrenceForm extends FormBase {
 
   public function __construct(
-    private readonly RescheduleOccurrenceService $rescheduleOccurrence,
+    private readonly CurrentUserOccurrenceRescheduleService $currentUserReschedule,
     private readonly RouteMatchInterface $rescheduleRouteMatch,
+    private readonly AccountInterface $rescheduleCurrentUser,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('personal_secretary.reschedule_occurrence'),
+      $container->get('personal_secretary.current_user_occurrence_reschedule'),
       $container->get('current_route_match'),
+      $container->get('current_user'),
     );
   }
 
@@ -37,7 +43,19 @@ final class RescheduleOccurrenceForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    $resolved = $this->resolveTarget();
+    try {
+      $resolved = $this->currentUserReschedule->authorize(
+        $this->seriesId(),
+        $this->originalOccurrenceKey(),
+      );
+    }
+    catch (InvalidArgumentException $exception) {
+      if ($this->getRequest()->isMethod('POST')) {
+        return $this->stalePostForm($form);
+      }
+      throw new NotFoundHttpException('The requested occurrence cannot be rescheduled.', $exception);
+    }
+
     $occurrence = $resolved['occurrence'];
     $sourceStart = new DateTimeImmutable($occurrence->sourceLocalStart);
     $sourceEnd = new DateTimeImmutable($occurrence->sourceLocalEnd);
@@ -83,7 +101,21 @@ final class RescheduleOccurrenceForm extends FormBase {
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
-    $resolved = $this->resolveTarget();
+    if ($form_state->getResponse() !== NULL) {
+      return;
+    }
+
+    try {
+      $resolved = $this->currentUserReschedule->authorize(
+        $this->seriesId(),
+        $this->originalOccurrenceKey(),
+      );
+    }
+    catch (InvalidArgumentException) {
+      $form_state->set('personal_secretary_reschedule_stale', TRUE);
+      return;
+    }
+
     $timezone = new DateTimeZone($resolved['occurrence']->sourceTimezone);
     $date = (string) $form_state->getValue('new_date');
     $startTime = (string) $form_state->getValue('new_local_start_time');
@@ -109,6 +141,11 @@ final class RescheduleOccurrenceForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    if ($form_state->get('personal_secretary_reschedule_stale') === TRUE) {
+      $this->staleResponse($form_state);
+      return;
+    }
+
     $localStart = $form_state->get('personal_secretary_reschedule_local_start');
     $localEnd = $form_state->get('personal_secretary_reschedule_local_end');
     if (!$localStart instanceof DateTimeImmutable || !$localEnd instanceof DateTimeImmutable) {
@@ -116,7 +153,7 @@ final class RescheduleOccurrenceForm extends FormBase {
     }
 
     try {
-      $this->rescheduleOccurrence->reschedule(
+      $this->currentUserReschedule->reschedule(
         $this->seriesId(),
         $this->originalOccurrenceKey(),
         $localStart,
@@ -127,22 +164,42 @@ final class RescheduleOccurrenceForm extends FormBase {
       $this->messenger()->addError($this->t('This occurrence can no longer be rescheduled.'));
     }
 
-    $form_state->setRedirect('personal_secretary.upcoming');
+    $form_state->setRedirect($this->returnRoute());
   }
 
-  /**
-   * @return array{series: \Drupal\personal_secretary\Entity\ActivitySeries, occurrence: \Drupal\personal_secretary\Value\BaseOccurrence}
-   */
-  private function resolveTarget(): array {
-    try {
-      return $this->rescheduleOccurrence->resolve(
-        $this->seriesId(),
-        $this->originalOccurrenceKey(),
-      );
+  private function stalePostForm(array $form): array {
+    $form['new_date'] = [
+      '#type' => 'date',
+      '#title' => $this->t('New date'),
+      '#required' => TRUE,
+    ];
+    foreach (['new_local_start_time' => 'New start time', 'new_local_end_time' => 'New end time'] as $name => $title) {
+      $form[$name] = [
+        '#type' => 'date',
+        '#title' => $this->t($title),
+        '#attributes' => ['type' => 'time'],
+        '#required' => TRUE,
+      ];
     }
-    catch (InvalidArgumentException $exception) {
-      throw new NotFoundHttpException('The requested occurrence cannot be rescheduled.', $exception);
-    }
+    $form['actions'] = ['#type' => 'actions'];
+    $form['actions']['submit'] = [
+      '#type' => 'submit',
+      '#value' => $this->t('Reschedule occurrence'),
+      '#button_type' => 'primary',
+    ];
+    return $form;
+  }
+
+  private function staleResponse(FormStateInterface $form_state): void {
+    $this->messenger()->addError($this->t('This occurrence can no longer be rescheduled.'));
+    $url = Url::fromRoute($this->returnRoute())->toString();
+    $form_state->setResponse(new RedirectResponse($url));
+  }
+
+  private function returnRoute(): string {
+    return $this->rescheduleCurrentUser->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)
+      ? 'personal_secretary.upcoming'
+      : 'personal_secretary.my_upcoming';
   }
 
   private function seriesId(): int {
