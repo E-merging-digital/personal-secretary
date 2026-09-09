@@ -102,11 +102,13 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
       '/personal-secretary/activities/1/time-commitment/edit',
       '/personal-secretary/activities/1/pause',
       '/personal-secretary/activities/1/occurrences/synthetic-key/responsibility',
-      '/personal-secretary/activities/1/occurrences/synthetic-key/reschedule',
     ] as $adminOnlyPath) {
       $this->drupalGet($adminOnlyPath);
       $this->assertSession()->statusCodeEquals(403);
     }
+
+    $this->drupalGet('/personal-secretary/activities/1/occurrences/synthetic-key/reschedule');
+    $this->assertSession()->statusCodeEquals(404);
 
     $notMember = $this->createScopedUser(
       $current,
