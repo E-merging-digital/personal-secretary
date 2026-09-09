@@ -312,7 +312,7 @@ final class HouseholdAuthorizationTest extends BrowserTestBase {
     $this->assertSession()->linkNotExists('Change recurring responsibility');
     $this->assertSession()->linkNotExists('Change time commitment');
     $this->assertSession()->linkNotExists('Change responsibility');
-    $this->assertSession()->linkNotExists('Reschedule occurrence');
+    $this->assertSession()->linkExists('Reschedule occurrence');
     $this->assertSession()->linkExists('Cancel occurrence');
 
     $this->drupalGet('/personal-secretary/upcoming');

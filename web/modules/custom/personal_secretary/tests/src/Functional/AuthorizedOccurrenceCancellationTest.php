@@ -140,13 +140,14 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Cancel occurrence');
     $this->assertSession()->linkByHrefExists($weeklyUrl);
     $this->assertSession()->linkByHrefExists($oneOffUrl);
+    $this->assertSession()->linkExists('Reschedule occurrence');
+    $this->assertSession()->linkByHrefExists($this->rescheduleUrl($weekly, $weeklyTarget->originalOccurrenceKey));
     foreach ([
       'Change recurring schedule',
       'Change recurring responsibility',
       'Change time commitment',
       'Pause recurring activity',
       'Change responsibility',
-      'Reschedule occurrence',
     ] as $forbiddenOrdinaryLink) {
       $this->assertSession()->linkNotExists($forbiddenOrdinaryLink);
     }
@@ -384,6 +385,16 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     );
     $this->assertNotEmpty($projected);
     return [$series, $projected[0]];
+  }
+
+  private function rescheduleUrl(ActivitySeries $series, string $originalOccurrenceKey): string {
+    return Url::fromRoute(
+      'personal_secretary.reschedule_occurrence',
+      [
+        'series' => $series->id(),
+        'original_occurrence_key' => $originalOccurrenceKey,
+      ],
+    )->toString();
   }
 
   private function cancelUrl(ActivitySeries $series, string $originalOccurrenceKey): string {

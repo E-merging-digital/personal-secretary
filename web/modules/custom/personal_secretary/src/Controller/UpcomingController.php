@@ -167,6 +167,9 @@ final class UpcomingController extends ControllerBase {
 
       if (!$includeAdminMutationLinks) {
         if ($includeSelfCancelLinks && $actionTarget !== NULL) {
+          if (!$allDay) {
+            $build[$delta]['reschedule'] = $this->rescheduleLink($actionTarget);
+          }
           $build[$delta]['cancel'] = $this->cancelLink($actionTarget);
         }
         continue;
@@ -228,14 +231,7 @@ final class UpcomingController extends ControllerBase {
           'original_occurrence_key' => $actionTarget['original_occurrence_key'],
         ];
         if (!$allDay) {
-          $build[$delta]['reschedule'] = [
-            '#type' => 'link',
-            '#title' => $this->t('Reschedule occurrence'),
-            '#url' => Url::fromRoute(
-              'personal_secretary.reschedule_occurrence',
-              $routeParameters,
-            ),
-          ];
+          $build[$delta]['reschedule'] = $this->rescheduleLink($actionTarget);
         }
         $build[$delta]['cancel'] = $this->cancelLink($actionTarget);
       }
@@ -249,6 +245,20 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
+  private function rescheduleLink(array $target): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('Reschedule occurrence'),
+      '#url' => Url::fromRoute(
+        'personal_secretary.reschedule_occurrence',
+        [
+          'series' => $target['series_id'],
+          'original_occurrence_key' => $target['original_occurrence_key'],
+        ],
+      ),
+    ];
+  }
+
   private function cancelLink(array $target): array {
     return [
       '#type' => 'link',
