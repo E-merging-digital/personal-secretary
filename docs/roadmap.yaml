@@ -4,16 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: authorized-self-occurrence-reschedule
+  phase: personal-prod-readiness
   purpose: >-
-    Let an authorized ordinary User reschedule one exact current TIMED occurrence
-    from My upcoming while reusing existing occurrence and authority primitives.
+    Materialize the application/runtime contract for a private daily-use Personal
+    Secretary production, then complete the minimum product and infrastructure
+    gates required for a recoverable first usable PROD.
 
 active_tasks:
-  - issue: 138
+  - issue: 140
     purpose: >-
-      Add bounded current-user occurrence reschedule authority and My upcoming
-      affordance while preserving existing admin and domain reschedule semantics.
+      Document the private PROD application contract, DEV/PROD boundaries,
+      persistent-data and secret requirements, reminder scheduler safety, and
+      rebaseline this roadmap without implementing Infrastructure.
 
 historical_context:
   - issue: 58
@@ -55,28 +57,24 @@ historical_context:
       identity separated from external account authority.
   - issue: 76
     purpose: >-
-      Terminal current-user identity materialized Decision 0013 and the governed
-      User-to-Person binding surface.
+      Terminal current-user identity materialized the governed User-to-Person
+      binding surface.
   - issue: 78
     purpose: >-
-      Terminal My upcoming established first current-user personalization by
-      filtering the shared Upcoming aggregation on effective responsibility.
+      Terminal My upcoming established current-user personalization by filtering
+      the shared Upcoming aggregation on effective responsibility.
   - issue: 80
     purpose: >-
       Accepted time-commitment architecture selected an independent revisionable
       TimeCommitmentRule and provider-agnostic calendar eligibility contract.
   - issue: 81
     purpose: >-
-      Terminal provider-agnostic calendar eligibility materialized Decision 0014,
+      Terminal provider-agnostic calendar eligibility materialized
       TimeCommitmentRule lifecycle and reconstructible calendar candidates.
-  - issue: 84
-    purpose: >-
-      Google Calendar account-connection delivery remains suspended and frozen
-      while the authorized self-reschedule work unit executes.
   - issue: 85
     purpose: >-
-      Accepted preparation-surface architecture selected derived-only My preparations,
-      a seven-day due window, calculated overdue state and deferred durable interaction.
+      Accepted preparation-surface architecture selected derived-only My
+      preparations, a seven-day due window and calculated overdue state.
   - issue: 86
     purpose: >-
       Accepted Today architecture established Drupal User timezone civil-day
@@ -91,12 +89,12 @@ historical_context:
       self-oriented Person assignment, due semantics and the bounded task lifecycle.
   - issue: 101
     purpose: >-
-      Terminal Household authorization materialized Decision 0015, explicit
-      User-to-Household grants and authorized-scope-first My upcoming access.
+      Terminal Household authorization materialized explicit User-to-Household
+      grants and authorized-scope-first My upcoming access.
   - issue: 103
     purpose: >-
-      Terminal standalone PersonalTask materialized Decision 0016, My tasks and
-      the governed self-oriented task lifecycle.
+      Terminal standalone PersonalTask materialized My tasks and the governed
+      self-oriented task lifecycle.
   - issue: 105
     purpose: >-
       Terminal Today materialized authorized current-user Tasks and effective
@@ -104,8 +102,7 @@ historical_context:
   - issue: 107
     purpose: >-
       Terminal current-user preparation reads materialized My preparations and
-      Today preparations with authorized scope, bounded long-lead discovery and
-      derived-only preparation truth.
+      Today preparations with authorized scope and bounded long-lead discovery.
   - issue: 109
     purpose: >-
       Terminal PreparationCompletion materialized sparse durable prepared state,
@@ -136,33 +133,89 @@ historical_context:
       recurring TIMED and ALL_DAY pause ranges.
   - issue: 124
     purpose: >-
-      Terminal proactive preparation reminders added opted-in bounded Core Queue
-      delivery state while preserving preparation truth and current-user surfaces.
-  - issue: 126
-    purpose: >-
-      SMTP transport proof remains suspended and frozen; Composer/DDEV execution
-      capability is restored for later Project Lead reassessment.
+      Terminal proactive preparation reminders added opted-in bounded Drupal
+      cron/Queue delivery state while preserving preparation truth.
   - issue: 127
     purpose: >-
       Terminal authorized normal-user activity creation added bounded One-off and
       Weekly creation with server-derived CurrentPerson responsibility.
   - issue: 131
     purpose: >-
-      Terminal authorized self-cancellation added exact current-occurrence cancellation
-      from My upcoming while preserving current Household and responsibility authority.
+      Terminal authorized self-cancellation added exact current-occurrence
+      cancellation from My upcoming.
   - issue: 132
     purpose: >-
-      Terminal privacy-safe PWA installability reused drupal/pwa manifest integration
-      with a bounded project Service Worker that keeps personal data network-only.
+      Terminal privacy-safe PWA installability reused drupal/pwa manifest
+      integration with a project Service Worker keeping personal data network-only.
   - issue: 136
     purpose: >-
-      Terminal trust-root update materialized Decision 134 and the governed
-      USE EXISTING FIRST doctrine for credible pre-stable contrib evaluation.
+      Terminal trust-root update materialized the governed USE EXISTING FIRST
+      doctrine for credible pre-stable contrib evaluation.
+  - issue: 138
+    purpose: >-
+      Terminal authorized self-reschedule added bounded rescheduling of an exact
+      current TIMED occurrence from My upcoming.
 
 planned_tasks:
+  - issue: 126
+    purpose: >-
+      Next repository product Delivery task after #140: materialize and prove the
+      governed SMTP transport in the canonical Linux-native WSL DEV. The historical
+      uncommitted Windows candidate is not an execution dependency.
+  - issue: 141
+    purpose: >-
+      Validate product behavior after Infrastructure provisions the separate
+      private PROD and completes a deliberate controlled restore. This task remains
+      blocked on the Infrastructure handoff and does not provision Infra.
   - purpose: >-
-      Project Lead MVP reassessment after authorized self-reschedule; likely resume
-      the #126 transport chain unless a smaller user-facing MVP gap remains.
+      After #126 is terminal, authorize one bounded real SMTP-provider proof,
+      reconcile restored reminder-delivery state, and deliberately activate the
+      reminder scheduler only after the real transport is proven.
+  - purpose: >-
+      Declare FIRST_USABLE_PROD only after private access, restored product state,
+      backup/restore evidence and real reminder delivery are all proven.
+
+deferred_tasks:
+  - issue: 84
+    purpose: >-
+      Google Calendar account connection remains deferred until the first usable
+      personal PROD baseline exists and exact callback/secret requirements can be
+      evaluated against that private runtime.
+
+external_dependencies:
+  - repository: E-merging-digital/infrastructure
+    issue: 15
+    purpose: >-
+      Own the separate lightweight Personal Secretary PROD runtime, private
+      NetBird access, stable private origin and DEV/PROD runtime separation.
+  - repository: E-merging-digital/infrastructure
+    issue: 6
+    purpose: >-
+      Own tested backup and disaster-recovery procedures; no backup is accepted
+      without material restore evidence.
+  - repository: E-merging-digital/infrastructure
+    issue: 14
+    purpose: >-
+      Own the portable database/data recovery workflow and deliberate restore
+      source/path outside ephemeral containers.
+
+execution_sequence:
+  - >-
+    Complete #140 and merge only after Project Lead authorization.
+  - >-
+    Develop #126 in canonical DEV while Infrastructure progresses the PROD runtime,
+    private access, backup and recovery work.
+  - >-
+    Infrastructure performs the controlled PROD restore only after runtime and
+    recovery boundaries are documented.
+  - >-
+    Execute #141 to validate the restored product and inventory reminder delivery
+    state before scheduler activation.
+  - >-
+    Perform the separately authorized real SMTP-provider proof and deliberately
+    activate reminder scheduling.
+  - >-
+    Accept the first usable private PROD, then resume broader integrations such as #84.
 
 dependency_re_evaluation:
   - package: drupal/pwa
