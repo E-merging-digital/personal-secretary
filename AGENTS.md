@@ -48,6 +48,56 @@ Lorsqu'une surface contrib sûre couvre une partie du besoin, préférer la
 réutilisation hybride au custom 100 %. Ne pas rejeter tout un projet contrib si
 les composants ou comportements risqués peuvent rester désactivés.
 
+## TRUSTED CAPABILITY FIRST
+
+Pour toute exécution assistée par IA, appliquer aussi le contrat canonique de
+`docs/operations/execution-capabilities.md` avant de choisir une voie
+d'exécution ou d'en créer une nouvelle.
+
+```text
+CAPABILITY BEFORE COMMAND
+AUTHORITY BEFORE ACTION
+EVIDENCE BEFORE TRUST
+```
+
+Préférer la plus petite capacité approuvée, structurée et suffisamment bornée
+qui couvre le besoin réel. La disponibilité technique d'un tool, connecteur,
+MCP, navigateur, shell ou accès filesystem ne constitue jamais à elle seule une
+autorité d'utilisation.
+
+L'autorité mutationnelle doit dériver de l'intention utilisateur et de la
+politique applicable. Distinguer au minimum les effets `READ`, `WRITE`,
+`DESTRUCTIVE_WRITE` et `EXTERNAL_SIDE_EFFECT`; une autorité de lecture ne vaut
+pas autorité d'écriture et une action ponctuelle ne vaut pas autorité
+d'automatisation persistante.
+
+Ne jamais escalader silencieusement parce qu'une capacité est insuffisante :
+
+```text
+structured tool -> shell
+shell -> sudo/root
+bounded filesystem -> wider allowedDirectories
+provider/API scope -> broader scope
+structured API -> browser/desktop automation
+```
+
+Une telle évolution exige un gap matériel, la justification de la nouvelle
+frontière de confiance et l'autorité correspondante. Préserver en particulier
+l'identité dédiée, l'absence de sudo/su/rootful Docker group, les groupes OS
+bornés, `allowedDirectories`, le checkout canonique et les frontières DDEV déjà
+établies ; ne jamais les élargir pour le confort d'un agent.
+
+Les connecteurs/MCP/dépendances nouveaux doivent être évalués pour provenance,
+permissions/scopes, données exposées, secrets, destinations réseau, rétention,
+maintenance/update et révocation. Lorsqu'une règle générique est mieux vérifiée
+mécaniquement par Preflight, déléguer cet enforcement au lieu de le dupliquer
+dans Personal Secretary.
+
+Une incapacité doit rester une incapacité explicite (`CAPABILITY_UNAVAILABLE`,
+`AUTHORITY_MISSING`, `USER_CONFIRMATION_REQUIRED`, `POLICY_BLOCKED`,
+`EXECUTION_FAILED` ou `PROVIDER_UNAVAILABLE` selon le cas), pas devenir une
+invitation automatique à contourner la frontière par une capacité plus large.
+
 ## Drupal AI
 
 Lorsqu'une capacité IA produit sera introduite, Drupal AI est l'abstraction
