@@ -14,6 +14,7 @@ module:
   file: 0
   filter: 0
   gin_toolbar: 0
+  key: 0
   layout_builder: 0
   layout_discovery: 0
   mysql: 0
@@ -23,6 +24,7 @@ module:
   path: 0
   path_alias: 0
   personal_secretary: 0
+  phpmailer_smtp: 0
   pwa: 0
   system: 0
   text: 0
