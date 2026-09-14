@@ -153,7 +153,7 @@ final class PreparationReminderDeliveryService {
         $delivery->save();
         return;
       }
-      if (!$this->localSyntheticMailAllowed()) {
+      if (!$this->mailSubmissionAllowed()) {
         $delivery->set('state', PreparationReminderDelivery::STATE_KNOWN_NOT_SUBMITTED);
         $delivery->set('sanitized_error_category', 'external_mail_disabled');
         $delivery->save();
@@ -233,7 +233,10 @@ final class PreparationReminderDeliveryService {
     return $delivery instanceof PreparationReminderDelivery ? $delivery : NULL;
   }
 
-  private function localSyntheticMailAllowed(): bool {
+  private function mailSubmissionAllowed(): bool {
+    if ($this->configFactory->get('personal_secretary.settings')->get('external_smtp_egress') === TRUE) {
+      return TRUE;
+    }
     if (getenv('IS_DDEV_PROJECT') === 'true') {
       return TRUE;
     }

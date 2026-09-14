@@ -11,11 +11,11 @@ current_goal:
     gates required for a recoverable first usable PROD.
 
 active_tasks:
-  - issue: 140
+  - issue: 126
     purpose: >-
-      Document the private PROD application contract, DEV/PROD boundaries,
-      persistent-data and secret requirements, reminder scheduler safety, and
-      rebaseline this roadmap without implementing Infrastructure.
+      Materialize and prove the governed SMTP transport in canonical DEV, with
+      fail-closed TLS, privacy-safe outcome mapping, conservative delivery state
+      and no real external egress.
 
 historical_context:
   - issue: 58
@@ -156,21 +156,23 @@ historical_context:
       Terminal authorized self-reschedule added bounded rescheduling of an exact
       current TIMED occurrence from My upcoming.
 
-planned_tasks:
-  - issue: 126
+  - issue: 140
     purpose: >-
-      Next repository product Delivery task after #140: materialize and prove the
-      governed SMTP transport in the canonical Linux-native WSL DEV. The historical
-      uncommitted Windows candidate is not an execution dependency.
+      Terminal private-PROD application contract established DEV/PROD boundaries,
+      persistent-data and secret requirements, scheduler safety and the
+      personal-prod-readiness roadmap.
+
+planned_tasks:
   - issue: 141
     purpose: >-
       Validate product behavior after Infrastructure provisions the separate
       private PROD and completes a deliberate controlled restore. This task remains
       blocked on the Infrastructure handoff and does not provision Infra.
   - purpose: >-
-      After #126 is terminal, authorize one bounded real SMTP-provider proof,
-      reconcile restored reminder-delivery state, and deliberately activate the
-      reminder scheduler only after the real transport is proven.
+      After the controlled PROD restore and #141 restored-PROD product validation,
+      authorize one bounded real SMTP-provider proof, reconcile reminder-delivery
+      state, and deliberately activate reminder scheduling only after the real
+      transport is proven.
   - purpose: >-
       Declare FIRST_USABLE_PROD only after private access, restored product state,
       backup/restore evidence and real reminder delivery are all proven.
@@ -201,13 +203,10 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #140 and merge only after Project Lead authorization.
+    Complete #126 in canonical DEV and merge only after Project Lead authorization.
   - >-
-    Develop #126 in canonical DEV while Infrastructure progresses the PROD runtime,
-    private access, backup and recovery work.
-  - >-
-    Infrastructure performs the controlled PROD restore only after runtime and
-    recovery boundaries are documented.
+    Infrastructure performs the controlled PROD restore after #126 is terminal and
+    the private runtime and recovery boundaries are ready.
   - >-
     Execute #141 to validate the restored product and inventory reminder delivery
     state before scheduler activation.
