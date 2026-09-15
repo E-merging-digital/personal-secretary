@@ -1,15 +1,39 @@
 <?php
 
-declare(strict_types=1);
-
 /**
+ * @file
  * Repository-owned settings for synthetic bootstrap environments.
  */
+
+declare(strict_types=1);
+
+use Symfony\Component\HttpFoundation\Request;
 
 $environment = getenv('PERSONAL_SECRETARY_ENV') ?: 'production';
 $config['config_split.config_split.development']['status'] = $environment === 'development';
 
 $settings['config_sync_directory'] = dirname(__DIR__, 3) . '/config/sync';
+
+
+$reverse_proxy_host = trim((string) (getenv('DRUPAL_REVERSE_PROXY_HOST') ?: ''));
+if ($reverse_proxy_host !== '') {
+  $reverse_proxy_addresses = gethostbynamel($reverse_proxy_host);
+  if ($reverse_proxy_addresses === FALSE || $reverse_proxy_addresses === []) {
+    throw new RuntimeException('DRUPAL_REVERSE_PROXY_HOST must resolve to at least one IPv4 address.');
+  }
+
+  $reverse_proxy_addresses = array_values(array_unique(array_filter(
+    $reverse_proxy_addresses,
+    static fn(string $address): bool => filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== FALSE,
+  )));
+  if ($reverse_proxy_addresses === []) {
+    throw new RuntimeException('DRUPAL_REVERSE_PROXY_HOST resolved without a valid IPv4 address.');
+  }
+
+  $settings['reverse_proxy'] = TRUE;
+  $settings['reverse_proxy_addresses'] = $reverse_proxy_addresses;
+  $settings['reverse_proxy_trusted_headers'] = Request::HEADER_X_FORWARDED_PROTO;
+}
 
 if (getenv('IS_DDEV_PROJECT') === 'true') {
   $settings['hash_salt'] = 'personal-secretary-ddev-synthetic-bootstrap';

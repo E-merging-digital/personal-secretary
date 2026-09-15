@@ -11,6 +11,7 @@ case "${MODE}" in
 esac
 
 export PERSONAL_SECRETARY_ENV="${MODE}"
+php scripts/verify-reverse-proxy-settings.php
 DRUSH="${DRUSH:-vendor/bin/drush}"
 
 enabled_modules="$("${DRUSH}" pm:list --status=enabled --type=module --field=name)"
