@@ -4,18 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: personal-prod-readiness
+  phase: local-ai-quick-capture-exact-stack-spike
   purpose: >-
-    Materialize the application/runtime contract for a private daily-use Personal
-    Secretary production, then complete the minimum product and infrastructure
-    gates required for a recoverable first usable PROD.
+    Prove the exact LOCAL_ONLY Drupal AI quick-capture stack with synthetic data,
+    preserve proposal-only domain boundaries, and benchmark the authorized local
+    model before any real-data or production AI use.
 
 active_tasks:
-  - issue: 126
+  - issue: 151
     purpose: >-
-      Materialize and prove the governed SMTP transport in canonical DEV, with
-      fail-closed TLS, privacy-safe outcome mapping, conservative delivery state
-      and no real external egress.
+      Complete the exact-stack local AI quick-capture spike, synthetic benchmark
+      and provider-neutral interpretation seam for Project Lead model arbitration.
 
 historical_context:
   - issue: 58
@@ -161,28 +160,31 @@ historical_context:
       Terminal private-PROD application contract established DEV/PROD boundaries,
       persistent-data and secret requirements, scheduler safety and the
       personal-prod-readiness roadmap.
-
-planned_tasks:
+  - issue: 126
+    purpose: >-
+      Historical terminal SMTP foundation established the governed transport
+      boundary and privacy-safe delivery semantics.
   - issue: 141
     purpose: >-
-      Validate product behavior after Infrastructure provisions the separate
-      private PROD and completes a deliberate controlled restore. This task remains
-      blocked on the Infrastructure handoff and does not provision Infra.
+      Historical terminal restored-PROD validation proved the restored private
+      product state before later delivery work.
+
+planned_tasks:
   - purpose: >-
-      After the controlled PROD restore and #141 restored-PROD product validation,
-      authorize one bounded real SMTP-provider proof, reconcile reminder-delivery
-      state, and deliberately activate reminder scheduling only after the real
-      transport is proven.
-  - purpose: >-
-      Declare FIRST_USABLE_PROD only after private access, restored product state,
-      backup/restore evidence and real reminder delivery are all proven.
+      Project Lead arbitrates the next model/product step from the exact-stack
+      transport proof and synthetic benchmark evidence produced by #151.
+
+waiting_external_tasks:
+  - issue: 150
+    purpose: >-
+      Remain frozen while Postmark approval is pending; resume immediately if that
+      approval arrives and becomes the higher-priority external gate.
 
 deferred_tasks:
   - issue: 84
     purpose: >-
-      Google Calendar account connection remains deferred until the first usable
-      personal PROD baseline exists and exact callback/secret requirements can be
-      evaluated against that private runtime.
+      Google Calendar account connection remains deferred and suspended while the
+      local-AI quick-capture/model arbitration tranche is active.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -203,18 +205,14 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #126 in canonical DEV and merge only after Project Lead authorization.
+    Complete #151 exact-stack transport and synthetic benchmark evidence without
+    real personal data, cloud inference or production AI deployment.
   - >-
-    Infrastructure performs the controlled PROD restore after #126 is terminal and
-    the private runtime and recovery boundaries are ready.
+    Return the model quality and failure profile to Project Lead for arbitration
+    before testing or downloading another model.
   - >-
-    Execute #141 to validate the restored product and inventory reminder delivery
-    state before scheduler activation.
-  - >-
-    Perform the separately authorized real SMTP-provider proof and deliberately
-    activate reminder scheduling.
-  - >-
-    Accept the first usable private PROD, then resume broader integrations such as #84.
+    Resume #150 immediately if Postmark approval arrives and becomes the
+    higher-priority external gate.
 
 dependency_re_evaluation:
   - package: drupal/pwa

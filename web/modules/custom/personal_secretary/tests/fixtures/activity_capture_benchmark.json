@@ -1,0 +1,90 @@
+[
+  {
+    "id": "one_off_timed",
+    "category": "one-off timed",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le 18 septembre 2026 à 16h, déposer un colis.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","absolute_date":"2026-09-18","relative_date_expression":null,"local_time":"16:00","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "weekly_timed",
+    "category": "weekly timed",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Tous les mardis à 07h15, aller courir.",
+    "expected": {"intent":"WEEKLY","time_mode":"TIMED","weekday":"TUESDAY","local_time":"07:15","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "all_day_one_off",
+    "category": "all-day one-off",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le 21 septembre 2026, journée administrative.",
+    "expected": {"intent":"ONE_OFF","time_mode":"ALL_DAY","absolute_date":"2026-09-21","local_time":null,"ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "explicit_location",
+    "category": "explicit location",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le 22 septembre 2026 à 18h, entraînement au Centre Atlas.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","location":"Centre Atlas","absolute_date":"2026-09-22","local_time":"18:00","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "concerned_person_text",
+    "category": "concerned Person textual candidate",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le 23 septembre 2026 à 17h, accompagner Personne Alpha au rendez-vous.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","concerned_person_candidates":["Personne Alpha"],"absolute_date":"2026-09-23","local_time":"17:00","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "self_responsibility",
+    "category": "explicit SELF responsibility",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le 24 septembre 2026 à 19h, préparer la salle. Je m'en occupe moi-même.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","responsibility":"SELF","responsibility_text":null,"absolute_date":"2026-09-24","local_time":"19:00","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "text_responsibility",
+    "category": "textual responsibility candidate",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le 25 septembre 2026 à 18h30, fermer le local. Personne Bêta s'en charge.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","responsibility":"TEXT","responsibility_text":"Personne Bêta","absolute_date":"2026-09-25","local_time":"18:30","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "relative_near_midnight",
+    "category": "relative date near midnight with frozen timezone",
+    "context_utc": "2026-10-24T22:30:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Demain à 08h, sortir les poubelles.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","relative_date_expression":"Demain","absolute_date":null,"local_time":"08:00","source_timezone":"Europe/Brussels","ambiguous":false,"unsupported":false}
+  },
+  {
+    "id": "ambiguous_person",
+    "category": "ambiguous Person wording",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Vendredi à 18h, récupérer le dossier avec Personne Alpha ou Personne Bêta.",
+    "expected": {"intent":"ONE_OFF","time_mode":"TIMED","ambiguous":true,"unsupported":false}
+  },
+  {
+    "id": "unsupported_complex_recurrence",
+    "category": "unsupported complex recurrence",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Le premier lundi de chaque mois à 09h, faire l'inventaire.",
+    "expected": {"time_mode":"TIMED","local_time":"09:00","unsupported":true}
+  },
+  {
+    "id": "underspecified",
+    "category": "underspecified / malformed request",
+    "context_utc": "2026-09-16T12:00:00Z",
+    "timezone": "Europe/Brussels",
+    "text": "Faire le truc bientôt avec quelqu'un.",
+    "expected": {"ambiguous":true}
+  }
+]
