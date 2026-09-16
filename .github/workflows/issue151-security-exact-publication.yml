@@ -1,0 +1,69 @@
+name: issue151 security exact publication
+
+on:
+  push:
+    branches:
+      - work/issue-151-local-ai-quick-capture-spike
+
+permissions:
+  contents: write
+
+jobs:
+  publish-exact-security-tree:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout transport commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify payload and publish exact tree
+        shell: bash
+        env:
+          BRANCH: work/issue-151-local-ai-quick-capture-spike
+          PRE_SECURITY_HEAD: 9b4d3671a1763e21c6208a6e758619d268fd6412
+          EXPECTED_PATCH_SHA256: 44d6d58bc04777c3e1fcb28bd80dce7eb7921c44be901fc241cde79c1eb088e1
+          EXPECTED_GZ_SHA256: 58815f0364667f23b6b1bd648945aa73fcabe2ea001ab1ac6eb495f8d5f53bb3
+          EXPECTED_B64_SHA256: 74a35cf4d42c69242d77dc06642323f395bd16ff50b96c2361179710f28e7dee
+          EXPECTED_JSON_BLOB: 2800600b32a0352cbbfdb3341044139b2d667666
+          EXPECTED_LOCK_BLOB: 662affdae61009aeec049472d77d890f6ce0393d
+          EXPECTED_TREE: d7013e9c961d9633f98494911ee8661d1a4a79c4
+          WORKFLOW_PATH: .github/workflows/issue151-security-exact-publication.yml
+          PAYLOAD_PATH: .issue151.security.patch.gz.b64
+        run: |
+          set -euo pipefail
+          temp_head="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$PRE_SECURITY_HEAD"
+
+          mapfile -t transport_paths < <(git diff --name-only "$PRE_SECURITY_HEAD" HEAD | LC_ALL=C sort)
+          expected_paths=("$PAYLOAD_PATH" "$WORKFLOW_PATH")
+          mapfile -t expected_paths < <(printf '%s\n' "${expected_paths[@]}" | LC_ALL=C sort)
+          test "${#transport_paths[@]}" -eq 2
+          test "${transport_paths[*]}" = "${expected_paths[*]}"
+
+          test "$(sha256sum "$PAYLOAD_PATH" | awk '{print $1}')" = "$EXPECTED_B64_SHA256"
+          base64 -d "$PAYLOAD_PATH" > "$RUNNER_TEMP/issue151.patch.gz"
+          test "$(sha256sum "$RUNNER_TEMP/issue151.patch.gz" | awk '{print $1}')" = "$EXPECTED_GZ_SHA256"
+          gzip -dc "$RUNNER_TEMP/issue151.patch.gz" > "$RUNNER_TEMP/issue151.patch"
+          test "$(sha256sum "$RUNNER_TEMP/issue151.patch" | awk '{print $1}')" = "$EXPECTED_PATCH_SHA256"
+
+          git apply --check "$RUNNER_TEMP/issue151.patch"
+          git apply --index "$RUNNER_TEMP/issue151.patch"
+          test "$(git hash-object composer.json)" = "$EXPECTED_JSON_BLOB"
+          test "$(git hash-object composer.lock)" = "$EXPECTED_LOCK_BLOB"
+
+          git rm -f "$WORKFLOW_PATH" "$PAYLOAD_PATH"
+          git diff --cached --check
+          test "$(git write-tree)" = "$EXPECTED_TREE"
+
+          remote_head="$(git ls-remote origin "refs/heads/$BRANCH" | awk '{print $1}')"
+          test "$remote_head" = "$temp_head"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m '#151 Publish Drupal core security repair exact tree'
+          test "$(git rev-parse HEAD^{tree})" = "$EXPECTED_TREE"
+          test "$(git hash-object composer.json)" = "$EXPECTED_JSON_BLOB"
+          test "$(git hash-object composer.lock)" = "$EXPECTED_LOCK_BLOB"
+          git push origin "HEAD:refs/heads/$BRANCH"
