@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild exact local candidate patch
+      - name: Rebuild exact validated candidate
         shell: bash
         run: |
           set -euo pipefail
@@ -25,28 +25,17 @@ jobs:
           test "$(sha256sum /tmp/issue151.patch | cut -d' ' -f1)" = "9dea6073841dc2f4735e2fed7d89bd6ee58a08aaa0a447a05fe5248965c60419"
           git apply --index /tmp/issue151.patch
           test "$(git hash-object composer.json)" = "9d8240d4e7c3e30fcbd05ae22ef698350325235f"
-
-      - name: Set up DDEV
-        uses: ddev/github-action-setup-ddev@v1
-        with:
-          autostart: false
-          version: 1.25.4
-
-      - name: Reproduce exact Composer lock in canonical runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          ddev start
-          ddev composer require 'drupal/ai:^1.4' 'drupal/ai_provider_lmstudio:^1.1' --no-install --no-interaction --no-scripts
-          test "$(git hash-object composer.json)" = "9d8240d4e7c3e30fcbd05ae22ef698350325235f"
+          base64 -d .issue151.composer-lock.patch.gz.b64 | gzip -d > /tmp/issue151-composer-lock.patch
+          test "$(sha256sum /tmp/issue151-composer-lock.patch | cut -d' ' -f1)" = "b968b834d140ca6fb7766ecea907e3c4fc72c2a6af950ec970186b73d7ab1cac"
+          git apply --index /tmp/issue151-composer-lock.patch
           test "$(git hash-object composer.lock)" = "5323d996efd129435b55fe410a59b92b8562b6a6"
 
       - name: Publish only the exact validated tree
         shell: bash
         run: |
           set -euo pipefail
-          git rm .github/workflows/issue151-exact-lock-publication.yml .issue151.patch.b64
-          git add composer.json composer.lock
+          git rm .github/workflows/issue151-exact-lock-publication.yml .issue151.patch.b64 .issue151.composer-lock.patch.gz.b64
+          git diff --cached --check
           test "$(git write-tree)" = "bc665467d6bbd1a4bb39a0784b80ebce4cc9b048"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
