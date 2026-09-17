@@ -11,10 +11,10 @@ current_goal:
     and the prohibition on real-data or production AI use.
 
 active_tasks:
-  - issue: 155
+  - issue: 157
     purpose: >-
-      Complete the bounded Ministral 3 3B synthetic benchmark and return its model
-      quality and failure profile for Project Lead arbitration.
+      Complete the bounded Qwen3.5 9B synthetic benchmark and return its model
+      quality and failure profile for Project Lead final model/product arbitration.
 
 historical_context:
   - issue: 58
@@ -172,11 +172,15 @@ historical_context:
     purpose: >-
       Historical terminal exact-stack LOCAL_ONLY spike proved Drupal AI plus LM
       Studio integration and rejected Granite 4.1 3B from the synthetic benchmark.
+  - issue: 155
+    purpose: >-
+      Historical terminal second LOCAL_ONLY qualification rejected Ministral 3 3B
+      after the frozen synthetic benchmark failed required semantic gates.
 
 planned_tasks:
   - purpose: >-
-      Project Lead arbitrates the next model/product step from the bounded Ministral
-      result; no additional model is selected or tested without new authority.
+      Project Lead performs final model/product arbitration from the bounded Qwen3.5
+      result; no fourth model is selected or tested without new authority.
 
 waiting_external_tasks:
   - issue: 150
@@ -209,11 +213,11 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #155 Ministral 3 3B synthetic benchmark evidence without real personal
+    Complete #157 Qwen3.5 9B synthetic benchmark evidence without real personal
     data, cloud inference or production AI deployment.
   - >-
-    Return the Ministral model quality and failure profile to Project Lead for
-    arbitration before testing or downloading another model.
+    Return the Qwen3.5 model quality and failure profile to Project Lead for final
+    model/product arbitration; no fourth model is authorized.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
