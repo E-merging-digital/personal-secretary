@@ -7,13 +7,13 @@ namespace Drupal\personal_secretary\Service;
 use Drupal\ai\AiProviderPluginManager;
 use Drupal\ai\OperationType\Chat\ChatInput;
 use Drupal\ai\OperationType\Chat\ChatMessage;
+use Drupal\personal_secretary\Value\ActivityCaptureExtraction;
 use Drupal\personal_secretary\Value\ActivityCaptureInput;
-use Drupal\personal_secretary\Value\ActivityCaptureProposal;
 use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * Interprets LOCAL_ONLY capture text through the Drupal AI abstraction.
+ * Extracts narrow LOCAL_ONLY linguistic candidates through Drupal AI.
  */
 final class ActivityCaptureInterpreter implements ActivityCaptureInterpreterInterface {
 
@@ -30,15 +30,15 @@ final class ActivityCaptureInterpreter implements ActivityCaptureInterpreterInte
     }
   }
 
-  public function interpret(ActivityCaptureInput $input): ActivityCaptureProposal {
+  public function interpret(ActivityCaptureInput $input): ActivityCaptureExtraction {
     $chatInput = new ChatInput([
       new ChatMessage('user', $this->buildUserPrompt($input)),
     ]);
     $chatInput->setSystemPrompt($this->systemPrompt());
     $chatInput->setChatStructuredJsonSchema([
-      'name' => 'activity_capture_proposal',
+      'name' => 'activity_capture_extraction',
       'strict' => FALSE,
-      'schema' => ActivityCaptureProposal::structuredJsonSchema(),
+      'schema' => ActivityCaptureExtraction::structuredJsonSchema(),
     ]);
 
     $provider = $this->providerManager->createInstance($this->providerId);
@@ -53,34 +53,36 @@ final class ActivityCaptureInterpreter implements ActivityCaptureInterpreterInte
       throw new RuntimeException('Activity capture structured response must decode to an object.');
     }
 
-    return ActivityCaptureProposal::fromArray($decoded);
+    return ActivityCaptureExtraction::fromArray($decoded);
   }
 
   private function buildUserPrompt(ActivityCaptureInput $input): string {
     return implode("\n", [
       'Contexte synthétique/local uniquement.',
       'Instant UTC figé: ' . $input->contextInstantIso8601(),
-      'Fuseau source: ' . $input->sourceTimezone,
+      'Fuseau applicatif connu: ' . $input->sourceTimezone,
       'Demande: «' . $input->text . '»',
-      'Retourne uniquement la proposition structurée demandée par le schéma.',
+      'Retourne uniquement les candidats linguistiques demandés par le schéma.',
     ]);
   }
 
   private function systemPrompt(): string {
     return <<<'PROMPT'
-Tu extrais une proposition d'activité à partir d'une courte demande française.
-La proposition n'est jamais une autorité métier et ne crée aucune entité.
-N'invente jamais d'identifiant, UUID, Person ID, Household ID ou graphe d'autorisation.
-ONE_OFF signifie une seule occurrence; WEEKLY uniquement une répétition explicitement hebdomadaire.
-TIMED signifie qu'une heure est explicitement fournie; ALL_DAY uniquement une activité sans heure couvrant la journée.
-Pour une date relative, conserve l'expression dans relative_date_expression et laisse absolute_date à null.
-Pour une date calendrier explicitement écrite, place YYYY-MM-DD dans absolute_date et relative_date_expression à null.
-Pour une répétition hebdomadaire, renseigne weekday avec MONDAY..SUNDAY. local_time est HH:MM quand une heure est explicite.
-source_timezone doit recopier exactement le fuseau fourni.
-concerned_person_candidates contient uniquement des candidats textuels explicitement mentionnés.
-responsibility vaut SELF pour une responsabilité explicite à la première personne, TEXT pour un responsable textuel explicite, sinon NONE.
-unsupported vaut true pour une récurrence ou intention hors ONE_OFF/WEEKLY. ambiguous vaut true quand la demande ne permet pas une proposition fiable sans clarification.
-Ne résous jamais une expression relative en date absolue.
+Tu extrais uniquement des candidats linguistiques à partir d'une courte demande française.
+Tu ne produis jamais une décision métier, une autorisation, un identifiant interne, un UUID, un Household, une RRULE ou un fuseau horaire.
+label_text contient un libellé d'activité court déduit du texte, ou null si aucun libellé fiable n'est extractible.
+location_text contient uniquement un lieu explicitement exprimé, sinon null.
+concerned_person_mentions contient uniquement les mentions textuelles de personnes explicitement présentes.
+concerned_person_alternative vaut true uniquement si ces mentions sont présentées comme des alternatives ou un choix, par exemple avec « ou ».
+responsibility_candidate vaut "SELF" seulement si la responsabilité à la première personne est explicite; sinon le référent textuel explicite; sinon null.
+date_expression conserve l'expression de date ou de jour telle qu'exprimée, sans la transformer en vérité métier.
+date_day, date_month et date_year extraient uniquement les composantes numériques d'une date calendrier explicitement exprimée; laisse-les à null pour une date relative ou un simple jour de semaine.
+relative_day_offset exprime seulement un sens relatif explicite et simple, par exemple aujourd'hui=0, demain=1, après-demain=2; sinon null.
+start_time_expression et end_time_expression contiennent uniquement les expressions horaires explicitement présentes; n'invente jamais une durée ou une heure de fin.
+recurrence_expression contient uniquement le fragment exprimant une répétition; null signifie qu'aucune répétition n'est exprimée.
+explicit_all_day_signal vaut true uniquement si le texte exprime clairement une activité toute la journée / journée entière.
+explicit_timed_signal vaut true si le texte exprime explicitement une heure ou un caractère horaire.
+N'émets aucun drapeau global ambiguous/unsupported: la clarification, l'identité, la récurrence supportée et les valeurs finales sont résolues par l'application.
 PROMPT;
   }
 

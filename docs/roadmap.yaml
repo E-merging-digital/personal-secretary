@@ -4,17 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: local-ai-quick-capture-model-selection
+  phase: local-ai-quick-capture-architecture-implementation
   purpose: >-
-    Qualify bounded LOCAL_ONLY quick-capture model candidates with synthetic data
-    while preserving the proven Drupal AI stack, proposal-only domain boundaries
-    and the prohibition on real-data or production AI use.
+    Materialize the accepted narrow LOCAL_ONLY linguistic-extraction boundary and
+    deterministic activity-capture resolver while preserving explicit review,
+    manual structured capture and Drupal-owned domain authority.
 
 active_tasks:
-  - issue: 157
+  - issue: 160
     purpose: >-
-      Complete the bounded Qwen3.5 9B synthetic benchmark and return its model
-      quality and failure profile for Project Lead final model/product arbitration.
+      Refactor quick capture so AI owns only narrow linguistic extraction and the
+      application deterministically owns normalization, identity, policy and the
+      final editable review proposal.
 
 historical_context:
   - issue: 58
@@ -176,11 +177,19 @@ historical_context:
     purpose: >-
       Historical terminal second LOCAL_ONLY qualification rejected Ministral 3 3B
       after the frozen synthetic benchmark failed required semantic gates.
+  - issue: 157
+    purpose: >-
+      Historical terminal third LOCAL_ONLY qualification rejected Qwen3.5 9B after
+      the frozen synthetic benchmark failed required semantic and latency gates.
+  - issue: 159
+    purpose: >-
+      Accepted architecture decision replaced the monolithic model-output contract
+      with narrow AI extraction plus deterministic application resolution.
 
 planned_tasks:
   - purpose: >-
-      Project Lead performs final model/product arbitration from the bounded Qwen3.5
-      result; no fourth model is selected or tested without new authority.
+      Run a separately authorized BENCHMARK_V2 against the materialized extraction
+      and deterministic-resolution boundary before any fourth-model arbitration.
 
 waiting_external_tasks:
   - issue: 150
@@ -213,11 +222,11 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #157 Qwen3.5 9B synthetic benchmark evidence without real personal
-    data, cloud inference or production AI deployment.
+    Complete #160 with deterministic tests and no real model inference, benchmark
+    replay, cloud fallback, Composer change or domain/database migration.
   - >-
-    Return the Qwen3.5 model quality and failure profile to Project Lead for final
-    model/product arbitration; no fourth model is authorized.
+    Return Project Lead for separate BENCHMARK_V2 authority; no fourth model is
+    selected or tested from this implementation Task.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
