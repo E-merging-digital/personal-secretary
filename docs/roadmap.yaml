@@ -4,17 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: local-ai-quick-capture-exact-stack-spike
+  phase: local-ai-quick-capture-model-selection
   purpose: >-
-    Prove the exact LOCAL_ONLY Drupal AI quick-capture stack with synthetic data,
-    preserve proposal-only domain boundaries, and benchmark the authorized local
-    model before any real-data or production AI use.
+    Qualify bounded LOCAL_ONLY quick-capture model candidates with synthetic data
+    while preserving the proven Drupal AI stack, proposal-only domain boundaries
+    and the prohibition on real-data or production AI use.
 
 active_tasks:
-  - issue: 151
+  - issue: 155
     purpose: >-
-      Complete the exact-stack local AI quick-capture spike, synthetic benchmark
-      and provider-neutral interpretation seam for Project Lead model arbitration.
+      Complete the bounded Ministral 3 3B synthetic benchmark and return its model
+      quality and failure profile for Project Lead arbitration.
 
 historical_context:
   - issue: 58
@@ -168,11 +168,15 @@ historical_context:
     purpose: >-
       Historical terminal restored-PROD validation proved the restored private
       product state before later delivery work.
+  - issue: 151
+    purpose: >-
+      Historical terminal exact-stack LOCAL_ONLY spike proved Drupal AI plus LM
+      Studio integration and rejected Granite 4.1 3B from the synthetic benchmark.
 
 planned_tasks:
   - purpose: >-
-      Project Lead arbitrates the next model/product step from the exact-stack
-      transport proof and synthetic benchmark evidence produced by #151.
+      Project Lead arbitrates the next model/product step from the bounded Ministral
+      result; no additional model is selected or tested without new authority.
 
 waiting_external_tasks:
   - issue: 150
@@ -205,11 +209,11 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #151 exact-stack transport and synthetic benchmark evidence without
-    real personal data, cloud inference or production AI deployment.
+    Complete #155 Ministral 3 3B synthetic benchmark evidence without real personal
+    data, cloud inference or production AI deployment.
   - >-
-    Return the model quality and failure profile to Project Lead for arbitration
-    before testing or downloading another model.
+    Return the Ministral model quality and failure profile to Project Lead for
+    arbitration before testing or downloading another model.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
