@@ -11,8 +11,8 @@ use Drupal\ai\OperationType\Chat\ChatInput;
 use Drupal\ai\OperationType\Chat\ChatMessage;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\personal_secretary\Service\ActivityCaptureInterpreter;
+use Drupal\personal_secretary\Value\ActivityCaptureExtraction;
 use Drupal\personal_secretary\Value\ActivityCaptureInput;
-use Drupal\personal_secretary\Value\ActivityCaptureProposal;
 use InvalidArgumentException;
 use JsonException;
 use ReflectionClass;
@@ -21,8 +21,7 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * Proves the bounded Drupal AI activity-capture interpreter seam.
- *
+ * Proves the narrow Drupal AI linguistic-extraction seam.
  */
 #[RunTestsInSeparateProcesses]
 #[Group('personal_secretary')]
@@ -60,15 +59,16 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
     $chatInput = $this->expectedChatInput($interpreter, $input);
 
     self::assertSame(
-      ActivityCaptureProposal::structuredJsonSchema(),
+      ActivityCaptureExtraction::structuredJsonSchema(),
       $chatInput->getChatStructuredJsonSchema()['schema'],
     );
-    self::assertSame('activity_capture_proposal', $chatInput->getChatStructuredJsonSchema()['name']);
+    self::assertSame('activity_capture_extraction', $chatInput->getChatStructuredJsonSchema()['name']);
 
-    $valid = $this->validProposal();
+    $valid = $this->validExtraction();
     $this->registerMockResponse($chatInput, json_encode($valid, JSON_THROW_ON_ERROR));
-    $proposal = $interpreter->interpret($input);
-    self::assertSame($valid, $proposal->toArray());
+    $extraction = $interpreter->interpret($input);
+    self::assertSame($valid, $extraction->toArray());
+    self::assertFalse($extraction->containsInternalIdentity());
   }
 
   public function testMalformedNormalizedJsonFailsClosed(): void {
@@ -83,8 +83,8 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
   public function testSchemaInvalidNormalizedJsonFailsClosed(): void {
     $interpreter = new ActivityCaptureInterpreter($this->container->get('ai.provider'), 'echoai', 'gpt-test');
     $input = $this->syntheticInput();
-    $invalid = $this->validProposal();
-    unset($invalid['time_mode']);
+    $invalid = $this->validExtraction();
+    unset($invalid['explicit_timed_signal']);
     $this->registerMockResponse($this->expectedChatInput($interpreter, $input), json_encode($invalid, JSON_THROW_ON_ERROR));
 
     $this->expectException(InvalidArgumentException::class);
@@ -104,7 +104,7 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
   private function registerMockResponse(ChatInput $request, string $responseText): void {
     $storage = $this->container->get('entity_type.manager')->getStorage('ai_mock_provider_result');
     $storage->create([
-      'label' => 'Activity capture deterministic response',
+      'label' => 'Activity capture deterministic extraction',
       'request' => Yaml::encode($request->toArray()),
       'response' => Yaml::encode([
         'normalized' => [
@@ -129,9 +129,9 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
     ]);
     $chatInput->setSystemPrompt($systemPrompt->invoke($interpreter));
     $chatInput->setChatStructuredJsonSchema([
-      'name' => 'activity_capture_proposal',
+      'name' => 'activity_capture_extraction',
       'strict' => FALSE,
-      'schema' => ActivityCaptureProposal::structuredJsonSchema(),
+      'schema' => ActivityCaptureExtraction::structuredJsonSchema(),
     ]);
     return $chatInput;
   }
@@ -144,24 +144,23 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
     );
   }
 
-  private function validProposal(): array {
+  private function validExtraction(): array {
     return [
-      'intent' => 'ONE_OFF',
-      'label' => 'Activité synthétique',
-      'location' => NULL,
-      'time_mode' => 'TIMED',
-      'relative_date_expression' => NULL,
-      'absolute_date' => '2026-09-30',
-      'weekday' => NULL,
-      'local_time' => '08:00',
-      'source_timezone' => 'Europe/Brussels',
-      'concerned_person_candidates' => [],
-      'responsibility' => 'NONE',
-      'responsibility_text' => NULL,
-      'preparation_instruction' => NULL,
-      'preparation_lead' => NULL,
-      'ambiguous' => FALSE,
-      'unsupported' => FALSE,
+      'label_text' => 'Activité synthétique',
+      'location_text' => NULL,
+      'concerned_person_mentions' => [],
+      'concerned_person_alternative' => FALSE,
+      'responsibility_candidate' => NULL,
+      'date_expression' => '30 septembre 2026',
+      'date_day' => 30,
+      'date_month' => 9,
+      'date_year' => 2026,
+      'relative_day_offset' => NULL,
+      'start_time_expression' => '08h',
+      'end_time_expression' => NULL,
+      'recurrence_expression' => NULL,
+      'explicit_all_day_signal' => FALSE,
+      'explicit_timed_signal' => TRUE,
     ];
   }
 
