@@ -4,17 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: bounded-application-maintenance
+  phase: local-ai-quick-capture-benchmark-v2
   purpose: >-
-    Apply the currently authorized bounded stable Drupal application patch lot
-    while preserving the accepted quick-capture architecture, product semantics,
-    configuration convergence and fail-closed production boundaries.
+    Qualify the materialized narrow AI extraction plus deterministic resolver
+    boundary with the frozen synthetic BENCHMARK_V2 provider matrix before any
+    provider-adoption or further model-arbitration decision.
 
 active_tasks:
-  - issue: 161
+  - issue: 164
     purpose: >-
-      Maintain the current application baseline with the authorized stable Drupal
-      AI and Config Language Lock patch updates and bounded regression evidence.
+      Complete the frozen BENCHMARK_V2 evidence for Architecture B, the accepted
+      local Ministral baseline and the governed synthetic OpenAI Sol comparison.
 
 historical_context:
   - issue: 58
@@ -188,11 +188,22 @@ historical_context:
     purpose: >-
       Historical terminal architecture materialization implemented the accepted
       narrow AI extraction boundary with deterministic application resolution.
+  - issue: 161
+    purpose: >-
+      Historical terminal application-maintenance lot updated Drupal AI and
+      Config Language Lock while preserving the accepted product architecture.
+  - issue: 166
+    purpose: >-
+      Accepted provider-strategy decision keeps local inference preferred while
+      permitting explicitly governed cloud candidates without silent fallback.
 
 planned_tasks:
+  - issue: 165
+    purpose: >-
+      Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
   - purpose: >-
-      Run a separately authorized BENCHMARK_V2 against the materialized extraction
-      and deterministic-resolution boundary before any fourth-model arbitration.
+      Make any real-data OpenAI provider adoption a separate future decision and
+      task with explicit data-category, retention and provider-runtime authority.
 
 waiting_external_tasks:
   - issue: 150
@@ -204,7 +215,7 @@ deferred_tasks:
   - issue: 84
     purpose: >-
       Google Calendar account connection remains deferred and suspended while the
-      current bounded application-maintenance work is active.
+      BENCHMARK_V2 work unit and its Project Lead follow-up remain active.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -225,14 +236,16 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #161 with only the authorized stable application patch maintenance,
-    deterministic regression evidence and no real model inference or PROD mutation.
+    Complete #164 with the frozen provider comparison, durable report and exact-head
+    CI while preserving product code, canonical DEV data and historical V1 evidence.
   - >-
-    Return Project Lead before separate BENCHMARK_V2 authority; no fourth model is
-    selected or tested from this maintenance Task.
+    Return Project Lead with no provider adoption implied by benchmark results and
+    no fourth local model or additional semantic tranche authorized.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
+  - >-
+    Keep #165 queued until Project Lead separately schedules the Drush tooling lot.
 
 dependency_re_evaluation:
   - package: drupal/pwa
