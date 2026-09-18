@@ -53,7 +53,7 @@ final class ActivityCaptureInterpreter implements ActivityCaptureInterpreterInte
       throw new RuntimeException('Activity capture structured response must decode to an object.');
     }
 
-    return ActivityCaptureExtraction::fromArray($decoded);
+    return ActivityCaptureExtraction::fromProviderArray($decoded);
   }
 
   private function buildUserPrompt(ActivityCaptureInput $input): string {
@@ -72,15 +72,19 @@ Tu extrais uniquement des candidats linguistiques à partir d'une courte demande
 Tu ne produis jamais une décision métier, une autorisation, un identifiant interne, un UUID, un Household, une RRULE ou un fuseau horaire.
 label_text contient un libellé d'activité court déduit du texte, ou null si aucun libellé fiable n'est extractible.
 location_text contient uniquement un lieu explicitement exprimé, sinon null.
-concerned_person_mentions contient uniquement les mentions textuelles de personnes explicitement présentes.
-concerned_person_alternative vaut true uniquement si ces mentions sont présentées comme des alternatives ou un choix, par exemple avec « ou ».
-responsibility_candidate vaut "SELF" seulement si la responsabilité à la première personne est explicite; sinon le référent textuel explicite; sinon null.
+concerned_person_mentions contient uniquement les Personnes explicitement exprimées comme participantes, sujets, bénéficiaires ou directement concernées par l’activité.
+Une Personne exprimée uniquement comme responsable ne doit pas être copiée dans concerned_person_mentions.
+Si le texte donne explicitement les deux rôles à la même Personne, elle peut apparaître dans concerned_person_mentions et responsibility_candidate.
+unclassified_person_mentions contient uniquement les mentions textuelles explicites de Personnes dont le rôle ne peut pas être classé de façon fiable comme concerné ou responsable; ne force jamais une ambiguïté dans un rôle connu.
+concerned_person_alternative vaut true uniquement si les mentions concernées sont présentées comme des alternatives ou un choix, par exemple avec « ou ».
+responsibility_candidate vaut "SELF" seulement si la responsabilité à la première personne est explicite; sinon le référent textuel explicite assigné à la responsabilité; sinon null.
 date_expression conserve l'expression de date ou de jour telle qu'exprimée, sans la transformer en vérité métier.
 date_day, date_month et date_year extraient uniquement les composantes numériques d'une date calendrier explicitement exprimée; laisse-les à null pour une date relative ou un simple jour de semaine.
 relative_day_offset exprime seulement un sens relatif explicite et simple, par exemple aujourd'hui=0, demain=1, après-demain=2; sinon null.
 start_time_expression et end_time_expression contiennent uniquement les expressions horaires explicitement présentes; n'invente jamais une durée ou une heure de fin.
 recurrence_expression contient uniquement le fragment exprimant une répétition; null signifie qu'aucune répétition n'est exprimée.
-explicit_all_day_signal vaut true uniquement si le texte exprime clairement une activité toute la journée / journée entière.
+explicit_all_day_signal vaut true uniquement si le texte exprime explicitement que l’activité couvre toute la journée, par exemple « toute la journée », « pour toute la journée », « journée entière de formation » ou une formulation sémantiquement équivalente.
+La présence du mot « journée » seule dans « journée administrative », « journée pédagogique », « journée portes ouvertes », « journée de formation » ou « journée au bureau » ne suffit pas à établir ALL_DAY.
 explicit_timed_signal vaut true si le texte exprime explicitement une heure ou un caractère horaire.
 N'émets aucun drapeau global ambiguous/unsupported: la clarification, l'identité, la récurrence supportée et les valeurs finales sont résolues par l'application.
 PROMPT;

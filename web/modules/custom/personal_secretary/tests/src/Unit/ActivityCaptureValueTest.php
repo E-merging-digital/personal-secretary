@@ -47,14 +47,63 @@ final class ActivityCaptureValueTest extends TestCase {
 
   public function testNarrowExtractionRoundTripContainsNoInternalIdentity(): void {
     $data = self::validExtraction();
-    $extraction = ActivityCaptureExtraction::fromArray($data);
+    $extraction = ActivityCaptureExtraction::fromProviderArray($data);
 
+    self::assertCount(16, ActivityCaptureExtraction::structuredJsonSchema()['properties']);
+    self::assertCount(16, ActivityCaptureExtraction::structuredJsonSchema()['required']);
     self::assertSame($data, $extraction->toArray());
     self::assertFalse($extraction->containsInternalIdentity());
     self::assertArrayNotHasKey('source_timezone', $data);
     self::assertArrayNotHasKey('intent', $data);
     self::assertArrayNotHasKey('unsupported', $data);
     self::assertArrayNotHasKey('ambiguous', $data);
+  }
+
+  public function testCurrentProviderHydrationRequiresUnclassifiedPersonMentions(): void {
+    $data = self::validExtraction();
+    self::assertSame([], ActivityCaptureExtraction::fromProviderArray($data)->unclassifiedPersonMentions);
+
+    unset($data['unclassified_person_mentions']);
+    $this->expectException(InvalidArgumentException::class);
+    ActivityCaptureExtraction::fromProviderArray($data);
+  }
+
+  public function testHistoricalCompatibilityDefaultsOnlyUnclassifiedPersonMentions(): void {
+    $data = self::validExtraction();
+    unset($data['unclassified_person_mentions']);
+
+    $extraction = ActivityCaptureExtraction::fromArray($data);
+    self::assertSame([], $extraction->unclassifiedPersonMentions);
+    self::assertSame([], $extraction->toArray()['unclassified_person_mentions']);
+  }
+
+  public function testCrossRoleConsistencyRejectsUnclassifiedContradictionsAndAllowsDualRole(): void {
+    $concernedConflict = self::validExtraction();
+    $concernedConflict['concerned_person_mentions'] = [' Personne Bêta '];
+    $concernedConflict['unclassified_person_mentions'] = ['personne bêta'];
+    try {
+      ActivityCaptureExtraction::fromProviderArray($concernedConflict);
+      self::fail('Concerned and unclassified copies of the same Person mention must be rejected.');
+    }
+    catch (InvalidArgumentException) {
+    }
+
+    $responsibilityConflict = self::validExtraction();
+    $responsibilityConflict['responsibility_candidate'] = 'Personne Bêta';
+    $responsibilityConflict['unclassified_person_mentions'] = ['  personne bêta  '];
+    try {
+      ActivityCaptureExtraction::fromProviderArray($responsibilityConflict);
+      self::fail('Responsible and unclassified copies of the same Person mention must be rejected.');
+    }
+    catch (InvalidArgumentException) {
+    }
+
+    $dualRole = self::validExtraction();
+    $dualRole['concerned_person_mentions'] = ['Personne Bêta'];
+    $dualRole['responsibility_candidate'] = 'personne bêta';
+    $extraction = ActivityCaptureExtraction::fromProviderArray($dualRole);
+    self::assertSame(['Personne Bêta'], $extraction->concernedPersonMentions);
+    self::assertSame('personne bêta', $extraction->responsibilityCandidate);
   }
 
   #[DataProvider('invalidExtractionProvider')]
@@ -76,6 +125,10 @@ final class ActivityCaptureValueTest extends TestCase {
       }],
       'uuid in text' => [static function (array $data): array {
         $data['location_text'] = '123e4567-e89b-42d3-a456-426614174000';
+        return $data;
+      }],
+      'uuid in unclassified Person mention' => [static function (array $data): array {
+        $data['unclassified_person_mentions'] = ['123e4567-e89b-42d3-a456-426614174000'];
         return $data;
       }],
       'unbounded offset' => [static function (array $data): array {
@@ -126,6 +179,7 @@ final class ActivityCaptureValueTest extends TestCase {
       'label_text' => 'Déposer un colis',
       'location_text' => NULL,
       'concerned_person_mentions' => ['Personne Alpha'],
+      'unclassified_person_mentions' => [],
       'concerned_person_alternative' => FALSE,
       'responsibility_candidate' => 'SELF',
       'date_expression' => 'demain',

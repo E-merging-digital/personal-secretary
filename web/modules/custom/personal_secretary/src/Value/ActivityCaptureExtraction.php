@@ -7,7 +7,7 @@ namespace Drupal\personal_secretary\Value;
 use InvalidArgumentException;
 
 /**
- * Narrow, non-authoritative linguistic extraction returned by local AI.
+ * Narrow, non-authoritative linguistic extraction returned by AI.
  */
 final readonly class ActivityCaptureExtraction {
 
@@ -15,12 +15,17 @@ final readonly class ActivityCaptureExtraction {
 
   /**
    * @param string[] $concernedPersonMentions
-   *   Explicit textual Person mentions only.
+   *   Persons explicitly expressed as participants, subjects, beneficiaries, or
+   *   Persons the activity directly concerns.
+   * @param string[] $unclassifiedPersonMentions
+   *   Explicit textual Person mentions whose semantic role cannot be reliably
+   *   classified as concerned or responsible.
    */
   public function __construct(
     public ?string $labelText,
     public ?string $locationText,
     public array $concernedPersonMentions,
+    public array $unclassifiedPersonMentions,
     public bool $concernedPersonAlternative,
     public ?string $responsibilityCandidate,
     public ?string $dateExpression,
@@ -36,7 +41,7 @@ final readonly class ActivityCaptureExtraction {
   ) {}
 
   /**
-   * Returns the bounded model-output schema.
+   * Returns the current bounded provider-output schema.
    */
   public static function structuredJsonSchema(): array {
     return [
@@ -46,6 +51,10 @@ final readonly class ActivityCaptureExtraction {
         'label_text' => ['type' => ['string', 'null']],
         'location_text' => ['type' => ['string', 'null']],
         'concerned_person_mentions' => [
+          'type' => 'array',
+          'items' => ['type' => 'string'],
+        ],
+        'unclassified_person_mentions' => [
           'type' => 'array',
           'items' => ['type' => 'string'],
         ],
@@ -70,6 +79,7 @@ final readonly class ActivityCaptureExtraction {
         'label_text',
         'location_text',
         'concerned_person_mentions',
+        'unclassified_person_mentions',
         'concerned_person_alternative',
         'responsibility_candidate',
         'date_expression',
@@ -87,9 +97,30 @@ final readonly class ActivityCaptureExtraction {
   }
 
   /**
-   * Builds one validated narrow extraction from model output.
+   * Strictly hydrates current provider output against the complete schema.
+   */
+  public static function fromProviderArray(array $data): self {
+    return self::hydrate($data);
+  }
+
+  /**
+   * Hydrates bounded historical/test payloads.
+   *
+   * Historical pre-#168 payloads may omit only
+   * unclassified_person_mentions; that field deterministically defaults to [].
+   * Current providers must use fromProviderArray() instead.
    */
   public static function fromArray(array $data): self {
+    if (!array_key_exists('unclassified_person_mentions', $data)) {
+      $data['unclassified_person_mentions'] = [];
+    }
+    return self::hydrate($data);
+  }
+
+  /**
+   * Builds one validated narrow extraction.
+   */
+  private static function hydrate(array $data): self {
     $schema = self::structuredJsonSchema();
     $missing = array_diff($schema['required'], array_keys($data));
     $unknown = array_diff(array_keys($data), array_keys($schema['properties']));
@@ -97,13 +128,8 @@ final readonly class ActivityCaptureExtraction {
       throw new InvalidArgumentException('Activity capture extraction does not match the bounded schema.');
     }
 
-    if (!is_array($data['concerned_person_mentions'])) {
-      throw new InvalidArgumentException('Activity capture concerned_person_mentions must be an array.');
-    }
-    $mentions = [];
-    foreach ($data['concerned_person_mentions'] as $mention) {
-      $mentions[] = self::requiredString($mention, 'concerned_person_mentions');
-    }
+    $concernedMentions = self::stringList($data['concerned_person_mentions'], 'concerned_person_mentions');
+    $unclassifiedMentions = self::stringList($data['unclassified_person_mentions'], 'unclassified_person_mentions');
 
     if (!is_bool($data['concerned_person_alternative'])) {
       throw new InvalidArgumentException('Activity capture concerned_person_alternative must be boolean.');
@@ -129,10 +155,28 @@ final readonly class ActivityCaptureExtraction {
       $responsibility = self::RESPONSIBILITY_SELF;
     }
 
+    $unclassifiedKeys = array_fill_keys(
+      array_map(self::normalizePersonMention(...), $unclassifiedMentions),
+      TRUE,
+    );
+    foreach ($concernedMentions as $mention) {
+      if (isset($unclassifiedKeys[self::normalizePersonMention($mention)])) {
+        throw new InvalidArgumentException('Activity capture Person mention cannot be both concerned and unclassified.');
+      }
+    }
+    if (
+      $responsibility !== NULL
+      && $responsibility !== self::RESPONSIBILITY_SELF
+      && isset($unclassifiedKeys[self::normalizePersonMention($responsibility)])
+    ) {
+      throw new InvalidArgumentException('Activity capture Person mention cannot be both responsible and unclassified.');
+    }
+
     $extraction = new self(
       labelText: self::nullableString($data['label_text'], 'label_text'),
       locationText: self::nullableString($data['location_text'], 'location_text'),
-      concernedPersonMentions: $mentions,
+      concernedPersonMentions: $concernedMentions,
+      unclassifiedPersonMentions: $unclassifiedMentions,
       concernedPersonAlternative: $data['concerned_person_alternative'],
       responsibilityCandidate: $responsibility,
       dateExpression: self::nullableString($data['date_expression'], 'date_expression'),
@@ -155,13 +199,14 @@ final readonly class ActivityCaptureExtraction {
   }
 
   /**
-   * Returns a serializable representation for tests and future benchmark V2.
+   * Returns a serializable representation of the current extraction contract.
    */
   public function toArray(): array {
     return [
       'label_text' => $this->labelText,
       'location_text' => $this->locationText,
       'concerned_person_mentions' => $this->concernedPersonMentions,
+      'unclassified_person_mentions' => $this->unclassifiedPersonMentions,
       'concerned_person_alternative' => $this->concernedPersonAlternative,
       'responsibility_candidate' => $this->responsibilityCandidate,
       'date_expression' => $this->dateExpression,
@@ -187,9 +232,28 @@ final readonly class ActivityCaptureExtraction {
     }
 
     return preg_match(
-      '/\\b(?:person_id|household_id|person_uuid|household_uuid|uuid)\\b|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i',
+      '/\b(?:person_id|household_id|person_uuid|household_uuid|uuid)\b|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i',
       $serialized,
     ) === 1;
+  }
+
+  /**
+   * @return string[]
+   */
+  private static function stringList(mixed $value, string $field): array {
+    if (!is_array($value)) {
+      throw new InvalidArgumentException("Activity capture {$field} must be an array.");
+    }
+    $items = [];
+    foreach ($value as $item) {
+      $items[] = self::requiredString($item, $field);
+    }
+    return $items;
+  }
+
+  private static function normalizePersonMention(string $value): string {
+    $value = mb_strtolower(trim($value));
+    return preg_replace('/\s+/u', ' ', $value) ?? $value;
   }
 
   private static function requiredString(mixed $value, string $field): string {
