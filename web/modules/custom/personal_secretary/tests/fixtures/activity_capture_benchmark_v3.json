@@ -941,7 +941,7 @@
       "context_utc": "2026-09-16T12:00:00Z",
       "timezone": "Europe/Brussels",
       "topology_id": "standard_authorized_household",
-      "text": "Le 27 septembre 2026, toute la journée, activité liée à Personne Bêta.",
+      "text": "Le 27 septembre 2026, toute la journée, activité. À noter : Personne Bêta.",
       "ai_expected": {
         "label_text": {
           "contains": "activité"
@@ -971,7 +971,7 @@
         "explicit_timed_signal": false
       },
       "resolver_input": {
-        "label_text": "Activité liée à Personne Bêta",
+        "label_text": "Activité",
         "location_text": null,
         "concerned_person_mentions": [],
         "unclassified_person_mentions": [
@@ -1027,7 +1027,7 @@
       "context_utc": "2026-09-16T12:00:00Z",
       "timezone": "Europe/Brussels",
       "topology_id": "standard_authorized_household",
-      "text": "Le 28 septembre 2026, toute la journée, activité liée à Personne Gamma.",
+      "text": "Le 28 septembre 2026, toute la journée, activité. À noter : Personne Gamma.",
       "ai_expected": {
         "label_text": {
           "contains": "activité"
@@ -1057,7 +1057,7 @@
         "explicit_timed_signal": false
       },
       "resolver_input": {
-        "label_text": "Activité liée à Personne Gamma",
+        "label_text": "Activité",
         "location_text": null,
         "concerned_person_mentions": [],
         "unclassified_person_mentions": [
@@ -1115,7 +1115,7 @@
       "context_utc": "2026-09-16T12:00:00Z",
       "timezone": "Europe/Brussels",
       "topology_id": "standard_authorized_household",
-      "text": "Le 29 septembre 2026, toute la journée, activité liée à Personne Double.",
+      "text": "Le 29 septembre 2026, toute la journée, activité. À noter : Personne Double.",
       "ai_expected": {
         "label_text": {
           "contains": "activité"
@@ -1145,7 +1145,7 @@
         "explicit_timed_signal": false
       },
       "resolver_input": {
-        "label_text": "Activité liée à Personne Double",
+        "label_text": "Activité",
         "location_text": null,
         "concerned_person_mentions": [],
         "unclassified_person_mentions": [

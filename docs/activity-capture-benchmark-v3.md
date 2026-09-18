@@ -43,7 +43,7 @@ Les 16 champs scorés pour chaque cas sont :
 
 Nombre de cas : **20**.
 Nombre total de champs IA attendus : **320**.
-Fixture SHA-256 : `46a20b365cb8ad90868e5d0320ffc2edae027f181d67a8f3a8b7aae612aec0b2`.
+Fixture SHA-256 : `bb31e0ba98db688adcdfd530275bf3aff47013c79d4c6bb2c4896b1477cc8cbd`.
 
 ## Matrice de scénarios figée
 
@@ -59,9 +59,9 @@ Fixture SHA-256 : `46a20b365cb8ad90868e5d0320ffc2edae027f181d67a8f3a8b7aae612aec
 | 8 | `responsible_only` | person_role | Le 24 septembre 2026, toute la journée, préparer la salle. Personne Bêta s'en charge. | PROPOSAL | — | OUI | `role_confirmable` |
 | 9 | `same_person_explicit_dual_role` | person_role | Le 25 septembre 2026, toute la journée, Personne Bêta participe à l'activité et s'en charge. | PROPOSAL | — | OUI | `role_confirmable` |
 | 10 | `different_people_concerned_and_responsible` | person_role | Le 26 septembre 2026, toute la journée, activité pour Personne Alpha. Personne Bêta s'en charge. | PROPOSAL | — | OUI | `role_confirmable` |
-| 11 | `unclassified_unique_person` | person_role | Le 27 septembre 2026, toute la journée, activité liée à Personne Bêta. | CLARIFICATION | `person_role_requires_selection` | NON | `safe_clarification_unclassified_role` |
-| 12 | `unclassified_unknown_person` | person_role | Le 28 septembre 2026, toute la journée, activité liée à Personne Gamma. | CLARIFICATION | `person_not_found`, `person_role_requires_selection` | NON | `safe_clarification_unclassified_unknown_identity` |
-| 13 | `unclassified_ambiguous_person` | person_role | Le 29 septembre 2026, toute la journée, activité liée à Personne Double. | CLARIFICATION | `person_ambiguous`, `person_role_requires_selection` | NON | `safe_clarification_unclassified_ambiguous_identity` |
+| 11 | `unclassified_unique_person` | person_role | Le 27 septembre 2026, toute la journée, activité. À noter : Personne Bêta. | CLARIFICATION | `person_role_requires_selection` | NON | `safe_clarification_unclassified_role` |
+| 12 | `unclassified_unknown_person` | person_role | Le 28 septembre 2026, toute la journée, activité. À noter : Personne Gamma. | CLARIFICATION | `person_not_found`, `person_role_requires_selection` | NON | `safe_clarification_unclassified_unknown_identity` |
+| 13 | `unclassified_ambiguous_person` | person_role | Le 29 septembre 2026, toute la journée, activité. À noter : Personne Double. | CLARIFICATION | `person_ambiguous`, `person_role_requires_selection` | NON | `safe_clarification_unclassified_ambiguous_identity` |
 | 14 | `concerned_person_alternative` | person_role | Vendredi de 18h à 19h, récupérer le dossier avec Personne Alpha ou Personne Bêta. | CLARIFICATION | `person_alternative_requires_selection` | NON | `safe_clarification_concerned_alternative` |
 | 15 | `explicit_toute_la_journee` | all_day | Le 30 septembre 2026, toute la journée, formation. | PROPOSAL | — | OUI | `all_day_confirmable` |
 | 16 | `explicit_journee_entiere` | all_day | Le 1 octobre 2026, journée entière de formation. | PROPOSAL | — | OUI | `all_day_confirmable` |
