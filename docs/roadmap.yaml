@@ -4,17 +4,18 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: local-ai-quick-capture-benchmark-v2
+  phase: activity-capture-extraction-contract-materialization
   purpose: >-
-    Qualify the materialized narrow AI extraction plus deterministic resolver
-    boundary with the frozen synthetic BENCHMARK_V2 provider matrix before any
-    provider-adoption or further model-arbitration decision.
+    Materialize the accepted role-aware Person extraction and explicit ALL_DAY
+    linguistic contract while preserving deterministic application resolution
+    and immutable historical benchmark evidence.
 
 active_tasks:
-  - issue: 164
+  - issue: 168
     purpose: >-
-      Complete the frozen BENCHMARK_V2 evidence for Architecture B, the accepted
-      local Ministral baseline and the governed synthetic OpenAI Sol comparison.
+      Clarify the current provider extraction contract with bounded unclassified
+      Person-role evidence, strict provider hydration and deterministic fail-closed
+      review before any BENCHMARK_V3 authority.
 
 historical_context:
   - issue: 58
@@ -196,11 +197,18 @@ historical_context:
     purpose: >-
       Accepted provider-strategy decision keeps local inference preferred while
       permitting explicitly governed cloud candidates without silent fallback.
+  - issue: 164
+    purpose: >-
+      Historical terminal BENCHMARK_V2 validated Architecture B's deterministic
+      oracle and preserved the frozen Ministral and OpenAI Sol provider evidence.
 
 planned_tasks:
   - issue: 165
     purpose: >-
       Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
+  - purpose: >-
+      Define and freeze BENCHMARK_V3 only after Project Lead review of #168,
+      without mutating or rescoring historical V1/V2 evidence.
   - purpose: >-
       Make any real-data OpenAI provider adoption a separate future decision and
       task with explicit data-category, retention and provider-runtime authority.
@@ -215,7 +223,7 @@ deferred_tasks:
   - issue: 84
     purpose: >-
       Google Calendar account connection remains deferred and suspended while the
-      BENCHMARK_V2 work unit and its Project Lead follow-up remain active.
+      activity-capture extraction-contract materialization and review remain active.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -236,11 +244,11 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #164 with the frozen provider comparison, durable report and exact-head
-    CI while preserving product code, canonical DEV data and historical V1 evidence.
+    Materialize #168's clarified role-aware Person and explicit ALL_DAY extraction
+    contract with deterministic tests and immutable historical V1/V2 evidence.
   - >-
-    Return Project Lead with no provider adoption implied by benchmark results and
-    no fourth local model or additional semantic tranche authorized.
+    Return Project Lead for exact implementation review before creating or running
+    any BENCHMARK_V3 provider matrix.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.

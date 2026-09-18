@@ -32,6 +32,7 @@ final class ActivityCaptureResolver {
   public const CLARIFICATION_PERSON_ALTERNATIVE = 'person_alternative_requires_selection';
   public const CLARIFICATION_PERSON_NOT_FOUND = 'person_not_found';
   public const CLARIFICATION_PERSON_AMBIGUOUS = 'person_ambiguous';
+  public const CLARIFICATION_PERSON_ROLE = 'person_role_requires_selection';
   public const CLARIFICATION_RESPONSIBILITY_NOT_FOUND = 'responsibility_not_found';
   public const CLARIFICATION_RESPONSIBILITY_AMBIGUOUS = 'responsibility_ambiguous';
   public const CLARIFICATION_RESPONSIBILITY_REQUIRED = 'responsibility_required_for_weekly';
@@ -119,6 +120,17 @@ final class ActivityCaptureResolver {
           }
           $concernedPersonIds[$matches[0]] = $matches[0];
         }
+      }
+
+      foreach ($extraction->unclassifiedPersonMentions as $mention) {
+        $matches = $this->personMatches($people, $mention);
+        if ($matches === []) {
+          $this->clarify($clarifications, self::CLARIFICATION_PERSON_NOT_FOUND);
+        }
+        elseif (count($matches) !== 1) {
+          $this->clarify($clarifications, self::CLARIFICATION_PERSON_AMBIGUOUS);
+        }
+        $this->clarify($clarifications, self::CLARIFICATION_PERSON_ROLE);
       }
 
       $responsibility = $this->nullableText($extraction->responsibilityCandidate);

@@ -28,9 +28,10 @@ L'IA ne produit plus directement le `ActivityCaptureProposal` final. Elle produi
 
 ```text
 label/location textuels
-mentions textuelles de Person
-alternative linguistique entre mentions
-candidat de responsabilité = SELF | référent textuel | NONE
+mentions textuelles de Person explicitement concernées par l'activité
+mentions textuelles de Person dont le rôle ne peut pas être classifié de façon fiable
+alternative linguistique entre mentions concernées
+candidat de responsabilité = SELF | référent textuel explicitement responsable | NONE
 expression de date
 composantes calendaires explicites jour/mois/année
 sens relatif borné en jours
@@ -54,15 +55,22 @@ verdict global authoritative ambiguous / unsupported
 
 `ActivityCaptureResolver` compose ensuite l'extraction avec `ActivityCaptureInput` et l'état Drupal autorisé afin de produire un `ActivityCaptureProposal` de **revue**, ou des codes de clarification. Le resolver ne mute aucune entité.
 
-## Identité et autorisation
+## Identité, rôles de Person et autorisation
 
-L'IA conserve uniquement les mentions textuelles. Le resolver réutilise `CurrentUserActivityCreationService`, qui réutilise lui-même `HouseholdAuthorizationService` et `CurrentPersonResolver`.
+L'IA conserve uniquement des mentions textuelles et possède la classification linguistique étroite de leur rôle. `concerned_person_mentions` contient les Persons explicitement exprimées comme participantes, sujets, bénéficiaires ou directement concernées par l'activité. Une Person exprimée uniquement comme responsable n'y est pas copiée.
+
+Une même Person peut légitimement apparaître comme concernée et comme responsable lorsque le texte exprime explicitement les deux rôles. Si une mention de Person est explicite mais que son rôle ne peut pas être classifié de façon fiable, l'IA la place uniquement dans `unclassified_person_mentions`. L'application n'infère alors aucun rôle et exige la clarification `person_role_requires_selection`.
+
+Le contrat courant rejette une même mention normalisée à la fois `unclassified` et `concerned`, ou `unclassified` et responsabilité textuelle. La coexistence `concerned` + responsabilité textuelle reste valide pour le dual-role explicite. La normalisation cross-role est bornée aux différences inoffensives de casse et d'espaces ; elle n'est pas une analyse linguistique.
+
+Le resolver réutilise `CurrentUserActivityCreationService`, qui réutilise lui-même `HouseholdAuthorizationService` et `CurrentPersonResolver`.
 
 ```text
 0 correspondance Person autorisée → clarification
 1 correspondance exacte autorisée → candidat de revue
 >1 correspondance → clarification
 alternative linguistique explicite → clarification
+rôle textuel non classifié → clarification, sans assignation silencieuse
 ```
 
 Une Household n'est auto-sélectionnée que si exactement une Household autorisée et cohérente avec les Persons résolues reste candidate. Sinon l'utilisateur doit choisir/corriger dans la revue. Aucun second système d'autorisation n'est créé.
@@ -73,11 +81,11 @@ Le modèle n'émet plus le couple fragile `responsibility=TEXT + responsibility_
 
 ```text
 SELF linguistique → CurrentPerson côté application
-référent textuel → résolution Person dans le scope Household autorisé
+référent textuel explicitement responsable → résolution Person dans le scope Household autorisé
 aucune responsabilité exprimée → aucune responsabilité inventée
 ```
 
-Une activité hebdomadaire sans responsable résolu reste en clarification, conformément au contrat de création existant.
+L'identité, l'autorisation, la représentation finale de responsabilité et la politique de clarification restent possédées par l'application. Une activité hebdomadaire sans responsable résolu reste en clarification, conformément au contrat de création existant.
 
 ## Temps
 
@@ -90,6 +98,10 @@ Le resolver ne devient pas un parser générique de langage naturel français et
 Les valeurs absolues normalisées sont celles qui doivent être revues puis confirmées. La confirmation ne réinterprète jamais le texte relatif.
 
 Une heure de fin/durée n'est jamais inventée : si elle est requise pour une activité `TIMED` et absente, la proposition exige une correction utilisateur.
+
+Le signal `explicit_all_day_signal=true` exige une preuve linguistique explicite que l'activité couvre toute la journée, par exemple « toute la journée », « pour toute la journée », « journée entière de formation » ou une formulation sémantiquement équivalente. La présence lexicale de `journée` seule dans « journée administrative », « journée pédagogique », « journée portes ouvertes », « journée de formation » ou « journée au bureau » ne suffit pas. Sans preuve ALL_DAY ni preuve TIMED, l'application conserve la clarification déterministe `time_mode_required`.
+
+Le resolver mappe les signaux extraits vers `ALL_DAY`, `TIMED`, conflit ou clarification ; il ne parse pas le français pour fabriquer ces signaux.
 
 ## Récurrence
 
@@ -129,26 +141,13 @@ L'écriture autonome reste interdite et la confirmation explicite reste obligato
 
 ## Modèle et benchmark
 
-Les preuves V1 Granite / Ministral / Qwen et la fixture V1 restent historiques et immuables. Aucun quatrième modèle n'est qualifié dans #160 et aucun benchmark V1 n'est rejoué.
+Les preuves V1 Granite / Ministral / Qwen, leurs fixtures/runners/rapports et le BENCHMARK_V2 terminal #164 sont des contrats historiques immuables. Le changement de contrat #168 ne les réécrit, ne les rescore et ne les rejoue pas.
 
-L'architecture expose les seams nécessaires à un futur BENCHMARK_V2, qui devra distinguer :
+Le contrat provider courant ajoute `unclassified_person_mentions` comme seizième champ requis. `ActivityCaptureInterpreter` hydrate ce contrat strictement. Le chemin historique `ActivityCaptureExtraction::fromArray()` conserve uniquement la compatibilité bornée avec les anciens payloads 15 champs en défautant ce nouveau champ à `[]` ; il ne doit jamais servir à affaiblir la validation provider courante.
 
-```text
-AI extraction schema validity
-AI extraction accuracy
-temporal resolver correctness
-Person resolution outcome
-recurrence normalization outcome
-unsupported fail-closed outcome
-responsibility mapping outcome
-final review proposal correctness
-internal ID invention = 0 at the AI boundary
-domain mutation = NONE
-LOCAL_ONLY = PASS
-latency
-```
+La prochaine génération de benchmark, si elle est autorisée après revue de #168, sera BENCHMARK_V3 avec une fixture et des attentes nouvelles figées avant toute inférence. Elle devra distinguer explicitement les rôles Person concerné/responsable/non classifié ainsi que les formulations ALL_DAY explicites des formulations ambiguës contenant seulement « journée ».
 
-Le BENCHMARK_V2 nécessite une autorité séparée après matérialisation de cette frontière. Un éventuel quatrième modèle ne peut être arbitré qu'après cette preuve d'architecture.
+Aucun modèle n'est exécuté et aucun provider n'est adopté par #168.
 
 ## Fonctionnalités différées
 
@@ -166,7 +165,9 @@ cloud fallback = NONE
 
 - Drupal reste la vérité métier et l'autorité d'identité/autorisation ;
 - l'appel IA reste unique et non autoritatif ;
-- le schéma modèle est réduit à ce qui demande réellement une compréhension linguistique ;
+- le schéma modèle reste réduit à ce qui demande réellement une compréhension linguistique, y compris les rôles textuels de Person et la preuve explicite ALL_DAY ;
+- les ambiguïtés de rôle Person échouent fermé sans assignation silencieuse ;
 - la normalisation supportée devient déterministe et testable sans LLM réel ;
+- le resolver ne devient jamais un parseur linguistique générique du français ;
 - aucune dépendance Composer, configuration Drupal, migration de schéma ou migration de données n'est nécessaire ;
 - le formulaire structuré reste la voie sûre et toujours disponible.

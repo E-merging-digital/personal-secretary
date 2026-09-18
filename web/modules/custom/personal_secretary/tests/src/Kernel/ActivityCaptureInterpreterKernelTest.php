@@ -63,12 +63,36 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
       $chatInput->getChatStructuredJsonSchema()['schema'],
     );
     self::assertSame('activity_capture_extraction', $chatInput->getChatStructuredJsonSchema()['name']);
+    self::assertCount(16, $chatInput->getChatStructuredJsonSchema()['schema']['required']);
 
     $valid = $this->validExtraction();
     $this->registerMockResponse($chatInput, json_encode($valid, JSON_THROW_ON_ERROR));
     $extraction = $interpreter->interpret($input);
     self::assertSame($valid, $extraction->toArray());
     self::assertFalse($extraction->containsInternalIdentity());
+  }
+
+  public function testCurrentProviderPayloadMissingUnclassifiedPersonMentionsFailsClosed(): void {
+    $interpreter = new ActivityCaptureInterpreter($this->container->get('ai.provider'), 'echoai', 'gpt-test');
+    $input = $this->syntheticInput();
+    $invalid = $this->validExtraction();
+    unset($invalid['unclassified_person_mentions']);
+    $this->registerMockResponse($this->expectedChatInput($interpreter, $input), json_encode($invalid, JSON_THROW_ON_ERROR));
+
+    $this->expectException(InvalidArgumentException::class);
+    $interpreter->interpret($input);
+  }
+
+  public function testSystemPromptMaterializesRoleAwareAndExplicitAllDayContract(): void {
+    $interpreter = new ActivityCaptureInterpreter($this->container->get('ai.provider'), 'echoai', 'gpt-test');
+    $method = new ReflectionMethod($interpreter, 'systemPrompt');
+    $prompt = (string) $method->invoke($interpreter);
+
+    self::assertStringContainsString('Une Personne exprimée uniquement comme responsable', $prompt);
+    self::assertStringContainsString('les deux rôles', $prompt);
+    self::assertStringContainsString('unclassified_person_mentions', $prompt);
+    self::assertStringContainsString('toute la journée', $prompt);
+    self::assertStringContainsString('journée administrative', $prompt);
   }
 
   public function testMalformedNormalizedJsonFailsClosed(): void {
@@ -149,6 +173,7 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
       'label_text' => 'Activité synthétique',
       'location_text' => NULL,
       'concerned_person_mentions' => [],
+      'unclassified_person_mentions' => [],
       'concerned_person_alternative' => FALSE,
       'responsibility_candidate' => NULL,
       'date_expression' => '30 septembre 2026',

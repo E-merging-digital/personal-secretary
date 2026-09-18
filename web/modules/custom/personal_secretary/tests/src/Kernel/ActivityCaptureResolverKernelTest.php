@@ -172,14 +172,15 @@ final class ActivityCaptureResolverKernelTest extends KernelTestBase {
     self::assertFalse($unsupported->readyForConfirmation());
 
     $allDay = $this->resolver()->resolve(
-      $this->input('Le 21 septembre 2026, journée administrative.'),
+      $this->input('Toute la journée, formation.'),
       $this->extraction([
-        'label_text' => 'Journée administrative',
+        'label_text' => 'Formation',
         'date_expression' => '21 septembre 2026',
         'date_day' => 21,
         'date_month' => 9,
         'date_year' => 2026,
         'explicit_all_day_signal' => TRUE,
+        'explicit_timed_signal' => FALSE,
       ]),
     );
     self::assertSame(ActivitySeries::TIME_MODE_ALL_DAY, $allDay->timeMode);
@@ -187,6 +188,56 @@ final class ActivityCaptureResolverKernelTest extends KernelTestBase {
     self::assertNull($allDay->localStartTime);
     self::assertNull($allDay->localEndTime);
     self::assertTrue($allDay->readyForConfirmation());
+
+    $ambiguousDay = $this->resolver()->resolve(
+      $this->input('Le 21 septembre 2026, journée administrative.'),
+      $this->extraction([
+        'label_text' => 'Journée administrative',
+        'date_expression' => '21 septembre 2026',
+        'date_day' => 21,
+        'date_month' => 9,
+        'date_year' => 2026,
+        'explicit_all_day_signal' => FALSE,
+        'explicit_timed_signal' => FALSE,
+      ]),
+    );
+    self::assertNull($ambiguousDay->timeMode);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_TIME_MODE_REQUIRED, $ambiguousDay->clarifications);
+    self::assertFalse($ambiguousDay->readyForConfirmation());
+
+    $timed = $this->resolver()->resolve(
+      $this->input('Le 21 septembre 2026 à 09h, formation.'),
+      $this->extraction([
+        'label_text' => 'Formation',
+        'date_expression' => '21 septembre 2026',
+        'date_day' => 21,
+        'date_month' => 9,
+        'date_year' => 2026,
+        'start_time_expression' => '09h',
+        'end_time_expression' => '10h',
+        'explicit_timed_signal' => TRUE,
+      ]),
+    );
+    self::assertSame(ActivitySeries::TIME_MODE_TIMED, $timed->timeMode);
+    self::assertSame('09:00', $timed->localStartTime);
+    self::assertSame('10:00', $timed->localEndTime);
+
+    $conflict = $this->resolver()->resolve(
+      $this->input('Toute la journée à 09h, formation.'),
+      $this->extraction([
+        'label_text' => 'Formation',
+        'date_expression' => '21 septembre 2026',
+        'date_day' => 21,
+        'date_month' => 9,
+        'date_year' => 2026,
+        'start_time_expression' => '09h',
+        'explicit_all_day_signal' => TRUE,
+        'explicit_timed_signal' => TRUE,
+      ]),
+    );
+    self::assertNull($conflict->timeMode);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_TIME_MODE_CONFLICT, $conflict->clarifications);
+    self::assertFalse($conflict->readyForConfirmation());
   }
 
   public function testPersonResolutionUsesZeroOneManyAndLinguisticAlternativeRules(): void {
@@ -283,8 +334,93 @@ final class ActivityCaptureResolverKernelTest extends KernelTestBase {
     );
 
     self::assertSame((int) $beta->id(), $proposal->responsiblePersonId);
+    self::assertSame([], $proposal->concernedPersonIds);
     self::assertContains(ActivityCaptureResolver::CLARIFICATION_END_TIME_REQUIRED, $proposal->clarifications);
     self::assertFalse($proposal->readyForConfirmation());
+  }
+
+  public function testRoleAwarePersonExtractionAndUnclassifiedRoleFailClosed(): void {
+    $current = $this->person('Role Current');
+    $alpha = $this->person('Personne Alpha');
+    $beta = $this->person('Personne Bêta');
+    $duplicateOne = $this->person('Personne Double');
+    $duplicateTwo = $this->person('Personne Double');
+    $household = $this->household(
+      'Role Household',
+      [$current, $alpha, $beta, $duplicateOne, $duplicateTwo],
+    );
+    $this->setCurrentUser($this->productUser($current, [$household]));
+
+    $concernedOnly = $this->resolver()->resolve(
+      $this->input('Activité pour Personne Alpha.'),
+      $this->extraction([
+        'concerned_person_mentions' => ['Personne Alpha'],
+        'explicit_all_day_signal' => TRUE,
+      ]),
+    );
+    self::assertSame([(int) $alpha->id()], $concernedOnly->concernedPersonIds);
+    self::assertNull($concernedOnly->responsiblePersonId);
+
+    $responsibleOnly = $this->resolver()->resolve(
+      $this->input('Personne Bêta s’en charge.'),
+      $this->extraction([
+        'responsibility_candidate' => 'Personne Bêta',
+        'explicit_all_day_signal' => TRUE,
+      ]),
+    );
+    self::assertSame([], $responsibleOnly->concernedPersonIds);
+    self::assertSame((int) $beta->id(), $responsibleOnly->responsiblePersonId);
+
+    $dualRole = $this->resolver()->resolve(
+      $this->input('Personne Bêta participe à l’activité et s’en charge.'),
+      $this->extraction([
+        'concerned_person_mentions' => ['Personne Bêta'],
+        'responsibility_candidate' => 'Personne Bêta',
+        'explicit_all_day_signal' => TRUE,
+      ]),
+    );
+    self::assertSame([(int) $beta->id()], $dualRole->concernedPersonIds);
+    self::assertSame((int) $beta->id(), $dualRole->responsiblePersonId);
+
+    $unclassifiedUnique = $this->resolver()->resolve(
+      $this->input('Activité avec Personne Bêta.'),
+      $this->extraction([
+        'unclassified_person_mentions' => ['Personne Bêta'],
+        'explicit_all_day_signal' => TRUE,
+      ]),
+    );
+    self::assertSame([], $unclassifiedUnique->concernedPersonIds);
+    self::assertNull($unclassifiedUnique->responsiblePersonId);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_PERSON_ROLE, $unclassifiedUnique->clarifications);
+    self::assertNotContains(ActivityCaptureResolver::CLARIFICATION_PERSON_NOT_FOUND, $unclassifiedUnique->clarifications);
+    self::assertNotContains(ActivityCaptureResolver::CLARIFICATION_PERSON_AMBIGUOUS, $unclassifiedUnique->clarifications);
+    self::assertFalse($unclassifiedUnique->readyForConfirmation());
+
+    $unclassifiedMissing = $this->resolver()->resolve(
+      $this->input('Activité avec Personne Inconnue.'),
+      $this->extraction([
+        'unclassified_person_mentions' => ['Personne Inconnue'],
+        'explicit_all_day_signal' => TRUE,
+      ]),
+    );
+    self::assertSame([], $unclassifiedMissing->concernedPersonIds);
+    self::assertNull($unclassifiedMissing->responsiblePersonId);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_PERSON_ROLE, $unclassifiedMissing->clarifications);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_PERSON_NOT_FOUND, $unclassifiedMissing->clarifications);
+    self::assertFalse($unclassifiedMissing->readyForConfirmation());
+
+    $unclassifiedAmbiguous = $this->resolver()->resolve(
+      $this->input('Activité avec Personne Double.'),
+      $this->extraction([
+        'unclassified_person_mentions' => ['Personne Double'],
+        'explicit_all_day_signal' => TRUE,
+      ]),
+    );
+    self::assertSame([], $unclassifiedAmbiguous->concernedPersonIds);
+    self::assertNull($unclassifiedAmbiguous->responsiblePersonId);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_PERSON_ROLE, $unclassifiedAmbiguous->clarifications);
+    self::assertContains(ActivityCaptureResolver::CLARIFICATION_PERSON_AMBIGUOUS, $unclassifiedAmbiguous->clarifications);
+    self::assertFalse($unclassifiedAmbiguous->readyForConfirmation());
   }
 
   private function resolver(): ActivityCaptureResolver {
@@ -306,6 +442,7 @@ final class ActivityCaptureResolverKernelTest extends KernelTestBase {
       'label_text' => 'Synthetic activity',
       'location_text' => NULL,
       'concerned_person_mentions' => [],
+      'unclassified_person_mentions' => [],
       'concerned_person_alternative' => FALSE,
       'responsibility_candidate' => NULL,
       'date_expression' => '18 septembre 2026',
