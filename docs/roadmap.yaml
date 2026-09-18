@@ -4,18 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: local-ai-quick-capture-architecture-implementation
+  phase: bounded-application-maintenance
   purpose: >-
-    Materialize the accepted narrow LOCAL_ONLY linguistic-extraction boundary and
-    deterministic activity-capture resolver while preserving explicit review,
-    manual structured capture and Drupal-owned domain authority.
+    Apply the currently authorized bounded stable Drupal application patch lot
+    while preserving the accepted quick-capture architecture, product semantics,
+    configuration convergence and fail-closed production boundaries.
 
 active_tasks:
-  - issue: 160
+  - issue: 161
     purpose: >-
-      Refactor quick capture so AI owns only narrow linguistic extraction and the
-      application deterministically owns normalization, identity, policy and the
-      final editable review proposal.
+      Maintain the current application baseline with the authorized stable Drupal
+      AI and Config Language Lock patch updates and bounded regression evidence.
 
 historical_context:
   - issue: 58
@@ -185,6 +184,10 @@ historical_context:
     purpose: >-
       Accepted architecture decision replaced the monolithic model-output contract
       with narrow AI extraction plus deterministic application resolution.
+  - issue: 160
+    purpose: >-
+      Historical terminal architecture materialization implemented the accepted
+      narrow AI extraction boundary with deterministic application resolution.
 
 planned_tasks:
   - purpose: >-
@@ -201,7 +204,7 @@ deferred_tasks:
   - issue: 84
     purpose: >-
       Google Calendar account connection remains deferred and suspended while the
-      local-AI quick-capture/model arbitration tranche is active.
+      current bounded application-maintenance work is active.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -222,11 +225,11 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #160 with deterministic tests and no real model inference, benchmark
-    replay, cloud fallback, Composer change or domain/database migration.
+    Complete #161 with only the authorized stable application patch maintenance,
+    deterministic regression evidence and no real model inference or PROD mutation.
   - >-
-    Return Project Lead for separate BENCHMARK_V2 authority; no fourth model is
-    selected or tested from this implementation Task.
+    Return Project Lead before separate BENCHMARK_V2 authority; no fourth model is
+    selected or tested from this maintenance Task.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
