@@ -1,0 +1,159 @@
+name: Activity Capture Benchmark V2 OpenAI
+
+on:
+  push:
+    branches:
+      - work/issue-164-activity-capture-benchmark-v2
+    paths:
+      - .github/workflows/activity-capture-benchmark-v2-openai.yml
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    if: github.event.head_commit.message == '#164 Prepare BENCHMARK_V2 provider comparison [openai-once]'
+    runs-on: ubuntu-latest
+    environment: benchmark-openai
+    steps:
+      - name: Checkout exact pushed head
+        uses: actions/checkout@v5
+
+      - name: Assert bounded branch and frozen fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "work/issue-164-activity-capture-benchmark-v2"
+          test "$(sha256sum web/modules/custom/personal_secretary/tests/fixtures/activity_capture_benchmark_v2.json | awk '{print $1}')" = "837deef48cfa0d2d33628e3b78d9692ef70cd68c48d1032b9cae290d7838d59f"
+          test "$(git status --porcelain)" = ""
+
+      - name: Set up DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+          version: 1.25.4
+
+      - name: Start DDEV and install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev start
+          ddev composer validate --strict
+          ddev composer install --no-interaction --prefer-dist
+          ddev composer audit --locked
+
+      - name: Prove frozen Architecture B oracle before cloud inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec env \
+            SIMPLETEST_DB=mysql://db:db@db/db \
+            SIMPLETEST_BASE_URL=http://web \
+            vendor/bin/phpunit -c web/core/phpunit.xml.dist \
+            --filter testFixtureContractAndOracleResolver \
+            web/modules/custom/personal_secretary/tests/src/Kernel/ActivityCaptureBenchmarkV2KernelTest.php
+
+      - name: Execute exactly one Sol V2 tranche
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY_PRESENT=NO"
+            exit 2
+          fi
+          echo "OPENAI_API_KEY_PRESENT=YES"
+          python3 scripts/activity-capture-openai-v2.py \
+            --model gpt-5.6-sol \
+            --fixture web/modules/custom/personal_secretary/tests/fixtures/activity_capture_benchmark_v2.json \
+            --output "$RUNNER_TEMP/openai-sol-v2-raw.json"
+
+      - name: Score Sol through the real resolver
+        id: score_sol
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec sh -c 'cat > /tmp/ps164-openai-sol-v2-raw.json' < "$RUNNER_TEMP/openai-sol-v2-raw.json"
+          ddev exec env \
+            SIMPLETEST_DB=mysql://db:db@db/db \
+            SIMPLETEST_BASE_URL=http://web \
+            PS_ACTIVITY_CAPTURE_OPENAI_RAW_RESULT=/tmp/ps164-openai-sol-v2-raw.json \
+            PS_ACTIVITY_CAPTURE_OPENAI_MODEL=gpt-5.6-sol \
+            PS_ACTIVITY_CAPTURE_BENCHMARK_RESULT=/tmp/ps164-openai-sol-v2-scored.json \
+            vendor/bin/phpunit -c web/core/phpunit.xml.dist \
+            --filter testOpenAiV2Benchmark \
+            web/modules/custom/personal_secretary/tests/src/Kernel/ActivityCaptureBenchmarkV2KernelTest.php
+          ddev exec cat /tmp/ps164-openai-sol-v2-scored.json > "$RUNNER_TEMP/openai-sol-v2-result.json"
+          python3 - "$RUNNER_TEMP/openai-sol-v2-result.json" "$GITHUB_OUTPUT" <<'PY'
+          import json, sys
+          d=json.load(open(sys.argv[1]))
+          s=d['summary']
+          for key in (
+              'model_id', 'request_count', 'ai_extraction_schema_valid_cases',
+              'ai_extraction_correct_fields', 'ai_extraction_asserted_fields',
+              'ai_extraction_accuracy', 'internal_id_invention_cases',
+              'final_product_outcome_correct_cases', 'avoidable_fallback_cases',
+              'unsafe_confirmable_wrong_proposals', 'latency_min_seconds',
+              'latency_mean_seconds', 'latency_p50_seconds', 'latency_p95_seconds',
+              'latency_max_seconds', 'timeouts', 'input_tokens',
+              'cached_input_tokens', 'output_tokens', 'semantic_verdict',
+              'synchronous_latency',
+          ):
+              print(f'{key}={s[key]}')
+          with open(sys.argv[2], 'a') as f:
+              f.write(f"semantic_verdict={s['semantic_verdict']}\n")
+          PY
+          sha256sum "$RUNNER_TEMP/openai-sol-v2-result.json"
+
+      - name: Upload Sol synthetic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: activity-capture-v2-openai-sol
+          path: ${{ runner.temp }}/openai-sol-v2-result.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Execute exactly one conditional Terra V2 tranche
+        if: steps.score_sol.outputs.semantic_verdict == 'PASS'
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY_PRESENT=NO"
+            exit 2
+          fi
+          echo "OPENAI_API_KEY_PRESENT=YES"
+          python3 scripts/activity-capture-openai-v2.py \
+            --model gpt-5.6-terra \
+            --fixture web/modules/custom/personal_secretary/tests/fixtures/activity_capture_benchmark_v2.json \
+            --output "$RUNNER_TEMP/openai-terra-v2-raw.json"
+
+      - name: Score conditional Terra through the real resolver
+        if: steps.score_sol.outputs.semantic_verdict == 'PASS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec sh -c 'cat > /tmp/ps164-openai-terra-v2-raw.json' < "$RUNNER_TEMP/openai-terra-v2-raw.json"
+          ddev exec env \
+            SIMPLETEST_DB=mysql://db:db@db/db \
+            SIMPLETEST_BASE_URL=http://web \
+            PS_ACTIVITY_CAPTURE_OPENAI_RAW_RESULT=/tmp/ps164-openai-terra-v2-raw.json \
+            PS_ACTIVITY_CAPTURE_OPENAI_MODEL=gpt-5.6-terra \
+            PS_ACTIVITY_CAPTURE_BENCHMARK_RESULT=/tmp/ps164-openai-terra-v2-scored.json \
+            vendor/bin/phpunit -c web/core/phpunit.xml.dist \
+            --filter testOpenAiV2Benchmark \
+            web/modules/custom/personal_secretary/tests/src/Kernel/ActivityCaptureBenchmarkV2KernelTest.php
+          ddev exec cat /tmp/ps164-openai-terra-v2-scored.json > "$RUNNER_TEMP/openai-terra-v2-result.json"
+          sha256sum "$RUNNER_TEMP/openai-terra-v2-result.json"
+
+      - name: Upload conditional Terra synthetic evidence
+        if: steps.score_sol.outputs.semantic_verdict == 'PASS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: activity-capture-v2-openai-terra
+          path: ${{ runner.temp }}/openai-terra-v2-result.json
+          if-no-files-found: error
+          retention-days: 30
