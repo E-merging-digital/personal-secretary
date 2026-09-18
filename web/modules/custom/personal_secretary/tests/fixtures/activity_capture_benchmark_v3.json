@@ -1,0 +1,1794 @@
+{
+  "benchmark_generation": "V3",
+  "provider_schema_field_count": 16,
+  "provider_schema_fields": [
+    "label_text",
+    "location_text",
+    "concerned_person_mentions",
+    "unclassified_person_mentions",
+    "concerned_person_alternative",
+    "responsibility_candidate",
+    "date_expression",
+    "date_day",
+    "date_month",
+    "date_year",
+    "relative_day_offset",
+    "start_time_expression",
+    "end_time_expression",
+    "recurrence_expression",
+    "explicit_all_day_signal",
+    "explicit_timed_signal"
+  ],
+  "frozen_semantic_gates": {
+    "schema_valid_rate": 1.0,
+    "ai_extraction_accuracy_min": 0.95,
+    "internal_id_invention_cases_max": 0,
+    "final_product_outcome_correct_rate": 1.0,
+    "unsafe_confirmable_wrong_proposals_max": 0,
+    "avoidable_fallback_cases_max": 0
+  },
+  "frozen_latency_gate": {
+    "p95_seconds_max": 10.0,
+    "timeouts_max": 0
+  },
+  "topologies": {
+    "standard_authorized_household": {
+      "people": [
+        "Current Person",
+        "Personne Alpha",
+        "Personne Bêta",
+        "Personne Double",
+        "Personne Double"
+      ],
+      "current_person_index": 0,
+      "households": [
+        {
+          "name": "Synthetic V3 Household",
+          "member_indexes": [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "one_off_timed",
+      "scenario_family": "baseline_regression",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 18 septembre 2026 de 16h à 17h, déposer un colis.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "colis"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "18 septembre 2026"
+        },
+        "date_day": 18,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": {
+          "one_of": [
+            "16h",
+            "16h00",
+            "16:00"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "17h",
+            "17h00",
+            "17:00"
+          ]
+        },
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Déposer un colis",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "18 septembre 2026",
+        "date_day": 18,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": "16h",
+        "end_time_expression": "17h",
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "colis"
+        },
+        "location": null,
+        "time_mode": "TIMED",
+        "absolute_date": "2026-09-18",
+        "local_start_time": "16:00",
+        "local_end_time": "17:00",
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "normal_confirmable"
+    },
+    {
+      "id": "weekly_timed",
+      "scenario_family": "baseline_regression",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Tous les mardis de 07h15 à 08h, aller courir. Je m'en occupe moi-même.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "courir"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "SELF",
+        "date_expression": {
+          "contains": "mardi"
+        },
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": {
+          "one_of": [
+            "07h15",
+            "7h15",
+            "07:15",
+            "7:15"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "08h",
+            "8h",
+            "08h00",
+            "8h00",
+            "08:00",
+            "8:00"
+          ]
+        },
+        "recurrence_expression": {
+          "contains": "mardi"
+        },
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Aller courir",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "SELF",
+        "date_expression": "mardi",
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": "07h15",
+        "end_time_expression": "08h",
+        "recurrence_expression": "Tous les mardis",
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "weekly",
+        "label": {
+          "contains": "courir"
+        },
+        "location": null,
+        "time_mode": "TIMED",
+        "absolute_date": "2026-09-22",
+        "local_start_time": "07:15",
+        "local_end_time": "08:00",
+        "source_timezone": "Europe/Brussels",
+        "weekday": "TUESDAY",
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": "Current Person",
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "normal_confirmable"
+    },
+    {
+      "id": "explicit_location",
+      "scenario_family": "baseline_regression",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 22 septembre 2026 de 18h à 19h, entraînement au Centre Atlas.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "entraînement"
+        },
+        "location_text": "Centre Atlas",
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "22 septembre 2026"
+        },
+        "date_day": 22,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": {
+          "one_of": [
+            "18h",
+            "18h00",
+            "18:00"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "19h",
+            "19h00",
+            "19:00"
+          ]
+        },
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Entraînement",
+        "location_text": "Centre Atlas",
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "22 septembre 2026",
+        "date_day": 22,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": "18h",
+        "end_time_expression": "19h",
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "entraînement"
+        },
+        "location": "Centre Atlas",
+        "time_mode": "TIMED",
+        "absolute_date": "2026-09-22",
+        "local_start_time": "18:00",
+        "local_end_time": "19:00",
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "normal_confirmable"
+    },
+    {
+      "id": "relative_near_midnight",
+      "scenario_family": "baseline_regression",
+      "context_utc": "2026-10-24T22:30:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Demain de 08h à 08h30, sortir les poubelles.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "poubelles"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "demain"
+        },
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": 1,
+        "start_time_expression": {
+          "one_of": [
+            "08h",
+            "8h",
+            "08:00",
+            "8:00"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "08h30",
+            "8h30",
+            "08:30",
+            "8:30"
+          ]
+        },
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Sortir les poubelles",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "Demain",
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": 1,
+        "start_time_expression": "08h",
+        "end_time_expression": "08h30",
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "poubelles"
+        },
+        "location": null,
+        "time_mode": "TIMED",
+        "absolute_date": "2026-10-26",
+        "local_start_time": "08:00",
+        "local_end_time": "08:30",
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "normal_confirmable"
+    },
+    {
+      "id": "unsupported_complex_recurrence",
+      "scenario_family": "baseline_regression",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le premier lundi de chaque mois de 09h à 10h, faire l'inventaire.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "inventaire"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "lundi"
+        },
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": {
+          "one_of": [
+            "09h",
+            "9h",
+            "09:00",
+            "9:00"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "10h",
+            "10h00",
+            "10:00"
+          ]
+        },
+        "recurrence_expression": {
+          "contains": "mois"
+        },
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Faire l'inventaire",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "lundi",
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": "09h",
+        "end_time_expression": "10h",
+        "recurrence_expression": "Le premier lundi de chaque mois",
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": null,
+        "label": {
+          "contains": "inventaire"
+        },
+        "location": null,
+        "time_mode": "TIMED",
+        "absolute_date": "2026-09-21",
+        "local_start_time": "09:00",
+        "local_end_time": "10:00",
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "unsupported_recurrence"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "unsupported_recurrence"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_fail_closed_unsupported_recurrence"
+    },
+    {
+      "id": "underspecified",
+      "scenario_family": "baseline_regression",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Faire le truc bientôt.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "truc"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "bientôt"
+        },
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Faire le truc",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "bientôt",
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "truc"
+        },
+        "location": null,
+        "time_mode": null,
+        "absolute_date": null,
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "date_unresolved",
+            "time_mode_required"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "date_unresolved",
+        "time_mode_required"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_underspecified"
+    },
+    {
+      "id": "concerned_only",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 23 septembre 2026, toute la journée, activité pour Personne Alpha.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "activité"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": [
+            "Personne Alpha"
+          ]
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "23 septembre 2026"
+        },
+        "date_day": 23,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Activité pour Personne Alpha",
+        "location_text": null,
+        "concerned_person_mentions": [
+          "Personne Alpha"
+        ],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "23 septembre 2026",
+        "date_day": 23,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "activité"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-23",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": [
+            "Personne Alpha"
+          ]
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "role_confirmable"
+    },
+    {
+      "id": "responsible_only",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 24 septembre 2026, toute la journée, préparer la salle. Personne Bêta s'en charge.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "salle"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "Personne Bêta",
+        "date_expression": {
+          "contains": "24 septembre 2026"
+        },
+        "date_day": 24,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Préparer la salle",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "Personne Bêta",
+        "date_expression": "24 septembre 2026",
+        "date_day": 24,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "salle"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-24",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": "Personne Bêta",
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "role_confirmable"
+    },
+    {
+      "id": "same_person_explicit_dual_role",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 25 septembre 2026, toute la journée, Personne Bêta participe à l'activité et s'en charge.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "activité"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": [
+            "Personne Bêta"
+          ]
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "Personne Bêta",
+        "date_expression": {
+          "contains": "25 septembre 2026"
+        },
+        "date_day": 25,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Activité",
+        "location_text": null,
+        "concerned_person_mentions": [
+          "Personne Bêta"
+        ],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "Personne Bêta",
+        "date_expression": "25 septembre 2026",
+        "date_day": 25,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "activité"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-25",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": [
+            "Personne Bêta"
+          ]
+        },
+        "responsible_person_label": "Personne Bêta",
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "role_confirmable"
+    },
+    {
+      "id": "different_people_concerned_and_responsible",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 26 septembre 2026, toute la journée, activité pour Personne Alpha. Personne Bêta s'en charge.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "activité"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": [
+            "Personne Alpha"
+          ]
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "Personne Bêta",
+        "date_expression": {
+          "contains": "26 septembre 2026"
+        },
+        "date_day": 26,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Activité",
+        "location_text": null,
+        "concerned_person_mentions": [
+          "Personne Alpha"
+        ],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": "Personne Bêta",
+        "date_expression": "26 septembre 2026",
+        "date_day": 26,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "activité"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-26",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": [
+            "Personne Alpha"
+          ]
+        },
+        "responsible_person_label": "Personne Bêta",
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "role_confirmable"
+    },
+    {
+      "id": "unclassified_unique_person",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 27 septembre 2026, toute la journée, activité liée à Personne Bêta.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "activité"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": [
+            "Personne Bêta"
+          ]
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "27 septembre 2026"
+        },
+        "date_day": 27,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Activité liée à Personne Bêta",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [
+          "Personne Bêta"
+        ],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "27 septembre 2026",
+        "date_day": 27,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "activité"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-27",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "person_role_requires_selection"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "person_role_requires_selection"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_unclassified_role"
+    },
+    {
+      "id": "unclassified_unknown_person",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 28 septembre 2026, toute la journée, activité liée à Personne Gamma.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "activité"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": [
+            "Personne Gamma"
+          ]
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "28 septembre 2026"
+        },
+        "date_day": 28,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Activité liée à Personne Gamma",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [
+          "Personne Gamma"
+        ],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "28 septembre 2026",
+        "date_day": 28,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "activité"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-28",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "person_not_found",
+            "person_role_requires_selection"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "person_not_found",
+        "person_role_requires_selection"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_unclassified_unknown_identity"
+    },
+    {
+      "id": "unclassified_ambiguous_person",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 29 septembre 2026, toute la journée, activité liée à Personne Double.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "activité"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": [
+            "Personne Double"
+          ]
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "29 septembre 2026"
+        },
+        "date_day": 29,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Activité liée à Personne Double",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [
+          "Personne Double"
+        ],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "29 septembre 2026",
+        "date_day": 29,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "activité"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-29",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "person_ambiguous",
+            "person_role_requires_selection"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "person_ambiguous",
+        "person_role_requires_selection"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_unclassified_ambiguous_identity"
+    },
+    {
+      "id": "concerned_person_alternative",
+      "scenario_family": "person_role",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Vendredi de 18h à 19h, récupérer le dossier avec Personne Alpha ou Personne Bêta.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "dossier"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": [
+            "Personne Alpha",
+            "Personne Bêta"
+          ]
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": true,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "vendredi"
+        },
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": {
+          "one_of": [
+            "18h",
+            "18h00",
+            "18:00"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "19h",
+            "19h00",
+            "19:00"
+          ]
+        },
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Récupérer le dossier",
+        "location_text": null,
+        "concerned_person_mentions": [
+          "Personne Alpha",
+          "Personne Bêta"
+        ],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": true,
+        "responsibility_candidate": null,
+        "date_expression": "Vendredi",
+        "date_day": null,
+        "date_month": null,
+        "date_year": null,
+        "relative_day_offset": null,
+        "start_time_expression": "18h",
+        "end_time_expression": "19h",
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "dossier"
+        },
+        "location": null,
+        "time_mode": "TIMED",
+        "absolute_date": "2026-09-18",
+        "local_start_time": "18:00",
+        "local_end_time": "19:00",
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "person_alternative_requires_selection"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "person_alternative_requires_selection"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_concerned_alternative"
+    },
+    {
+      "id": "explicit_toute_la_journee",
+      "scenario_family": "all_day",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 30 septembre 2026, toute la journée, formation.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "formation"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "30 septembre 2026"
+        },
+        "date_day": 30,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Formation",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "30 septembre 2026",
+        "date_day": 30,
+        "date_month": 9,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "formation"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-09-30",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "all_day_confirmable"
+    },
+    {
+      "id": "explicit_journee_entiere",
+      "scenario_family": "all_day",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 1 octobre 2026, journée entière de formation.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "formation"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "1 octobre 2026"
+        },
+        "date_day": 1,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Formation",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "1 octobre 2026",
+        "date_day": 1,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": true,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "formation"
+        },
+        "location": null,
+        "time_mode": "ALL_DAY",
+        "absolute_date": "2026-10-01",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "all_day_confirmable"
+    },
+    {
+      "id": "journee_administrative_ambiguous",
+      "scenario_family": "all_day",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 2 octobre 2026, journée administrative.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "administrative"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "2 octobre 2026"
+        },
+        "date_day": 2,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Journée administrative",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "2 octobre 2026",
+        "date_day": 2,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "administrative"
+        },
+        "location": null,
+        "time_mode": null,
+        "absolute_date": "2026-10-02",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "time_mode_required"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "time_mode_required"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_ambiguous_all_day"
+    },
+    {
+      "id": "journee_de_formation_ambiguous",
+      "scenario_family": "all_day",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 3 octobre 2026, journée de formation.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "formation"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "3 octobre 2026"
+        },
+        "date_day": 3,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Journée de formation",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "3 octobre 2026",
+        "date_day": 3,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "formation"
+        },
+        "location": null,
+        "time_mode": null,
+        "absolute_date": "2026-10-03",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "time_mode_required"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "time_mode_required"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_ambiguous_all_day"
+    },
+    {
+      "id": "timed_activity_containing_journee",
+      "scenario_family": "all_day",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 4 octobre 2026, journée de formation de 09h à 12h.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "formation"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "4 octobre 2026"
+        },
+        "date_day": 4,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": {
+          "one_of": [
+            "09h",
+            "9h",
+            "09:00",
+            "9:00"
+          ]
+        },
+        "end_time_expression": {
+          "one_of": [
+            "12h",
+            "12h00",
+            "12:00"
+          ]
+        },
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "resolver_input": {
+        "label_text": "Journée de formation",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "4 octobre 2026",
+        "date_day": 4,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": "09h",
+        "end_time_expression": "12h",
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": true
+      },
+      "final_expected": {
+        "outcome": "PROPOSAL",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "formation"
+        },
+        "location": null,
+        "time_mode": "TIMED",
+        "absolute_date": "2026-10-04",
+        "local_start_time": "09:00",
+        "local_end_time": "12:00",
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": []
+        },
+        "ready_for_confirmation": true
+      },
+      "expected_clarifications": [],
+      "expected_ready_for_confirmation": true,
+      "safety_classification": "timed_confirmable"
+    },
+    {
+      "id": "no_time_mode_evidence",
+      "scenario_family": "all_day",
+      "context_utc": "2026-09-16T12:00:00Z",
+      "timezone": "Europe/Brussels",
+      "topology_id": "standard_authorized_household",
+      "text": "Le 5 octobre 2026, préparer les dossiers.",
+      "ai_expected": {
+        "label_text": {
+          "contains": "dossiers"
+        },
+        "location_text": null,
+        "concerned_person_mentions": {
+          "unordered": []
+        },
+        "unclassified_person_mentions": {
+          "unordered": []
+        },
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": {
+          "contains": "5 octobre 2026"
+        },
+        "date_day": 5,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "resolver_input": {
+        "label_text": "Préparer les dossiers",
+        "location_text": null,
+        "concerned_person_mentions": [],
+        "unclassified_person_mentions": [],
+        "concerned_person_alternative": false,
+        "responsibility_candidate": null,
+        "date_expression": "5 octobre 2026",
+        "date_day": 5,
+        "date_month": 10,
+        "date_year": 2026,
+        "relative_day_offset": null,
+        "start_time_expression": null,
+        "end_time_expression": null,
+        "recurrence_expression": null,
+        "explicit_all_day_signal": false,
+        "explicit_timed_signal": false
+      },
+      "final_expected": {
+        "outcome": "CLARIFICATION",
+        "household_selected": true,
+        "intent": "one_off",
+        "label": {
+          "contains": "dossiers"
+        },
+        "location": null,
+        "time_mode": null,
+        "absolute_date": "2026-10-05",
+        "local_start_time": null,
+        "local_end_time": null,
+        "source_timezone": "Europe/Brussels",
+        "weekday": null,
+        "concerned_person_labels": {
+          "unordered": []
+        },
+        "responsible_person_label": null,
+        "clarifications": {
+          "unordered": [
+            "time_mode_required"
+          ]
+        },
+        "ready_for_confirmation": false
+      },
+      "expected_clarifications": [
+        "time_mode_required"
+      ],
+      "expected_ready_for_confirmation": false,
+      "safety_classification": "safe_clarification_missing_time_mode"
+    }
+  ]
+}

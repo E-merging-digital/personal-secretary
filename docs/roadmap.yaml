@@ -4,18 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: activity-capture-extraction-contract-materialization
+  phase: activity-capture-benchmark-v3-freeze
   purpose: >-
-    Materialize the accepted role-aware Person extraction and explicit ALL_DAY
-    linguistic contract while preserving deterministic application resolution
-    and immutable historical benchmark evidence.
+    Freeze the current 16-field Activity Capture V3 synthetic fixture, scorer,
+    semantic and latency gates, and deterministic resolver oracle before any
+    provider inference.
 
 active_tasks:
-  - issue: 168
+  - issue: 170
     purpose: >-
-      Clarify the current provider extraction contract with bounded unclassified
-      Person-role evidence, strict provider hydration and deterministic fail-closed
-      review before any BENCHMARK_V3 authority.
+      Complete BENCHMARK_V3 Phase A with frozen synthetic expectations and a
+      real deterministic oracle, then return Project Lead before provider execution.
 
 historical_context:
   - issue: 58
@@ -201,14 +200,18 @@ historical_context:
     purpose: >-
       Historical terminal BENCHMARK_V2 validated Architecture B's deterministic
       oracle and preserved the frozen Ministral and OpenAI Sol provider evidence.
+  - issue: 168
+    purpose: >-
+      Historical terminal clarified-contract materialization established the
+      current role-aware 16-field extraction contract and fail-closed ambiguity.
 
 planned_tasks:
   - issue: 165
     purpose: >-
       Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
   - purpose: >-
-      Define and freeze BENCHMARK_V3 only after Project Lead review of #168,
-      without mutating or rescoring historical V1/V2 evidence.
+      Execute the frozen BENCHMARK_V3 provider matrix only after separate Project
+      Lead Phase B authority; provider inference is not part of the Phase A freeze.
   - purpose: >-
       Make any real-data OpenAI provider adoption a separate future decision and
       task with explicit data-category, retention and provider-runtime authority.
@@ -223,7 +226,7 @@ deferred_tasks:
   - issue: 84
     purpose: >-
       Google Calendar account connection remains deferred and suspended while the
-      activity-capture extraction-contract materialization and review remain active.
+      BENCHMARK_V3 freeze and its Project Lead Phase B decision remain active.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -244,11 +247,10 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Materialize #168's clarified role-aware Person and explicit ALL_DAY extraction
-    contract with deterministic tests and immutable historical V1/V2 evidence.
+    Complete #170 Phase A by freezing the V3 fixture, expectations, scorer, gates
+    and deterministic oracle while preserving historical V1/V2 evidence.
   - >-
-    Return Project Lead for exact implementation review before creating or running
-    any BENCHMARK_V3 provider matrix.
+    Return Project Lead before any Ministral, Sol or Terra V3 provider inference.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
