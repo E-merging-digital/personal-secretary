@@ -1,0 +1,137 @@
+name: Activity Capture Benchmark V3 Terra Bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark-terra:
+    runs-on: ubuntu-latest
+    environment: benchmark-openai
+    steps:
+      - name: Checkout exact #170 execution-support head
+        uses: actions/checkout@v7
+        with:
+          ref: de18f193124ef302c4af80ed9ee637bc350daa85
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact pinned benchmark identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "de18f193124ef302c4af80ed9ee637bc350daa85"
+          test "$(git rev-parse HEAD^{tree})" = "9a2b5538138e13470d7a5e3b152d0f9f8ef9db58"
+          test "$(sha256sum web/modules/custom/personal_secretary/tests/fixtures/activity_capture_benchmark_v3.json | awk '{print $1}')" = "bb31e0ba98db688adcdfd530275bf3aff47013c79d4c6bb2c4896b1477cc8cbd"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Set up DDEV
+        uses: ddev/github-action-setup-ddev@v1
+        with:
+          autostart: false
+          version: 1.25.4
+
+      - name: Start DDEV and install locked dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev start
+          ddev composer validate --strict
+          ddev composer install --no-interaction --prefer-dist
+          ddev composer audit --locked
+
+      - name: Reprove frozen V3 oracle before inference
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec env             SIMPLETEST_DB=mysql://db:db@db/db             SIMPLETEST_BASE_URL=http://web             php scripts/activity-capture-benchmark-v3.php
+
+      - name: Reprove prompt schema and scorer parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec env             SIMPLETEST_DB=mysql://db:db@db/db             SIMPLETEST_BASE_URL=http://web             PS_ACTIVITY_CAPTURE_V3_SEMANTIC_PAYLOAD=/tmp/ps170-v3-semantic-payload.json             PS_ACTIVITY_CAPTURE_V3_PARITY_RESULT=/tmp/ps170-v3-parity.json             php scripts/activity-capture-provider-v3.php parity
+          ddev exec cat /tmp/ps170-v3-semantic-payload.json > "$RUNNER_TEMP/v3-semantic-payload.json"
+          ddev exec cat /tmp/ps170-v3-parity.json > "$RUNNER_TEMP/v3-parity.json"
+          python3 - "$RUNNER_TEMP/v3-parity.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              data = json.load(handle)
+
+          assert data["fixture_sha256"] == "bb31e0ba98db688adcdfd530275bf3aff47013c79d4c6bb2c4896b1477cc8cbd"
+          assert data["prompt_parity_cases"] == 20
+          assert data["system_prompt_parity"] == "PASS"
+          assert data["user_prompt_parity_cases"] == 20
+          assert data["schema_parity"] == "PASS"
+          assert data["scorer_parity"] == "PASS"
+          assert data["scorer_parity_fields"] == 320
+          assert data["oracle_pass_cases"] == 20
+          assert data["system_prompt_sha256"] == "4d25015176ba743df479f114ed95fd7cf7876168e12c4acd6ec4a88391703c51"
+          assert data["schema_sha256"] == "74ef6d7b96ee31bc11d832a4de19bd84dbfacf571ceab0837d9670574e3b1004"
+
+          print("PROMPT_PARITY=PASS / 20 OF 20")
+          print("SYSTEM_PROMPT_PARITY=PASS")
+          print("USER_PROMPT_PARITY=PASS / 20 OF 20")
+          print("SCHEMA_PARITY=PASS")
+          print("SCORER_PARITY=PASS / 320 OF 320")
+          PY
+
+      - name: Execute exactly one Terra V3 tranche
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY_PRESENT=NO"
+            echo "OPENAI_TERRA_V3_REQUESTS=0"
+            exit 2
+          fi
+          echo "OPENAI_API_KEY_PRESENT=YES"
+          python3 scripts/activity-capture-openai-v3.py             --model gpt-5.6-terra             --fixture web/modules/custom/personal_secretary/tests/fixtures/activity_capture_benchmark_v3.json             --semantic-payload "$RUNNER_TEMP/v3-semantic-payload.json"             --output "$RUNNER_TEMP/openai-terra-v3-raw.json"
+
+      - name: Score Terra V3 through the real resolver
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec sh -c 'cat > /tmp/ps170-openai-terra-v3-raw.json' < "$RUNNER_TEMP/openai-terra-v3-raw.json"
+          ddev exec env             SIMPLETEST_DB=mysql://db:db@db/db             SIMPLETEST_BASE_URL=http://web             PS_ACTIVITY_CAPTURE_OPENAI_RAW_RESULT=/tmp/ps170-openai-terra-v3-raw.json             PS_ACTIVITY_CAPTURE_OPENAI_MODEL=gpt-5.6-terra             PS_ACTIVITY_CAPTURE_BENCHMARK_RESULT=/tmp/ps170-openai-terra-v3-result.json             php scripts/activity-capture-provider-v3.php score-openai
+          ddev exec cat /tmp/ps170-openai-terra-v3-result.json > "$RUNNER_TEMP/openai-terra-v3-result.json"
+          python3 - "$RUNNER_TEMP/openai-terra-v3-raw.json" "$RUNNER_TEMP/openai-terra-v3-result.json" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              raw = json.load(handle)
+          with open(sys.argv[2], encoding="utf-8") as handle:
+              scored = json.load(handle)
+
+          assert raw["provider"] == "openai"
+          assert raw["model_id"] == "gpt-5.6-terra"
+          assert raw["fixture_sha256"] == "bb31e0ba98db688adcdfd530275bf3aff47013c79d4c6bb2c4896b1477cc8cbd"
+          assert raw["request_count"] == 20
+          assert len(raw["cases"]) == 20
+
+          summary = scored["summary"]
+          print(f"TERRA_SCHEMA_VALID_CASES={summary['schema_valid_cases']}")
+          print(f"TERRA_AI_FIELDS_CORRECT={summary['ai_fields_correct']}/{summary['ai_fields_total']}")
+          print(f"TERRA_FINAL_PRODUCT_OUTCOME_CORRECT_CASES={summary['final_product_outcome_correct_cases']}")
+          print(f"TERRA_SEMANTIC_VERDICT={summary['semantic_verdict']}")
+          print(f"TERRA_SYNCHRONOUS_LATENCY={summary['synchronous_latency']}")
+          PY
+          sha256sum "$RUNNER_TEMP/openai-terra-v3-raw.json"
+          sha256sum "$RUNNER_TEMP/openai-terra-v3-result.json"
+
+      - name: Upload immutable Terra V3 synthetic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: activity-capture-v3-openai-terra
+          path: |
+            ${{ runner.temp }}/openai-terra-v3-raw.json
+            ${{ runner.temp }}/openai-terra-v3-result.json
+          if-no-files-found: error
+          retention-days: 30
