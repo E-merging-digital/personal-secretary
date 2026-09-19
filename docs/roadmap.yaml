@@ -4,17 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: activity-capture-benchmark-v3-final-comparative-materialization
+  phase: user-timezone-detection
   purpose: >-
-    Materialize the immutable BENCHMARK_V3 comparison across Ministral, Sol and
-    Terra, preserve the frozen 16-field contract and return the exact final
-    candidate for Project Lead terminal review without new provider inference.
+    Reuse Drupal User.timezone as durable current-user truth, make Europe/Brussels
+    the deterministic site fallback and add browser-assisted network-free timezone
+    suggestion without changing ActivitySeries source-timezone semantics.
 
 active_tasks:
-  - issue: 170
+  - issue: 146
     purpose: >-
-      Finalize the immutable BENCHMARK_V3 evidence, comparative report and roadmap
-      while preserving the frozen fixture, gates, prompt, schema and scorer semantics.
+      Align current-user timezone persistence, browser-assisted defaults and
+      activity-creation timezone defaults while preserving explicit recurrence truth.
 
 historical_context:
   - issue: 58
@@ -204,16 +204,28 @@ historical_context:
     purpose: >-
       Historical terminal clarified-contract materialization established the
       current role-aware 16-field extraction contract and fail-closed ambiguity.
-
-planned_tasks:
+  - issue: 170
+    purpose: >-
+      Historical terminal BENCHMARK_V3 comparative materialization preserved the
+      frozen provider evidence and separated provider adoption from benchmarking.
   - issue: 176
     purpose: >-
-      Stabilize the inherited time-sensitive recurring-responsibility CI test as a
-      separate bounded work unit without weakening product semantics.
-  - issue: 177
+      Historical terminal CI stabilization removed wall-clock coupling from the
+      recurring-responsibility transition test without changing product semantics.
+  - issue: 178
     purpose: >-
-      After #170 terminalization, decide separately whether a governed OpenAI
-      provider may be adopted for real quick-capture data; no adoption starts here.
+      Historical terminal cleanup removed exhausted temporary BENCHMARK_V3
+      dispatch surfaces after the immutable provider evidence was accepted.
+  - issue: 181
+    purpose: >-
+      Historical terminal synthetic integration proved the dormant governed Terra
+      Responses path with mocked transport and fail-closed behavior.
+
+planned_tasks:
+  - issue: 147
+    purpose: >-
+      Continue the planned bilingual user-interface work after the timezone slice
+      reaches Project Lead terminal review.
   - issue: 165
     purpose: >-
       Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
@@ -221,14 +233,18 @@ planned_tasks:
 waiting_external_tasks:
   - issue: 150
     purpose: >-
-      Remain frozen while Postmark approval is pending; resume immediately if that
-      approval arrives and becomes the higher-priority external gate.
+      Remain frozen while Postmark account approval is pending; resume immediately
+      if that external gate becomes actionable.
+  - issue: 177
+    purpose: >-
+      Remain blocked on OpenAI retention and EU residency/processing approval before
+      any real-personal-data provider adoption or live inference is reconsidered.
 
 deferred_tasks:
   - issue: 84
     purpose: >-
-      Google Calendar account connection remains deferred while BENCHMARK_V3 reaches
-      terminal review and later provider-adoption Decision #177 remains separate.
+      Google Calendar account connection remains deferred until it is separately
+      rescheduled after the current Personal Secretary product slices.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -249,16 +265,16 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Finalize #170 comparative materialization from the immutable Ministral, Sol and
-    Terra evidence without new provider requests or expectation tuning.
+    Complete #146 user-timezone detection and durable Drupal User.timezone
+    alignment, then return Project Lead for terminal review.
   - >-
-    Return Project Lead for exact-head terminal review and merge authority.
+    Resume #150 immediately if Postmark approval becomes actionable.
   - >-
-    Resume #150 immediately if Postmark approval arrives and becomes the
-    higher-priority external gate.
+    Keep #177 waiting on OpenAI retention/residency approval; do not start real
+    provider adoption while that external gate remains unresolved.
   - >-
-    Only after #170 terminalization may Decision #177 evaluate governed real-data
-    OpenAI adoption; keep #165 queued until separately scheduled.
+    After #146 terminal review, schedule #147 bilingual UI or #165 Drush tooling
+    as separate bounded work units.
 
 dependency_re_evaluation:
   - package: drupal/pwa

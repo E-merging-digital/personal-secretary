@@ -6,10 +6,10 @@ namespace Drupal\personal_secretary\Form;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Datetime\TimeZoneFormHelper;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\personal_secretary\Service\CurrentUserTimezoneService;
 use Drupal\personal_secretary\Service\FirstActivitySetupService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -20,13 +20,13 @@ final class FirstActivitySetupForm extends FormBase {
 
   public function __construct(
     private readonly FirstActivitySetupService $setup,
-    private readonly ConfigFactoryInterface $setupConfigFactory,
+    private readonly CurrentUserTimezoneService $currentUserTimezone,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.first_activity_setup'),
-      $container->get('config.factory'),
+      $container->get('personal_secretary.current_user_timezone'),
     );
   }
 
@@ -36,12 +36,7 @@ final class FirstActivitySetupForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $timezones = TimeZoneFormHelper::getOptionsList();
-    $defaultTimezone = (string) $this->setupConfigFactory
-      ->get('system.date')
-      ->get('timezone.default');
-    if ($defaultTimezone === '' || !isset($timezones[$defaultTimezone])) {
-      $defaultTimezone = 'UTC';
-    }
+    $defaultTimezone = $this->currentUserTimezone->effectiveTimezone();
 
     $form['household_name'] = [
       '#type' => 'textfield',
@@ -90,6 +85,10 @@ final class FirstActivitySetupForm extends FormBase {
       '#default_value' => $defaultTimezone,
       '#required' => TRUE,
     ];
+    if ($this->currentUserTimezone->mayUseBrowserSuggestion()) {
+      $form['source_timezone']['#attributes']['class'][] = 'personal-secretary-timezone-detect';
+      $form['#attached']['library'][] = 'personal_secretary/timezone_detection';
+    }
     $form['preparation_instruction'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Preparation instruction'),
