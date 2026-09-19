@@ -6,7 +6,6 @@ namespace Drupal\personal_secretary\Form;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Datetime\TimeZoneFormHelper;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -15,6 +14,7 @@ use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\AddActivityService;
 use Drupal\personal_secretary\Service\CurrentUserActivityCreationService;
+use Drupal\personal_secretary\Service\CurrentUserTimezoneService;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
 use RuntimeException;
@@ -33,7 +33,7 @@ final class AddActivityForm extends FormBase {
     private readonly AddActivityService $addActivity,
     private readonly CurrentUserActivityCreationService $currentUserActivityCreation,
     private readonly EntityTypeManagerInterface $domainEntityTypeManager,
-    private readonly ConfigFactoryInterface $addConfigFactory,
+    private readonly CurrentUserTimezoneService $currentUserTimezone,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -41,7 +41,7 @@ final class AddActivityForm extends FormBase {
       $container->get('personal_secretary.add_activity'),
       $container->get('personal_secretary.current_user_activity_creation'),
       $container->get('entity_type.manager'),
-      $container->get('config.factory'),
+      $container->get('personal_secretary.current_user_timezone'),
     );
   }
 
@@ -87,12 +87,7 @@ final class AddActivityForm extends FormBase {
     }
 
     $timezones = TimeZoneFormHelper::getOptionsList();
-    $defaultTimezone = (string) $this->addConfigFactory
-      ->get('system.date')
-      ->get('timezone.default');
-    if ($defaultTimezone === '' || !isset($timezones[$defaultTimezone])) {
-      $defaultTimezone = 'UTC';
-    }
+    $defaultTimezone = $this->currentUserTimezone->effectiveTimezone();
 
     $form['household_id'] = [
       '#type' => 'select',
@@ -211,6 +206,10 @@ final class AddActivityForm extends FormBase {
       '#default_value' => $defaultTimezone,
       '#required' => TRUE,
     ];
+    if ($this->currentUserTimezone->mayUseBrowserSuggestion()) {
+      $form['source_timezone']['#attributes']['class'][] = 'personal-secretary-timezone-detect';
+      $form['#attached']['library'][] = 'personal_secretary/timezone_detection';
+    }
     $form['preparation_instruction'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Preparation instruction'),
