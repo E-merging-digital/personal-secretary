@@ -14,17 +14,12 @@ export PERSONAL_SECRETARY_ENV="${MODE}"
 DRUSH="${DRUSH:-vendor/bin/drush}"
 
 "${DRUSH}" sql:drop -y || true
-"${DRUSH}" site:install minimal -y --site-name="Personal Secretary" --account-name="admin" --account-pass="synthetic-ci-admin"
+"${DRUSH}" site:install --existing-config -y \
+  --account-name=admin \
+  --account-pass=synthetic-ci-admin
 
-"${DRUSH}" pm:install config_split -y
-
-source_uuid="$(awk '/^uuid:/ {print $2; exit}' config/sync/system.site.yml)"
-if [[ -z "${source_uuid}" ]]; then
-  echo "Unable to determine source configuration site UUID." >&2
-  exit 1
-fi
-"${DRUSH}" config:set system.site uuid "${source_uuid}" -y
-
+# Re-apply the canonical repository source after the installer has completed
+# extension installation and environment-specific Config Split transforms.
 "${DRUSH}" config:import -y
 "${DRUSH}" cache:rebuild
 
