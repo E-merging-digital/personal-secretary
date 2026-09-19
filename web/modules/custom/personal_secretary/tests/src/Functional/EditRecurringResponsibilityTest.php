@@ -11,6 +11,7 @@ use Drupal\Tests\BrowserTestBase;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\ResponsibilityOverride;
 use Drupal\personal_secretary\Entity\ResponsibilityRule;
+use Drupal\personal_secretary\Value\BaseOccurrence;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use InvalidArgumentException;
 
@@ -87,7 +88,10 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
     );
 
     $futureWindowEnd = $nowUtc->modify('+35 days');
-    $baseOccurrences = $baseProjection->project($series, $nowUtc, $futureWindowEnd);
+    $baseOccurrences = $this->occurrencesStartingAtOrAfter(
+      $baseProjection->project($series, $nowUtc, $futureWindowEnd),
+      $nowUtc,
+    );
     $this->assertGreaterThanOrEqual(4, count($baseOccurrences));
     [$preTransitionBase, $firstAffectedBase, $laterBase, $overrideBase] = array_slice($baseOccurrences, 0, 4);
 
@@ -364,6 +368,114 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
       (new DateTimeImmutable($firstAffectedBase->utcStart))->modify('-1 hour')->getTimestamp(),
       (new DateTimeImmutable($preparations[0]->dueAtUtc))->getTimestamp(),
     );
+  }
+
+  public function testProjectionSelectionAcrossOccurrenceBoundary(): void {
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    /** @var \Drupal\personal_secretary\Service\OccurrenceProjectionService $baseProjection */
+    $baseProjection = $this->container->get('personal_secretary.occurrence_projection');
+    /** @var \Drupal\personal_secretary\Service\EffectiveOccurrenceProjectionService $effectiveProjection */
+    $effectiveProjection = $this->container->get('personal_secretary.effective_occurrence_projection');
+
+    $sourceTimezone = new DateTimeZone('Europe/Brussels');
+    $seriesStart = new DateTimeImmutable('2026-08-29 10:00:00', $sourceTimezone);
+    $seriesEnd = $seriesStart->modify('+1 hour');
+
+    $person = $domain->createPerson('Boundary Projection Person');
+    $household = $domain->createHousehold(
+      'Boundary projection household',
+      [(int) $person->id()],
+    );
+    $series = $domain->createActivitySeries(
+      'Boundary projection activity',
+      (int) $household->id(),
+      $seriesStart,
+      $seriesEnd,
+      'FREQ=WEEKLY;INTERVAL=1',
+    );
+
+    $cases = [
+      'before_boundary' => [
+        new DateTimeImmutable('2026-09-19T07:59:59+00:00'),
+        '2026-09-19T08:00:00Z',
+      ],
+      'at_boundary' => [
+        new DateTimeImmutable('2026-09-19T08:00:00+00:00'),
+        '2026-09-19T08:00:00Z',
+      ],
+      'after_boundary' => [
+        new DateTimeImmutable('2026-09-19T08:00:01+00:00'),
+        '2026-09-26T08:00:00Z',
+      ],
+      'after_occurrence_end' => [
+        new DateTimeImmutable('2026-09-19T09:00:01+00:00'),
+        '2026-09-26T08:00:00Z',
+      ],
+    ];
+
+    foreach ($cases as $label => [$windowStart, $expectedFirstKey]) {
+      $windowEnd = $windowStart->modify('+15 days');
+      $rawBase = $baseProjection->project($series, $windowStart, $windowEnd);
+      $selectedBase = $this->occurrencesStartingAtOrAfter($rawBase, $windowStart);
+      $effective = $this->effectiveByOriginalKey(
+        $effectiveProjection->project($series, $windowStart, $windowEnd),
+      );
+
+      $this->assertNotEmpty($rawBase, $label);
+      $this->assertNotEmpty($selectedBase, $label);
+      $this->assertSame($expectedFirstKey, $selectedBase[0]->originalOccurrenceKey, $label);
+      $this->assertSame(
+        array_map(
+          static fn(BaseOccurrence $occurrence): string => $occurrence->originalOccurrenceKey,
+          $selectedBase,
+        ),
+        array_keys($effective),
+        $label,
+      );
+    }
+
+    $duringOccurrenceStart = new DateTimeImmutable('2026-09-19T08:00:01+00:00');
+    $duringRaw = $baseProjection->project(
+      $series,
+      $duringOccurrenceStart,
+      $duringOccurrenceStart->modify('+15 days'),
+    );
+    $this->assertSame(
+      '2026-09-19T08:00:00Z',
+      $duringRaw[0]->originalOccurrenceKey,
+      'Date Recur raw projection intentionally returns the in-progress overlapping occurrence.',
+    );
+
+    $afterOccurrenceEnd = new DateTimeImmutable('2026-09-19T09:00:01+00:00');
+    $afterEndRaw = $baseProjection->project(
+      $series,
+      $afterOccurrenceEnd,
+      $afterOccurrenceEnd->modify('+15 days'),
+    );
+    $this->assertSame(
+      '2026-09-26T08:00:00Z',
+      $afterEndRaw[0]->originalOccurrenceKey,
+      'After the one-hour occurrence ends, the raw projection advances to the next weekly occurrence.',
+    );
+  }
+
+  /**
+   * @param \Drupal\personal_secretary\Value\BaseOccurrence[] $occurrences
+   *
+   * @return \Drupal\personal_secretary\Value\BaseOccurrence[]
+   */
+  private function occurrencesStartingAtOrAfter(
+    array $occurrences,
+    DateTimeImmutable $windowStart,
+  ): array {
+    $windowStartTimestamp = $windowStart->getTimestamp();
+
+    return array_values(array_filter(
+      $occurrences,
+      static fn(BaseOccurrence $occurrence): bool =>
+        (new DateTimeImmutable($occurrence->utcStart))->getTimestamp() >= $windowStartTimestamp,
+    ));
   }
 
   private function assertCurrentRuleUnchanged(
