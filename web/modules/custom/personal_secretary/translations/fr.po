@@ -503,4 +503,3 @@ msgstr "Quand"
 
 msgid "You will be responsible for this activity."
 msgstr "Vous serez responsable de cette activité."
-
