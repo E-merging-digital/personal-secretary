@@ -249,10 +249,10 @@ final class BilingualUiTest extends BrowserTestBase {
     $this->drupalGet('/fr/user/login');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->buttonExists('Se connecter');
-    $this->assertSession()->linkExists('English');
+    $this->assertSession()->linkByHrefExists('/en/user/login');
     $this->drupalGet('/en/user/login');
     $this->assertSession()->buttonExists('Log in');
-    $this->assertSession()->linkExists('Français');
+    $this->assertSession()->linkByHrefExists('/fr/user/login');
   }
 
   public function testExistingInstallUpdateReimportsCatalogWithoutDomainMutation(): void {
