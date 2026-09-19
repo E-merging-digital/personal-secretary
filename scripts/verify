@@ -41,13 +41,25 @@ for module in navigation gin_toolbar pathauto token config_split date_recur lang
 done
 grep -Fxq gin <<<"${enabled_themes}"
 assert_module_disabled config_translation
-[[ "$("${DRUSH}" config:get system.site langcode --format=string)" == "en" ]]
-[[ "$("${DRUSH}" config:get system.site default_langcode --format=string)" == "fr" ]]
-[[ "$("${DRUSH}" config:get config_language_lock.settings locked_langcode --format=string)" == "en" ]]
-[[ "$("${DRUSH}" config:get config_language_lock.settings follow_site_default --format=string)" == "false" ]]
-[[ "$("${DRUSH}" config:get language.entity.en id --format=string)" == "en" ]]
-[[ "$("${DRUSH}" config:get language.entity.fr id --format=string)" == "fr" ]]
-"${DRUSH}" php:eval '$translation = \Drupal::service("locale.storage")->findTranslation(["source" => "Today", "language" => "fr"]); if (($translation->translation ?? NULL) !== "Aujourd’hui") { throw new \RuntimeException("Missing deterministic project French translation."); }'
+"${DRUSH}" php:eval '
+$checks = [
+  "config source language" => [\Drupal::config("system.site")->get("langcode"), "en"],
+  "runtime default language" => [\Drupal::config("system.site")->get("default_langcode"), "fr"],
+  "locked config langcode" => [\Drupal::config("config_language_lock.settings")->get("locked_langcode"), "en"],
+  "follow site default" => [\Drupal::config("config_language_lock.settings")->get("follow_site_default"), FALSE],
+  "English language entity" => [\Drupal::config("language.entity.en")->get("id"), "en"],
+  "French language entity" => [\Drupal::config("language.entity.fr")->get("id"), "fr"],
+];
+foreach ($checks as $label => [$actual, $expected]) {
+  if ($actual !== $expected) {
+    throw new \RuntimeException($label . " mismatch: " . var_export($actual, TRUE));
+  }
+}
+$translation = \Drupal::service("locale.storage")->findTranslation(["source" => "Today", "language" => "fr"]);
+if (($translation->translation ?? NULL) !== "Aujourd’hui") {
+  throw new \RuntimeException("Missing deterministic project French translation.");
+}
+'
 
 if [[ "${MODE}" == "development" ]]; then
   assert_module_enabled devel
