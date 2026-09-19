@@ -47,7 +47,7 @@ assert_module_disabled config_translation
 [[ "$("${DRUSH}" config:get config_language_lock.settings follow_site_default --format=string)" == "false" ]]
 [[ "$("${DRUSH}" config:get language.entity.en id --format=string)" == "en" ]]
 [[ "$("${DRUSH}" config:get language.entity.fr id --format=string)" == "fr" ]]
-"${DRUSH}" php:eval '$translation = \\Drupal::service("locale.storage")->findTranslation(["source" => "Today", "language" => "fr"]); if (($translation->translation ?? NULL) !== "Aujourd’hui") { throw new \\RuntimeException("Missing deterministic project French translation."); }'
+"${DRUSH}" php:eval '$translation = \Drupal::service("locale.storage")->findTranslation(["source" => "Today", "language" => "fr"]); if (($translation->translation ?? NULL) !== "Aujourd’hui") { throw new \RuntimeException("Missing deterministic project French translation."); }'
 
 if [[ "${MODE}" == "development" ]]; then
   assert_module_enabled devel
