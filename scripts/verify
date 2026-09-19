@@ -72,7 +72,7 @@ else
 fi
 
 status_json="$("${DRUSH}" config:status --format=json)"
-php -r '$data = json_decode(stream_get_contents(STDIN), true); if (!empty($data)) { fwrite(STDERR, "Configuration drift detected\n"); exit(1); }' <<<"${status_json}"
+php -r '$raw = stream_get_contents(STDIN); $data = json_decode($raw, true); if (!empty($data)) { fwrite(STDERR, "Configuration drift detected:\n" . $raw . "\n"); exit(1); }' <<<"${status_json}"
 
 echo "DRUPAL_VERSION=$("${DRUSH}" status --field=drupal-version)"
 echo "PHP_VERSION=$(php -r 'echo PHP_VERSION;')"
