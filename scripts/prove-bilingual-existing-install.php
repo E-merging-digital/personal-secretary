@@ -53,8 +53,11 @@ $snapshot = static function (int $personId, int $householdId, int $seriesId, int
 };
 
 if ($phase === 'seed') {
-  if (\Drupal::moduleHandler()->moduleExists('language') || \Drupal::moduleHandler()->moduleExists('locale')) {
-    throw new RuntimeException('Current-main baseline unexpectedly has multilingual Core modules enabled.');
+  $moduleHandler = \Drupal::moduleHandler();
+  $languageEnabled = $moduleHandler->moduleExists('language');
+  $localeEnabled = $moduleHandler->moduleExists('locale');
+  if ($languageEnabled !== $localeEnabled) {
+    throw new RuntimeException('Current-main baseline has inconsistent multilingual Core module state.');
   }
 
   $domain = \Drupal::service('personal_secretary.domain_mutation');
