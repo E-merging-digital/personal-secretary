@@ -88,10 +88,10 @@ final class PauseRecurringActivityForm extends FormBase {
     try {
       $preview = $this->pause->preview($this->seriesId(), $startDate, $endDate);
     }
-    catch (InvalidArgumentException | RuntimeException $exception) {
+    catch (InvalidArgumentException | RuntimeException) {
       $form_state->setErrorByName(
         'pause_end_date',
-        $this->t('This pause range is not valid: @message', ['@message' => $exception->getMessage()]),
+        $this->t('This pause range is not valid.'),
       );
       return;
     }

@@ -888,17 +888,17 @@ msgstr "Le membre du foyer n’a pas pu être ajouté de manière sûre."
 msgid "The Household member could not be renamed safely."
 msgstr "Le membre du foyer n’a pas pu être renommé de manière sûre."
 
-msgid "The recurring responsibility change is not valid: @message"
-msgstr "La modification de la responsabilité récurrente n’est pas valide : @message"
+msgid "The recurring responsibility change is not valid."
+msgstr "La modification de la responsabilité récurrente n’est pas valide."
 
-msgid "The recurring schedule change is not valid: @message"
-msgstr "La modification de l’horaire récurrent n’est pas valide : @message"
+msgid "The recurring schedule change is not valid."
+msgstr "La modification de l’horaire récurrent n’est pas valide."
 
 msgid "The task could not be saved because its current authorization or data is no longer valid."
 msgstr "La tâche n’a pas pu être enregistrée car son autorisation ou ses données ne sont plus valides."
 
-msgid "The time commitment change is not valid: @message"
-msgstr "La modification de l’engagement temporel n’est pas valide : @message"
+msgid "The time commitment change is not valid."
+msgstr "La modification de l’engagement temporel n’est pas valide."
 
 msgid "This complete selection replaces the target user’s current Household authorization set."
 msgstr "Cette sélection complète remplace l’ensemble actuel des autorisations de foyer de l’utilisateur cible."
@@ -915,8 +915,8 @@ msgstr "La responsabilité de cette occurrence ne peut plus être modifiée."
 msgid "This pause can no longer be applied safely. No partial pause was created."
 msgstr "Cette pause ne peut plus être appliquée de manière sûre. Aucune pause partielle n’a été créée."
 
-msgid "This pause range is not valid: @message"
-msgstr "Cette plage de pause n’est pas valide : @message"
+msgid "This pause range is not valid."
+msgstr "Cette plage de pause n’est pas valide."
 
 msgid "This preparation action is no longer authorized or valid."
 msgstr "Cette action sur le préparatif n’est plus autorisée ou valide."

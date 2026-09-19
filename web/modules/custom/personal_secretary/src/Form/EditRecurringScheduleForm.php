@@ -118,12 +118,10 @@ final class EditRecurringScheduleForm extends FormBase {
         (string) $form_state->getValue('new_end_local_time'),
       );
     }
-    catch (InvalidArgumentException | RuntimeException $exception) {
+    catch (InvalidArgumentException | RuntimeException) {
       $form_state->setErrorByName(
         'effective_from_date',
-        $this->t('The recurring schedule change is not valid: @message', [
-          '@message' => $exception->getMessage(),
-        ]),
+        $this->t('The recurring schedule change is not valid.'),
       );
     }
   }
