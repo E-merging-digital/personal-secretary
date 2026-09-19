@@ -1,0 +1,506 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Personal Secretary\n"
+"Language: fr\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Active"
+msgstr "Actif"
+
+msgid "Activities"
+msgstr "Activités"
+
+msgid "Activity"
+msgstr "Activité"
+
+msgid "Activity date"
+msgstr "Date de l’activité"
+
+msgid "Activity label"
+msgstr "Libellé de l’activité"
+
+msgid "Activity type"
+msgstr "Type d’activité"
+
+msgid "Add activity"
+msgstr "Ajouter une activité"
+
+msgid "Add household member"
+msgstr "Ajouter un membre du foyer"
+
+msgid "Add task"
+msgstr "Ajouter une tâche"
+
+msgid "Add your first activity"
+msgstr "Ajouter votre première activité"
+
+msgid "All day"
+msgstr "Toute la journée"
+
+msgid "All-day end date must not precede the start date."
+msgstr "La date de fin ne peut pas précéder la date de début."
+
+msgid "Authorized Households"
+msgstr "Foyers autorisés"
+
+msgid "Back to My tasks"
+msgstr "Retour à Mes tâches"
+
+msgid "Blocked"
+msgstr "Bloqué"
+
+msgid "Cancel occurrence"
+msgstr "Annuler l’occurrence"
+
+msgid "Change dates"
+msgstr "Modifier les dates"
+
+msgid "Change recurring responsibility"
+msgstr "Modifier la responsabilité récurrente"
+
+msgid "Change recurring schedule"
+msgstr "Modifier l’horaire récurrent"
+
+msgid "Change responsibility"
+msgstr "Modifier la responsabilité"
+
+msgid "Change time commitment"
+msgstr "Modifier l’engagement temporel"
+
+msgid "Complete task"
+msgstr "Terminer la tâche"
+
+msgid "Completed"
+msgstr "Terminée"
+
+msgid "Concerned people"
+msgstr "Personnes concernées"
+
+msgid "Confirm"
+msgstr "Confirmer"
+
+msgid "Confirm pause"
+msgstr "Confirmer la pause"
+
+msgid "Create first activity"
+msgstr "Créer la première activité"
+
+msgid "Current responsibility"
+msgstr "Responsabilité actuelle"
+
+msgid "Date"
+msgstr "Date"
+
+msgid "Date and time"
+msgstr "Date et heure"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Delete task"
+msgstr "Supprimer la tâche"
+
+msgid "Drupal user"
+msgstr "Utilisateur Drupal"
+
+msgid "due"
+msgstr "échéance"
+
+msgid "Due"
+msgstr "Échéance"
+
+msgid "Due date"
+msgstr "Date d’échéance"
+
+msgid "Due date and time"
+msgstr "Date et heure d’échéance"
+
+msgid "Due: @due"
+msgstr "Échéance : @due"
+
+msgid "Edit"
+msgstr "Modifier"
+
+msgid "Edit task"
+msgstr "Modifier la tâche"
+
+msgid "Effective date and time"
+msgstr "Date et heure effectives"
+
+msgid "Email me when a preparation becomes due"
+msgstr "M’envoyer un e-mail lorsqu’un préparatif arrive à échéance"
+
+msgid "End date (inclusive)"
+msgstr "Date de fin (incluse)"
+
+msgid "End time"
+msgstr "Heure de fin"
+
+msgid "End time must be after start time."
+msgstr "L’heure de fin doit être postérieure à l’heure de début."
+
+msgid "English"
+msgstr "Anglais"
+
+msgid "Enter a valid all-day start date."
+msgstr "Saisissez une date de début valide pour l’activité sur toute la journée."
+
+msgid "Enter a valid end date and time."
+msgstr "Saisissez une date et une heure de fin valides."
+
+msgid "Enter a valid inclusive all-day end date."
+msgstr "Saisissez une date de fin incluse valide pour l’activité sur toute la journée."
+
+msgid "Enter a valid start date and time."
+msgstr "Saisissez une date et une heure de début valides."
+
+msgid "First occurrence date"
+msgstr "Date de la première occurrence"
+
+msgid "For"
+msgstr "Pour"
+
+msgid "French"
+msgstr "Français"
+
+msgid "from"
+msgstr "du"
+
+msgid "Household"
+msgstr "Foyer"
+
+msgid "Household member"
+msgstr "Membre du foyer"
+
+msgid "Household name"
+msgstr "Nom du foyer"
+
+msgid "Language settings"
+msgstr "Paramètres de langue"
+
+msgid "Languages"
+msgstr "Langues"
+
+msgid "Link my account to household member"
+msgstr "Lier mon compte à un membre du foyer"
+
+msgid "Link your account to a Household member to see My upcoming."
+msgstr "Liez votre compte à un membre du foyer pour voir À venir pour moi."
+
+msgid "Link your account to a valid Household member to see My preparations."
+msgstr "Liez votre compte à un membre valide du foyer pour voir Mes préparatifs."
+
+msgid "Link your account to a valid Household member to see My tasks."
+msgstr "Liez votre compte à un membre valide du foyer pour voir Mes tâches."
+
+msgid "Link your account to a valid Household member to see Today."
+msgstr "Liez votre compte à un membre valide du foyer pour voir Aujourd’hui."
+
+msgid "Location"
+msgstr "Lieu"
+
+msgid "Log in"
+msgstr "Se connecter"
+
+msgid "Manage Household access"
+msgstr "Gérer l’accès aux foyers"
+
+msgid "Mark complete"
+msgstr "Marquer comme terminée"
+
+msgid "Mark not prepared"
+msgstr "Marquer comme non prêt"
+
+msgid "Mark preparation not prepared"
+msgstr "Marquer le préparatif comme non prêt"
+
+msgid "Mark preparation prepared"
+msgstr "Marquer le préparatif comme prêt"
+
+msgid "Mark prepared"
+msgstr "Marquer comme prêt"
+
+msgid "My preparations"
+msgstr "Mes préparatifs"
+
+msgid "My tasks"
+msgstr "Mes tâches"
+
+msgid "My upcoming"
+msgstr "À venir pour moi"
+
+msgid "New date"
+msgstr "Nouvelle date"
+
+msgid "New end time"
+msgstr "Nouvelle heure de fin"
+
+msgid "New name"
+msgstr "Nouveau nom"
+
+msgid "New start time"
+msgstr "Nouvelle heure de début"
+
+msgid "No activities concern you today."
+msgstr "Aucune activité ne vous concerne aujourd’hui."
+
+msgid "No current preparation has been marked prepared."
+msgstr "Aucun préparatif actuel n’a été marqué comme prêt."
+
+msgid "No deadline"
+msgstr "Sans échéance"
+
+msgid "No Household is available yet."
+msgstr "Aucun foyer n’est encore disponible."
+
+msgid "No Household member is available to link."
+msgstr "Aucun membre du foyer n’est disponible pour la liaison."
+
+msgid "No Household member is available to rename."
+msgstr "Aucun membre du foyer n’est disponible pour être renommé."
+
+msgid "No open tasks."
+msgstr "Aucune tâche ouverte."
+
+msgid "No tasks are due or overdue today."
+msgstr "Aucune tâche n’est due ou en retard aujourd’hui."
+
+msgid "No unprepared active preparations are overdue or due today."
+msgstr "Aucun préparatif actif non prêt n’est en retard ou dû aujourd’hui."
+
+msgid "No upcoming activities are assigned to you in the next 7 days."
+msgstr "Aucune activité ne vous est attribuée dans les 7 prochains jours."
+
+msgid "No upcoming activities in the next 7 days."
+msgstr "Aucune activité à venir dans les 7 prochains jours."
+
+msgid "Nothing currently needs preparation."
+msgstr "Rien ne nécessite actuellement de préparation."
+
+msgid "One-off"
+msgstr "Ponctuelle"
+
+msgid "Open"
+msgstr "Ouverte"
+
+msgid "Optional for all-day activities. Leave blank for one day."
+msgstr "Facultatif pour les activités sur toute la journée. Laisser vide pour une seule journée."
+
+msgid "Optional."
+msgstr "Facultatif."
+
+msgid "Optional. Empty means no specific Person is expressed."
+msgstr "Facultatif. Laisser vide signifie qu’aucune personne précise n’est indiquée."
+
+msgid "Overdue"
+msgstr "En retard"
+
+msgid "Overdue: @due"
+msgstr "En retard : @due"
+
+msgid "Password"
+msgstr "Mot de passe"
+
+msgid "Pause end date"
+msgstr "Date de fin de pause"
+
+msgid "Pause recurring activity"
+msgstr "Mettre l’activité récurrente en pause"
+
+msgid "Pause start date"
+msgstr "Date de début de pause"
+
+msgid "Person name"
+msgstr "Nom de la personne"
+
+msgid "Preparation instruction"
+msgstr "Instruction de préparation"
+
+msgid "Preparation lead time in minutes"
+msgstr "Délai de préparation en minutes"
+
+msgid "Preparation lead time must be zero or greater."
+msgstr "Le délai de préparation doit être supérieur ou égal à zéro."
+
+msgid "Preparation marked not prepared."
+msgstr "Préparatif marqué comme non prêt."
+
+msgid "Preparation marked prepared."
+msgstr "Préparatif marqué comme prêt."
+
+msgid "Preparation reminder delivery"
+msgstr "Envoi du rappel de préparation"
+
+msgid "Preparation reminders"
+msgstr "Rappels de préparation"
+
+msgid "Preparation was already marked prepared."
+msgstr "Le préparatif était déjà marqué comme prêt."
+
+msgid "Preparation was already not prepared."
+msgstr "Le préparatif était déjà marqué comme non prêt."
+
+msgid "Preparations"
+msgstr "Préparatifs"
+
+msgid "Prepared"
+msgstr "Prêt"
+
+msgid "Prepared at @time."
+msgstr "Prêt à @time."
+
+msgid "Prepared."
+msgstr "Prêt."
+
+msgid "Preview pause"
+msgstr "Prévisualiser la pause"
+
+msgid "Recurrence"
+msgstr "Récurrence"
+
+msgid "Reminder settings saved."
+msgstr "Paramètres de rappel enregistrés."
+
+msgid "Rename household member"
+msgstr "Renommer un membre du foyer"
+
+msgid "Reopen task"
+msgstr "Rouvrir la tâche"
+
+msgid "Reschedule occurrence"
+msgstr "Replanifier l’occurrence"
+
+msgid "Responsibility"
+msgstr "Responsabilité"
+
+msgid "Responsibility for this occurrence"
+msgstr "Responsabilité pour cette occurrence"
+
+msgid "Responsible Person"
+msgstr "Personne responsable"
+
+msgid "Responsible Person name"
+msgstr "Nom de la personne responsable"
+
+msgid "Save"
+msgstr "Enregistrer"
+
+msgid "Save Household access"
+msgstr "Enregistrer les accès aux foyers"
+
+msgid "Save reminder settings"
+msgstr "Enregistrer les paramètres de rappel"
+
+msgid "Save responsibility"
+msgstr "Enregistrer la responsabilité"
+
+msgid "Save task"
+msgstr "Enregistrer la tâche"
+
+msgid "Select a responsible Person for a weekly activity."
+msgstr "Sélectionnez une personne responsable pour une activité hebdomadaire."
+
+msgid "Select a valid activity type."
+msgstr "Sélectionnez un type d’activité valide."
+
+msgid "Select a valid responsible Person."
+msgstr "Sélectionnez une personne responsable valide."
+
+msgid "Select a valid source timezone."
+msgstr "Sélectionnez un fuseau horaire source valide."
+
+msgid "Select a valid time mode."
+msgstr "Sélectionnez un mode temporel valide."
+
+msgid "Set up your first activity"
+msgstr "Configurer votre première activité"
+
+msgid "Showing active overdue preparations and preparations due in the next 7 days."
+msgstr "Affichage des préparatifs actifs en retard et de ceux arrivant à échéance dans les 7 prochains jours."
+
+msgid "Showing My upcoming activities for the next 7 days."
+msgstr "Affichage de mes activités à venir dans les 7 prochains jours."
+
+msgid "Showing upcoming activities for the next 7 days."
+msgstr "Affichage des activités à venir dans les 7 prochains jours."
+
+msgid "Site language"
+msgstr "Langue du site"
+
+msgid "Source timezone"
+msgstr "Fuseau horaire source"
+
+msgid "Start time"
+msgstr "Heure de début"
+
+msgid "Status"
+msgstr "État"
+
+msgid "Task"
+msgstr "Tâche"
+
+msgid "Task added."
+msgstr "Tâche ajoutée."
+
+msgid "Task completed. You can reopen it below if this was accidental."
+msgstr "Tâche terminée. Vous pouvez la rouvrir ci-dessous si c’était involontaire."
+
+msgid "Task deleted."
+msgstr "Tâche supprimée."
+
+msgid "Task reopened."
+msgstr "Tâche rouverte."
+
+msgid "Task saved."
+msgstr "Tâche enregistrée."
+
+msgid "Task status"
+msgstr "État de la tâche"
+
+msgid "Tasks"
+msgstr "Tâches"
+
+msgid "This account's preferred language for emails and site presentation."
+msgstr "Langue préférée de ce compte pour les e-mails et l’affichage du site."
+
+msgid "Time mode"
+msgstr "Mode temporel"
+
+msgid "Timed"
+msgstr "Avec horaire"
+
+msgid "to"
+msgstr "au"
+
+msgid "To prepare"
+msgstr "À préparer"
+
+msgid "Today"
+msgstr "Aujourd’hui"
+
+msgid "Today: @date (@timezone)"
+msgstr "Aujourd’hui : @date (@timezone)"
+
+msgid "Unassigned"
+msgstr "Non attribuée"
+
+msgid "Upcoming activities and preparations"
+msgstr "Activités et préparatifs à venir"
+
+msgid "Used only when a preparation instruction is provided."
+msgstr "Utilisé uniquement lorsqu’une instruction de préparation est fournie."
+
+msgid "Username"
+msgstr "Nom d’utilisateur"
+
+msgid "Weekly"
+msgstr "Hebdomadaire"
+
+msgid "When"
+msgstr "Quand"
+
+msgid "You will be responsible for this activity."
+msgstr "Vous serez responsable de cette activité."
+

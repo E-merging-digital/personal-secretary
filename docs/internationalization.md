@@ -36,6 +36,10 @@ This module is infrastructure for configuration consistency; it is not domain au
 
 If Drupal Core later provides a mature and sufficient equivalent capability, prefer Core and remove the contributed dependency when that replacement is safe.
 
-## Deferred multilingual work
+## Runtime bilingual product UI
 
-Additional languages, translation catalogs, language switchers, content-translation configuration and models, and translation workflows remain deferred until a concrete product or user requirement exists.
+The runtime product languages are French (`fr`) and English (`en`), with French as the site default. Drupal Core `language` and `locale` own negotiation, User preference persistence and interface translation. The explicit language switcher uses Core's language block and path prefixes `/fr` and `/en`.
+
+Project-owned French translations are committed with the module and imported locally on both clean installation and the existing-install update path. Project-owned UI correctness therefore does not depend on a live translation server. `config_translation` is not enabled because #147 does not introduce translated repository configuration.
+
+Language switching never translates user-authored domain values and never changes User timezone, ActivitySeries source timezone, UTC instants, recurrence, or original occurrence identity.

@@ -1,0 +1,20 @@
+uuid: 2902c260-551a-4e21-8ab1-4c0f70d5a094
+langcode: en
+status: true
+dependencies:
+  module:
+    - language
+  theme:
+    - olivero
+id: olivero_language_switcher
+theme: olivero
+region: secondary_menu
+weight: -5
+provider: null
+plugin: 'language_block:language_interface'
+settings:
+  id: 'language_block:language_interface'
+  label: Languages
+  label_display: '0'
+  provider: language
+visibility: {  }

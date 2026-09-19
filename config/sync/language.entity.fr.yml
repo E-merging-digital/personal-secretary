@@ -1,0 +1,8 @@
+langcode: en
+status: true
+dependencies: {  }
+id: fr
+label: Français
+direction: ltr
+weight: 0
+locked: false

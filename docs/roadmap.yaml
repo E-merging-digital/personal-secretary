@@ -4,17 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: user-timezone-detection
+  phase: bilingual-fr-en-product-ui
   purpose: >-
-    Reuse Drupal User.timezone as durable current-user truth, make Europe/Brussels
-    the deterministic site fallback and add browser-assisted network-free timezone
-    suggestion without changing ActivitySeries source-timezone semantics.
+    Enable a deterministic French/English product interface with Drupal Core
+    multilingual primitives while preserving English configuration source truth,
+    user-authored domain data and terminal timezone semantics.
 
 active_tasks:
-  - issue: 146
+  - issue: 147
     purpose: >-
-      Align current-user timezone persistence, browser-assisted defaults and
-      activity-creation timezone defaults while preserving explicit recurrence truth.
+      Materialize the bilingual French/English product UI, durable User language
+      preference, Core switcher and repository-owned French translation catalog.
 
 historical_context:
   - issue: 58
@@ -221,11 +221,13 @@ historical_context:
       Historical terminal synthetic integration proved the dormant governed Terra
       Responses path with mocked transport and fail-closed behavior.
 
-planned_tasks:
-  - issue: 147
+  - issue: 146
     purpose: >-
-      Continue the planned bilingual user-interface work after the timezone slice
-      reaches Project Lead terminal review.
+      Historical terminal user-timezone delivery established Drupal User.timezone,
+      Europe/Brussels fallback and network-free browser suggestion without rewriting
+      recurrence truth.
+
+planned_tasks:
   - issue: 165
     purpose: >-
       Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
@@ -265,16 +267,15 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #146 user-timezone detection and durable Drupal User.timezone
-    alignment, then return Project Lead for terminal review.
+    Complete #147 bilingual French/English product UI and return Project Lead for
+    terminal review.
   - >-
     Resume #150 immediately if Postmark approval becomes actionable.
   - >-
     Keep #177 waiting on OpenAI retention/residency approval; do not start real
     provider adoption while that external gate remains unresolved.
   - >-
-    After #146 terminal review, schedule #147 bilingual UI or #165 Drush tooling
-    as separate bounded work units.
+    Keep #165 Drush tooling queued as the next planned bounded work unit.
 
 dependency_re_evaluation:
   - package: drupal/pwa
