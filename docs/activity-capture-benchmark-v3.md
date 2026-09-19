@@ -1,18 +1,22 @@
-# Activity Capture BENCHMARK_V3 — Phase A freeze
+# Activity Capture BENCHMARK_V3 — rapport comparatif final
 
-Date de gel : 2026-09-18
+Date de gel du contrat : 2026-09-18
+Date de finalisation comparative : 2026-09-19
 
 ## Objet
 
-BENCHMARK_V3 est une nouvelle génération de benchmark pour le contrat provider courant à 16 champs matérialisé par #168.
-Cette Phase A fige la fixture, les attentes, le scorer, les gates et l’oracle déterministe **avant toute inférence provider**.
+BENCHMARK_V3 évalue le contrat provider courant à 16 champs matérialisé par #168 avec une fixture synthétique figée, un oracle déterministe réel et trois tranches provider gouvernées.
+Le présent document conserve le contrat gelé de Phase A et matérialise les preuves finales immuables de Ministral 3 3B, GPT-5.6 Sol et GPT-5.6 Terra.
 
 ```text
-PROVIDER_RESULTS = NOT_EXECUTED
-MODEL_INFERENCE = NONE
-MINISTRAL_V3_REQUESTS = 0
-OPENAI_SOL_V3_REQUESTS = 0
-OPENAI_TERRA_V3_REQUESTS = 0
+PROVIDER_MATRIX = COMPLETE
+MINISTRAL_V3_REQUESTS = 20 / IMMUTABLE
+OPENAI_SOL_V3_REQUESTS = 20 / IMMUTABLE
+OPENAI_TERRA_V3_REQUESTS = 20 / IMMUTABLE
+NEW_PROVIDER_REQUESTS = 0
+MINISTRAL_REPLAY = NO
+SOL_REPLAY = NO
+TERRA_REPLAY = NO
 ```
 
 Les preuves V1 et V2 restent historiques, immuables, non rescored et non rejouées.
@@ -147,9 +151,17 @@ TIMEOUTS = 0
 
 La qualification sémantique et la qualification de latence restent indépendantes.
 
-## Matrice provider planifiée — non exécutée
+## Résultats provider immuables
 
-### Arm A — local
+### Comparaison synthétique
+
+| Provider | Schema | Champs IA | Accuracy | Outcome produit | Clarifications | Fallback évitable | Unsafe confirmable wrong | Internal-ID invention | Mean provider | P95 provider | Timeouts | Sémantique | Latence sync |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|
+| Ministral 3 3B | 18/20 | 263/320 | 82.1875% | 2/20 | 9 attendues / 16 réelles | 9 | 0 | 0 | 46.150814s | 120.170959s | 2 | FAIL | FAIL |
+| GPT-5.6 Sol | 20/20 | 320/320 | 100% | 20/20 | 9 / 9 | 0 | 0 | 0 | 2.407608s | 3.350804s | 0 | PASS | PASS |
+| GPT-5.6 Terra | 20/20 | 320/320 | 100% | 20/20 | 9 / 9 | 0 | 0 | 0 | 1.898228s | 2.702923s | 0 | PASS | PASS |
+
+### Arm A — Ministral 3 3B local
 
 ```text
 MODEL = Ministral 3 3B Instruct 2512
@@ -158,62 +170,242 @@ QUANTIZATION = Q4_K_M
 MODEL_ID = ps-ministral-3-3b
 GGUF_SHA256 = ee46f8f2cc4acf15e89699563e23b4a3919dce2e9ce7c44b53778d6590318e96
 RUNTIME = LOCAL_ONLY
+REQUESTS = 20 / IMMUTABLE
+RESULT_SHA256 = 837aa1cf5fe184a096664d9f2b1300f20061d6bc6f679d27de4af57587bfe01d
+
+SCHEMA_VALID = 18 / 20
+AI_FIELDS_CORRECT = 263 / 320
+AI_EXTRACTION_ACCURACY = 82.1875%
+FINAL_PRODUCT_OUTCOME_CORRECT = 2 / 20
+EXPECTED_CLARIFICATIONS = 9
+ACTUAL_CLARIFICATIONS = 16
+AVOIDABLE_FALLBACK = 9
+UNSAFE_CONFIRMABLE_WRONG = 0
+INTERNAL_ID_INVENTION = 0
+
+PROVIDER_LATENCY_MIN = 30.151091s
+PROVIDER_LATENCY_MEAN = 46.150814s
+PROVIDER_LATENCY_P50 = 36.816768s
+PROVIDER_LATENCY_P95 = 120.170959s
+PROVIDER_LATENCY_MAX = 120.186968s
+E2E_P50 = 36.848715s
+E2E_P95 = 120.170959s
+TIMEOUTS = 2
+TIMEOUT_CASES = one_off_timed, no_time_mode_evidence
+
+SEMANTIC_VERDICT = FAIL
+SYNCHRONOUS_LATENCY = FAIL
 ```
 
-Une exécution future serait une **nouvelle tranche V3**, jamais un replay V2.
+Ministral 3 3B n’atteint ni les gates sémantiques ni le gate de latence synchrone V3. Aucune proposition confirmable dangereusement erronée ni invention d’identifiant interne n’a toutefois été observée.
 
-### Arm B — OpenAI Sol
+### Arm B — GPT-5.6 Sol
 
 ```text
 MODEL = gpt-5.6-sol
 API = Responses API
 REASONING_EFFORT = none
-TOOLS = none
-WEB = none
-FILE_SEARCH = none
-MCP = none
+TOOLS / WEB / FILE_SEARCH / MCP = none
 STORE = false
 DATA = synthetic V3 fixture only
+REQUESTS = 20 / IMMUTABLE
+
+WORKFLOW_RUN = 35431363192
+JOB = 105866454023
+RUN_ATTEMPT = 1
+ARTIFACT = activity-capture-v3-openai-sol
+ARTIFACT_ID = 10580119315
+ARTIFACT_ZIP_SHA256 = 2ef47a358f55a333f84c00cca70d58e08aad5edfea843f4198c4cc1bea931c21
+RESULT_SHA256 = 3a8327777904d325a1c5046925976bef6cc1d5dc5b4a53e1ff4b7f0cebf0dc03
+
+SCHEMA_VALID = 20 / 20
+AI_FIELDS_CORRECT = 320 / 320
+AI_EXTRACTION_ACCURACY = 100%
+FINAL_PRODUCT_OUTCOME_CORRECT = 20 / 20
+EXPECTED_CLARIFICATIONS = 9
+ACTUAL_CLARIFICATIONS = 9
+AVOIDABLE_FALLBACK = 0
+UNSAFE_CONFIRMABLE_WRONG = 0
+INTERNAL_ID_INVENTION = 0
+
+PROVIDER_LATENCY_MIN = 1.810305s
+PROVIDER_LATENCY_MEAN = 2.407608s
+PROVIDER_LATENCY_P50 = 2.306825s
+PROVIDER_LATENCY_P95 = 3.350804s
+PROVIDER_LATENCY_MAX = 3.497379s
+E2E_P95 = 3.352929s
+TIMEOUTS = 0
+
+INPUT_TOKENS = 17300
+CACHED_INPUT_TOKENS = 0
+OUTPUT_TOKENS = 2364
+
+SEMANTIC_VERDICT = PASS
+SYNCHRONOUS_LATENCY = PASS
 ```
 
-### Arm C — OpenAI Terra conditionnel
+Sol satisfait tous les gates V3 sémantiques, safety et de latence synchrone et constitue la référence qualité cloud de cette matrice.
 
-Terra ne devient éligible que si Sol passe les gates V3 sémantiques/safety **et** surpasse matériellement Ministral V3 sur l’outcome produit. Aucun autre modèle local, Luna ou Astra n’est inclus.
+### Arm C — GPT-5.6 Terra
+
+```text
+MODEL = gpt-5.6-terra
+API = Responses API
+REASONING_EFFORT = none
+TOOLS / WEB / FILE_SEARCH / MCP = none
+STORE = false
+DATA = synthetic V3 fixture only
+REQUESTS = 20 / IMMUTABLE
+
+WORKFLOW_RUN = 35432609752
+ACCEPTED_RUN_ATTEMPT = 2
+JOB = 105869997745
+ARTIFACT = activity-capture-v3-openai-terra
+ARTIFACT_ID = 10581510406
+ARTIFACT_ZIP_SHA256 = 0f38f46b7018b49084e352f17f01fc75d91cd453ce3674d5d1c93cf63fc3aced
+RAW_RESULT_SHA256 = 62c8668b3d9d8ecf73a0b981e6adc71eac59769e2cfce6d832f9bd8d8ed6c3b2
+SCORED_RESULT_SHA256 = 52c85980c3eeedd946e33ff3f0586ff0275ec14a9e2f2e31b4cf754b4c7bb914
+
+SCHEMA_VALID = 20 / 20
+AI_FIELDS_CORRECT = 320 / 320
+AI_EXTRACTION_ACCURACY = 100%
+FINAL_PRODUCT_OUTCOME_CORRECT = 20 / 20
+EXPECTED_CLARIFICATIONS = 9
+ACTUAL_CLARIFICATIONS = 9
+AVOIDABLE_FALLBACK = 0
+UNSAFE_CONFIRMABLE_WRONG = 0
+INTERNAL_ID_INVENTION = 0
+
+PROVIDER_LATENCY_MIN = 1.648116s
+PROVIDER_LATENCY_MEAN = 1.898228s
+PROVIDER_LATENCY_P50 = 1.783020s
+PROVIDER_LATENCY_P95 = 2.702923s
+PROVIDER_LATENCY_MAX = 2.729496s
+E2E_LATENCY_MEAN = 1.900620s
+E2E_LATENCY_P50 = 1.785370s
+E2E_LATENCY_P95 = 2.705416s
+E2E_LATENCY_MAX = 2.731971s
+TIMEOUTS = 0
+
+INPUT_TOKENS = 17300
+CACHED_INPUT_TOKENS = 0
+OUTPUT_TOKENS = 2363
+
+SEMANTIC_VERDICT = PASS
+SYNCHRONOUS_LATENCY = PASS
+```
+
+L’essai 1 du run Terra a échoué avant toute inférence lors de `composer audit` à cause d’un échec de téléchargement Packagist. Le rerun pré-inférence explicitement autorisé a constitué l’unique tranche sémantique Terra : il ne s’agit pas d’un retry sémantique.
+
+Terra satisfait exactement les mêmes gates sémantiques et safety figés que Sol. Les différences textuelles acceptées entre sorties n’ont produit aucune différence sur les matchers figés ni sur les outcomes déterministes.
 
 ## Fair-comparison invariant
 
-Avant toute Phase B, restent figés : fixture SHA, 20 cas, 320 attentes IA, outcomes resolver, clarifications, confirmabilité, safety, scorer, gates sémantiques et gate de latence.
+Pendant toute la matrice V3, sont restés figés : fixture SHA, 20 cas, 320 attentes IA, outcomes resolver, clarifications, confirmabilité, safety, scorer, gates sémantiques et gate de latence.
 
 Différences provider autorisées : transport, syntaxe API, syntaxe Structured Outputs et livraison du secret. Les hints sémantiques provider/case, les attentes divergentes, un resolver différent ou un scoring différent sont interdits.
 
 Politique : exactement **une** tranche sémantique primaire par provider autorisé, sans retry sémantique ni deuxième tranche pour améliorer le score.
 
-## Artifacts Phase A
+## Snapshot tarifaire OpenAI — 2026-09-19
+
+Tarification Standard, texte, contexte court, vérifiée sur les références officielles OpenAI au 2026-09-19 :
+
+| Modèle | Input / 1M | Cached input / 1M | Output / 1M |
+|---|---:|---:|---:|
+| GPT-5.6 Sol | $4.00 | $0.40 | $20.00 |
+| GPT-5.6 Terra | $2.00 | $0.20 | $12.00 |
+
+Références :
+- https://developers.openai.com/api/docs/models/gpt-5.6-sol
+- https://developers.openai.com/api/docs/models/gpt-5.6-terra
+- https://developers.openai.com/api/docs/pricing
+
+Les captures V3 utilisent moins de 272K tokens d’entrée par requête ; aucun multiplicateur long-contexte n’est appliqué. Aucun uplift de traitement régional n’est ajouté, car l’évidence du benchmark ne prouve pas l’utilisation d’un mode endpoint régional tarifé.
+
+### Estimation de coût à partir de l’usage enregistré
+
+```text
+SOL_V3_ESTIMATED_COST_USD =
+(17300 × $4.00 + 0 × $0.40 + 2364 × $20.00) / 1,000,000
+= $0.116480
+
+SOL_AVERAGE_COST_PER_CAPTURE_USD =
+$0.116480 / 20
+= $0.005824
+
+TERRA_V3_ESTIMATED_COST_USD =
+(17300 × $2.00 + 0 × $0.20 + 2363 × $12.00) / 1,000,000
+= $0.062956
+
+TERRA_AVERAGE_COST_PER_CAPTURE_USD =
+$0.062956 / 20
+= $0.0031478
+
+TERRA_COST_REDUCTION_VS_SOL =
+45.951236...%
+≈ 45.95%
+```
+
+Ces montants sont des estimations de benchmark calculées depuis les tokens enregistrés et les tarifs publics du jour ; ce ne sont pas des reçus de facturation.
+
+## Interprétation comparative
+
+```text
+MINISTRAL_3_3B = NOT QUALIFIED FOR CURRENT V3 SYNCHRONOUS DEFAULT GATE
+SOL = QUALIFIED ON V3 / QUALITY REFERENCE
+TERRA = QUALIFIED ON V3 / COST-PERFORMANCE CANDIDATE
+SOL_VS_TERRA_SEMANTIC_DIFFERENCE = NONE ON FROZEN V3 GATES
+```
+
+Sur cette fixture V3 synthétique, Terra égale Sol sur chaque gate sémantique et safety figé : 20/20 réponses schema-valid, 320/320 champs acceptés, 20/20 outcomes produit, 9/9 clarifications attendues, zéro fallback évitable, zéro proposition confirmable incorrecte et zéro invention d’identifiant interne.
+
+Terra a également montré une latence observée inférieure : mean provider 1.898228s contre 2.407608s pour Sol, et P95 provider 2.702923s contre 3.350804s. Son coût API estimé est inférieur d’environ 45.95% sur les usages enregistrés.
+
+Ces constats qualifient Terra comme candidat coût/performance V3 et Sol comme référence qualité V3. Ils ne constituent pas une décision d’adoption production.
+
+## Limites et frontière produit
+
+- BENCHMARK_V3 contient seulement **20 cas synthétiques** et ne prétend pas représenter toute la distribution des entrées réelles.
+- Les résultats mesurent le contrat figé actuel ; un changement de prompt, schema, scorer, resolver, modèle ou pricing nécessite une nouvelle évaluation gouvernée.
+- Aucun texte réel Personal Secretary, aucune donnée familiale, enfant, personnelle ou PROD n’a été envoyé à OpenAI par cette finalisation.
+- **BENCHMARK_V3 n’autorise pas l’envoi de données réelles Personal Secretary à OpenAI.**
+- L’adoption éventuelle d’un provider OpenAI relève exclusivement de la Decision **#177** et de ses gates propres de rétention, data boundary, sécurité, coût et intégration.
+- `SILENT_CLOUD_FALLBACK = FORBIDDEN` reste inchangé.
+- `MANUAL_STRUCTURED_CAPTURE = PRESERVED` reste inchangé.
+- `EXPLICIT_CONFIRMATION = REQUIRED` et `FRESH_SERVER_AUTHORIZATION = REQUIRED` restent inchangés.
+
+## Évidence et surfaces finales
+
+Les surfaces de benchmark V3 conservées sont :
 
 - `web/modules/custom/personal_secretary/tests/fixtures/activity_capture_benchmark_v3.json`
 - `web/modules/custom/personal_secretary/tests/src/Kernel/ActivityCaptureBenchmarkV3KernelTest.php`
+- `web/modules/custom/personal_secretary/tests/src/Kernel/ActivityCaptureBenchmarkV3ProviderKernelTest.php`
 - `scripts/activity-capture-benchmark-v3.php`
+- `scripts/activity-capture-provider-v3.php`
+- `scripts/activity-capture-openai-v3.py`
 - `docs/activity-capture-benchmark-v3.md`
 - `docs/roadmap.yaml`
 
-Aucun adapter OpenAI V3 et aucun workflow consommant un secret ne sont publiés en Phase A. Ils peuvent être ajoutés uniquement sous autorité Phase B si nécessaires.
-
-## État Phase A
+Le workflow feature-branch multi-arm historique `.github/workflows/activity-capture-benchmark-v3-openai.yml` est retiré de la livraison finale. Les deux bootstraps temporaires mono-provider déjà présents sur `main` restent inchangés dans #170 et seront traités séparément si un cleanup ultérieur est autorisé.
 
 ```text
-PROVIDER_RESULTS = NOT_EXECUTED
+V3_FIXTURE_CHANGED = NO
+V3_EXPECTATIONS_CHANGED = NO
+V3_GATES_CHANGED = NO
+V3_PROMPT_CHANGED = NO
+V3_SCHEMA_CHANGED = NO
+V3_SCORER_SEMANTICS_CHANGED = NO
 V1_CHANGED = NO
 V2_CHANGED = NO
-V2_RERUN = NO
-V2_RESULT_INVALIDATED = NO
-MODEL_INFERENCE = NONE
-MINISTRAL_V3_REQUESTS = 0
-OPENAI_SOL_V3_REQUESTS = 0
-OPENAI_TERRA_V3_REQUESTS = 0
-PRODUCT_RUNTIME_CHANGE = NONE
-COMPOSER_CHANGE = NONE
-DRUPAL_CONFIG_CHANGE = NONE
-DATABASE_SCHEMA_CHANGE = NONE
-```
 
-La Phase B nécessite une nouvelle décision explicite du Project Lead.
+MINISTRAL_REQUESTS = 20 / IMMUTABLE
+SOL_REQUESTS = 20 / IMMUTABLE
+TERRA_REQUESTS = 20 / IMMUTABLE
+NEW_PROVIDER_REQUESTS = 0
+
+PRODUCT_PROVIDER_ADOPTION = NONE
+OPENAI_REAL_PERSONAL_DATA = NOT AUTHORIZED
+PRODUCT_RUNTIME_CHANGE = NONE
+```

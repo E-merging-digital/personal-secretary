@@ -4,17 +4,17 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: activity-capture-benchmark-v3-freeze
+  phase: activity-capture-benchmark-v3-final-comparative-materialization
   purpose: >-
-    Freeze the current 16-field Activity Capture V3 synthetic fixture, scorer,
-    semantic and latency gates, and deterministic resolver oracle before any
-    provider inference.
+    Materialize the immutable BENCHMARK_V3 comparison across Ministral, Sol and
+    Terra, preserve the frozen 16-field contract and return the exact final
+    candidate for Project Lead terminal review without new provider inference.
 
 active_tasks:
   - issue: 170
     purpose: >-
-      Complete BENCHMARK_V3 Phase A with frozen synthetic expectations and a
-      real deterministic oracle, then return Project Lead before provider execution.
+      Finalize the immutable BENCHMARK_V3 evidence, comparative report and roadmap
+      while preserving the frozen fixture, gates, prompt, schema and scorer semantics.
 
 historical_context:
   - issue: 58
@@ -206,15 +206,17 @@ historical_context:
       current role-aware 16-field extraction contract and fail-closed ambiguity.
 
 planned_tasks:
+  - issue: 176
+    purpose: >-
+      Stabilize the inherited time-sensitive recurring-responsibility CI test as a
+      separate bounded work unit without weakening product semantics.
+  - issue: 177
+    purpose: >-
+      After #170 terminalization, decide separately whether a governed OpenAI
+      provider may be adopted for real quick-capture data; no adoption starts here.
   - issue: 165
     purpose: >-
       Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
-  - purpose: >-
-      Execute the frozen BENCHMARK_V3 provider matrix only after separate Project
-      Lead Phase B authority; provider inference is not part of the Phase A freeze.
-  - purpose: >-
-      Make any real-data OpenAI provider adoption a separate future decision and
-      task with explicit data-category, retention and provider-runtime authority.
 
 waiting_external_tasks:
   - issue: 150
@@ -225,8 +227,8 @@ waiting_external_tasks:
 deferred_tasks:
   - issue: 84
     purpose: >-
-      Google Calendar account connection remains deferred and suspended while the
-      BENCHMARK_V3 freeze and its Project Lead Phase B decision remain active.
+      Google Calendar account connection remains deferred while BENCHMARK_V3 reaches
+      terminal review and later provider-adoption Decision #177 remains separate.
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -247,15 +249,16 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #170 Phase A by freezing the V3 fixture, expectations, scorer, gates
-    and deterministic oracle while preserving historical V1/V2 evidence.
+    Finalize #170 comparative materialization from the immutable Ministral, Sol and
+    Terra evidence without new provider requests or expectation tuning.
   - >-
-    Return Project Lead before any Ministral, Sol or Terra V3 provider inference.
+    Return Project Lead for exact-head terminal review and merge authority.
   - >-
     Resume #150 immediately if Postmark approval arrives and becomes the
     higher-priority external gate.
   - >-
-    Keep #165 queued until Project Lead separately schedules the Drush tooling lot.
+    Only after #170 terminalization may Decision #177 evaluate governed real-data
+    OpenAI adoption; keep #165 queued until separately scheduled.
 
 dependency_re_evaluation:
   - package: drupal/pwa
