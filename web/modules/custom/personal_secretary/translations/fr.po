@@ -503,3 +503,477 @@ msgstr "Quand"
 
 msgid "You will be responsible for this activity."
 msgstr "Vous serez responsable de cette activité."
+
+msgid "- None -"
+msgstr "- Aucun -"
+
+msgid "@count rescheduled occurrence(s) currently start inside this pause range. The whole pause is blocked."
+msgstr "@count occurrence(s) replanifiée(s) commencent actuellement dans cette plage de pause. La pause entière est bloquée."
+
+msgid "@household"
+msgstr "@household"
+
+msgid "@name (ID @id)"
+msgstr "@name (ID @id)"
+
+msgid "@name (UID @uid)"
+msgstr "@name (UID @uid)"
+
+msgid "@person"
+msgstr "@person"
+
+msgid "@task"
+msgstr "@task"
+
+msgid "Action"
+msgstr "Action"
+
+msgid "Activity creation requires a current linked Person who belongs to one of your authorized Households."
+msgstr "La création d’une activité nécessite une personne actuellement liée appartenant à l’un de vos foyers autorisés."
+
+msgid "activity exception"
+msgstr "exception d’activité"
+
+msgid "Activity exception"
+msgstr "Exception d’activité"
+
+msgid "activity exceptions"
+msgstr "exceptions d’activité"
+
+msgid "activity series"
+msgstr "série d’activités"
+
+msgid "Activity series"
+msgstr "Série d’activités"
+
+msgid "ActivityException revision ID audit snapshot"
+msgstr "Instantané d’audit de l’ID de révision de l’exception d’activité"
+
+msgid "ActivityException UUID audit snapshot"
+msgstr "Instantané d’audit de l’UUID de l’exception d’activité"
+
+msgid "Administer Personal Secretary domain state"
+msgstr "Administrer l’état du domaine Personal Secretary"
+
+msgid "Already cancelled"
+msgstr "Déjà annulées"
+
+msgid "Assigned person"
+msgstr "Personne assignée"
+
+msgid "Both dates are inclusive and use the activity source timezone."
+msgstr "Les deux dates sont incluses et utilisent le fuseau horaire source de l’activité."
+
+msgid "Cancel occurrence of %activity at %time?"
+msgstr "Annuler l’occurrence de %activity à %time ?"
+
+msgid "Cancel this occurrence?"
+msgstr "Annuler cette occurrence ?"
+
+msgid "Canonical UTC start of this time-commitment interval."
+msgstr "Début UTC canonique de cet intervalle d’engagement temporel."
+
+msgid "Completed at"
+msgstr "Terminée à"
+
+msgid "Completed by User"
+msgstr "Terminée par l’utilisateur"
+
+msgid "Concerned Persons"
+msgstr "Personnes concernées"
+
+msgid "Confirming will recheck the persisted activity and every exact occurrence target before creating any cancellation."
+msgstr "La confirmation revérifiera l’activité enregistrée et chaque occurrence cible exacte avant de créer une annulation."
+
+msgid "Conflict"
+msgstr "Conflit"
+
+msgid "Create, update, and delete Personal Secretary domain entities."
+msgstr "Créer, mettre à jour et supprimer les entités du domaine Personal Secretary."
+
+msgid "Current recurring responsible Person"
+msgstr "Personne actuellement responsable de manière récurrente"
+
+msgid "Current weekly schedule"
+msgstr "Horaire hebdomadaire actuel"
+
+msgid "Delete %task?"
+msgstr "Supprimer %task ?"
+
+msgid "Due at"
+msgstr "Échéance à"
+
+msgid "Due mode"
+msgstr "Mode d’échéance"
+
+msgid "Effective from"
+msgstr "Effectif à partir de"
+
+msgid "Effective from date"
+msgstr "Date d’effet"
+
+msgid "Effective source-local end audit snapshot"
+msgstr "Instantané d’audit de la fin locale source effective"
+
+msgid "Effective source-local start audit snapshot"
+msgstr "Instantané d’audit du début local source effectif"
+
+msgid "Effective until"
+msgstr "Effectif jusqu’à"
+
+msgid "Effective UTC end audit snapshot"
+msgstr "Instantané d’audit de la fin UTC effective"
+
+msgid "Effective UTC start audit snapshot"
+msgstr "Instantané d’audit du début UTC effectif"
+
+msgid "Enter a due date and time."
+msgstr "Saisissez une date et une heure d’échéance."
+
+msgid "Enter a due date."
+msgstr "Saisissez une date d’échéance."
+
+msgid "Enter a task."
+msgstr "Saisissez une tâche."
+
+msgid "Enter a valid new date and end time."
+msgstr "Saisissez une nouvelle date et une nouvelle heure de fin valides."
+
+msgid "Enter a valid new date and start time."
+msgstr "Saisissez une nouvelle date et une nouvelle heure de début valides."
+
+msgid "Full occurrence"
+msgstr "Occurrence complète"
+
+msgid "Future cancellations, reschedules, or responsibility changes tied to the old audited schedule may need to be redone after this change."
+msgstr "Les annulations, replanifications ou modifications de responsabilité futures liées à l’ancien horaire audité peuvent devoir être refaites après cette modification."
+
+msgid "household"
+msgstr "foyer"
+
+msgid "Household access could not be updated safely."
+msgstr "Les accès aux foyers n’ont pas pu être mis à jour de manière sûre."
+
+msgid "Household access was already unchanged."
+msgstr "Les accès aux foyers étaient déjà inchangés."
+
+msgid "Household access was updated."
+msgstr "Les accès aux foyers ont été mis à jour."
+
+msgid "households"
+msgstr "foyers"
+
+msgid "Lead time in seconds"
+msgstr "Délai d’anticipation en secondes"
+
+msgid "Lifecycle revision persisted at"
+msgstr "Révision du cycle de vie enregistrée à"
+
+msgid "Mark %preparation not prepared?"
+msgstr "Marquer %preparation comme non prêt ?"
+
+msgid "Mark %preparation prepared?"
+msgstr "Marquer %preparation comme prêt ?"
+
+msgid "Mark %task complete?"
+msgstr "Marquer %task comme terminée ?"
+
+msgid "Members"
+msgstr "Membres"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "New end time must be after new start time."
+msgstr "La nouvelle heure de fin doit être postérieure à la nouvelle heure de début."
+
+msgid "No one for this occurrence"
+msgstr "Personne pour cette occurrence"
+
+msgid "None"
+msgstr "Aucun"
+
+msgid "Occurrence-specific adjustments"
+msgstr "Ajustements propres aux occurrences"
+
+msgid "Occurrences to cancel"
+msgstr "Occurrences à annuler"
+
+msgid "Optional canonical UTC applicability cutoff."
+msgstr "Fin d’applicabilité UTC canonique facultative."
+
+msgid "Optional canonical UTC cutoff for this rule."
+msgstr "Limite UTC canonique facultative pour cette règle."
+
+msgid "Optional canonical UTC due instant."
+msgstr "Instant d’échéance UTC canonique facultatif."
+
+msgid "Optional civil due date without an implied time."
+msgstr "Date d’échéance civile facultative, sans heure implicite."
+
+msgid "Optional exclusive canonical UTC end of this time-commitment interval."
+msgstr "Fin UTC canonique exclusive facultative de cet intervalle d’engagement temporel."
+
+msgid "Original occurrence key"
+msgstr "Clé de l’occurrence d’origine"
+
+msgid "Original source-local end"
+msgstr "Fin locale source d’origine"
+
+msgid "Original source-local start"
+msgstr "Début local source d’origine"
+
+msgid "Original UTC end"
+msgstr "Fin UTC d’origine"
+
+msgid "Original UTC start"
+msgstr "Début UTC d’origine"
+
+msgid "Pause applied: @cancelled occurrence(s) cancelled; @already already cancelled."
+msgstr "Pause appliquée : @cancelled occurrence(s) annulée(s) ; @already déjà annulée(s)."
+
+msgid "people"
+msgstr "personnes"
+
+msgid "person"
+msgstr "personne"
+
+msgid "Person"
+msgstr "Personne"
+
+msgid "personal task"
+msgstr "tâche personnelle"
+
+msgid "Personal task"
+msgstr "Tâche personnelle"
+
+msgid "personal tasks"
+msgstr "tâches personnelles"
+
+msgid "preparation completion"
+msgstr "état de préparation"
+
+msgid "Preparation completion"
+msgstr "État de préparation"
+
+msgid "preparation completions"
+msgstr "états de préparation"
+
+msgid "preparation reminder deliveries"
+msgstr "envois des rappels de préparation"
+
+msgid "preparation reminder delivery"
+msgstr "envoi du rappel de préparation"
+
+msgid "preparation requirement"
+msgstr "exigence de préparation"
+
+msgid "Preparation requirement"
+msgstr "Exigence de préparation"
+
+msgid "preparation requirements"
+msgstr "exigences de préparation"
+
+msgid "Prepared at"
+msgstr "Préparé à"
+
+msgid "Prepared by User"
+msgstr "Préparé par l’utilisateur"
+
+msgid "Recurring responsibility is already assigned to that Person."
+msgstr "La responsabilité récurrente est déjà attribuée à cette personne."
+
+msgid "Recurring responsible Person"
+msgstr "Personne responsable récurrente"
+
+msgid "Reopen %task?"
+msgstr "Rouvrir %task ?"
+
+msgid "Requested pause"
+msgstr "Pause demandée"
+
+msgid "Required canonical UTC applicability start."
+msgstr "Début d’applicabilité UTC canonique requis."
+
+msgid "Required for weekly activities; optional for one-off activities."
+msgstr "Requis pour les activités hebdomadaires ; facultatif pour les activités ponctuelles."
+
+msgid "Rescheduled UTC end"
+msgstr "Nouvelle fin UTC"
+
+msgid "Rescheduled UTC start"
+msgstr "Nouveau début UTC"
+
+msgid "Responsibility applicability windows"
+msgstr "Fenêtres d’applicabilité de la responsabilité"
+
+msgid "responsibility override"
+msgstr "dérogation de responsabilité"
+
+msgid "Responsibility override"
+msgstr "Dérogation de responsabilité"
+
+msgid "responsibility overrides"
+msgstr "dérogations de responsabilité"
+
+msgid "responsibility rule"
+msgstr "règle de responsabilité"
+
+msgid "Responsibility rule"
+msgstr "Règle de responsabilité"
+
+msgid "responsibility rules"
+msgstr "règles de responsabilité"
+
+msgid "Responsible person"
+msgstr "Personne responsable"
+
+msgid "Save recurring responsibility"
+msgstr "Enregistrer la responsabilité récurrente"
+
+msgid "Save recurring schedule"
+msgstr "Enregistrer l’horaire récurrent"
+
+msgid "Save time commitment"
+msgstr "Enregistrer l’engagement temporel"
+
+msgid "Select a current Household member and enter a valid name."
+msgstr "Sélectionnez un membre actuel du foyer et saisissez un nom valide."
+
+msgid "Select a current Household member that can be linked safely."
+msgstr "Sélectionnez un membre actuel du foyer pouvant être lié de manière sûre."
+
+msgid "Select a valid due mode."
+msgstr "Sélectionnez un mode d’échéance valide."
+
+msgid "Select an existing Household and enter a valid Person name."
+msgstr "Sélectionnez un foyer existant et saisissez un nom de personne valide."
+
+msgid "Set up your first household and activity before adding another activity."
+msgstr "Configurez votre premier foyer et votre première activité avant d’ajouter une autre activité."
+
+msgid "Source timezone audit snapshot"
+msgstr "Instantané d’audit du fuseau horaire source"
+
+msgid "System time when this ActivityException lifecycle revision was persisted."
+msgstr "Heure système à laquelle cette révision du cycle de vie de l’exception d’activité a été enregistrée."
+
+msgid "System time when this PreparationRequirement lifecycle revision was persisted."
+msgstr "Heure système à laquelle cette révision du cycle de vie de l’exigence de préparation a été enregistrée."
+
+msgid "System time when this ResponsibilityOverride lifecycle revision was persisted."
+msgstr "Heure système à laquelle cette révision du cycle de vie de la dérogation de responsabilité a été enregistrée."
+
+msgid "System time when this ResponsibilityRule lifecycle revision was persisted."
+msgstr "Heure système à laquelle cette révision du cycle de vie de la règle de responsabilité a été enregistrée."
+
+msgid "System time when this TimeCommitmentRule lifecycle revision was persisted."
+msgstr "Heure système à laquelle cette révision du cycle de vie de la règle d’engagement temporel a été enregistrée."
+
+msgid "Target series revision ID"
+msgstr "ID de révision de la série cible"
+
+msgid "Task: @task"
+msgstr "Tâche : @task"
+
+msgid "The account could not be linked safely."
+msgstr "Le compte n’a pas pu être lié de manière sûre."
+
+msgid "The change starts with the first normal recurring session on or after this date."
+msgstr "La modification commence avec la première session récurrente normale à cette date ou après."
+
+msgid "The Household member could not be added safely."
+msgstr "Le membre du foyer n’a pas pu être ajouté de manière sûre."
+
+msgid "The Household member could not be renamed safely."
+msgstr "Le membre du foyer n’a pas pu être renommé de manière sûre."
+
+msgid "The recurring responsibility change is not valid: @message"
+msgstr "La modification de la responsabilité récurrente n’est pas valide : @message"
+
+msgid "The recurring schedule change is not valid: @message"
+msgstr "La modification de l’horaire récurrent n’est pas valide : @message"
+
+msgid "The task could not be saved because its current authorization or data is no longer valid."
+msgstr "La tâche n’a pas pu être enregistrée car son autorisation ou ses données ne sont plus valides."
+
+msgid "The time commitment change is not valid: @message"
+msgstr "La modification de l’engagement temporel n’est pas valide : @message"
+
+msgid "This complete selection replaces the target user’s current Household authorization set."
+msgstr "Cette sélection complète remplace l’ensemble actuel des autorisations de foyer de l’utilisateur cible."
+
+msgid "This occurrence can no longer be cancelled."
+msgstr "Cette occurrence ne peut plus être annulée."
+
+msgid "This occurrence can no longer be rescheduled."
+msgstr "Cette occurrence ne peut plus être replanifiée."
+
+msgid "This occurrence responsibility can no longer be changed."
+msgstr "La responsabilité de cette occurrence ne peut plus être modifiée."
+
+msgid "This pause can no longer be applied safely. No partial pause was created."
+msgstr "Cette pause ne peut plus être appliquée de manière sûre. Aucune pause partielle n’a été créée."
+
+msgid "This pause range is not valid: @message"
+msgstr "Cette plage de pause n’est pas valide : @message"
+
+msgid "This preparation action is no longer authorized or valid."
+msgstr "Cette action sur le préparatif n’est plus autorisée ou valide."
+
+msgid "This recurring responsibility can no longer be changed safely."
+msgstr "Cette responsabilité récurrente ne peut plus être modifiée de manière sûre."
+
+msgid "This recurring schedule can no longer be changed safely."
+msgstr "Cet horaire récurrent ne peut plus être modifié de manière sûre."
+
+msgid "This task action is no longer authorized or valid."
+msgstr "Cette action sur la tâche n’est plus autorisée ou valide."
+
+msgid "This time commitment can no longer be changed safely."
+msgstr "Cet engagement temporel ne peut plus être modifié de manière sûre."
+
+msgid "Time commitment"
+msgstr "Engagement temporel"
+
+msgid "Time commitment at the next affected occurrence"
+msgstr "Engagement temporel à la prochaine occurrence concernée"
+
+msgid "Time commitment mode"
+msgstr "Mode d’engagement temporel"
+
+msgid "time commitment rule"
+msgstr "règle d’engagement temporel"
+
+msgid "Time commitment rule"
+msgstr "Règle d’engagement temporel"
+
+msgid "time commitment rules"
+msgstr "règles d’engagement temporel"
+
+msgid "Unavailable"
+msgstr "Indisponible"
+
+msgid "Unnamed Household"
+msgstr "Foyer sans nom"
+
+msgid "Unnamed user"
+msgstr "Utilisateur sans nom"
+
+msgid "Use ordinary Personal Secretary product surfaces within explicitly authorized Household scope."
+msgstr "Utiliser les écrans ordinaires de Personal Secretary dans le périmètre des foyers explicitement autorisés."
+
+msgid "Use Personal Secretary"
+msgstr "Utiliser Personal Secretary"
+
+msgid "Use recurring responsibility"
+msgstr "Utiliser la responsabilité récurrente"
+
+msgid "Weekly on @weekday, @start–@end"
+msgstr "Chaque semaine le @weekday, de @start à @end"
+
+msgid "You need an authorized Household containing your linked Household member before you can add a task."
+msgstr "Vous avez besoin d’un foyer autorisé contenant le membre du foyer lié à votre compte avant de pouvoir ajouter une tâche."
+
+msgid "Your current Person context is no longer valid."
+msgstr "Votre contexte de personne actuel n’est plus valide."
