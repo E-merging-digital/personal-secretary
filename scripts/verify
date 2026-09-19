@@ -36,10 +36,30 @@ assert_module_disabled() {
 [[ "$("${DRUSH}" config:get core.extension profile --format=string)" == "minimal" ]]
 [[ "$("${DRUSH}" config:get system.theme admin --format=string)" == "gin" ]]
 
-for module in navigation gin_toolbar pathauto token config_split date_recur personal_secretary; do
+for module in navigation gin_toolbar pathauto token config_split date_recur language locale personal_secretary; do
   assert_module_enabled "${module}"
 done
 grep -Fxq gin <<<"${enabled_themes}"
+assert_module_disabled config_translation
+"${DRUSH}" php:eval '
+$checks = [
+  "config source language" => [\Drupal::config("system.site")->get("langcode"), "en"],
+  "runtime default language" => [\Drupal::config("system.site")->get("default_langcode"), "fr"],
+  "locked config langcode" => [\Drupal::config("config_language_lock.settings")->get("locked_langcode"), "en"],
+  "follow site default" => [\Drupal::config("config_language_lock.settings")->get("follow_site_default"), FALSE],
+  "English language entity" => [\Drupal::config("language.entity.en")->get("id"), "en"],
+  "French language entity" => [\Drupal::config("language.entity.fr")->get("id"), "fr"],
+];
+foreach ($checks as $label => [$actual, $expected]) {
+  if ($actual !== $expected) {
+    throw new \RuntimeException($label . " mismatch: " . var_export($actual, TRUE));
+  }
+}
+$translation = \Drupal::service("locale.storage")->findTranslation(["source" => "Today", "language" => "fr"]);
+if (($translation->translation ?? NULL) !== "Aujourd’hui") {
+  throw new \RuntimeException("Missing deterministic project French translation.");
+}
+'
 
 if [[ "${MODE}" == "development" ]]; then
   assert_module_enabled devel
@@ -52,7 +72,7 @@ else
 fi
 
 status_json="$("${DRUSH}" config:status --format=json)"
-php -r '$data = json_decode(stream_get_contents(STDIN), true); if (!empty($data)) { fwrite(STDERR, "Configuration drift detected\n"); exit(1); }' <<<"${status_json}"
+php -r '$raw = stream_get_contents(STDIN); $data = json_decode($raw, true); if (!empty($data)) { fwrite(STDERR, "Configuration drift detected:\n" . $raw . "\n"); exit(1); }' <<<"${status_json}"
 
 echo "DRUPAL_VERSION=$("${DRUSH}" status --field=drupal-version)"
 echo "PHP_VERSION=$(php -r 'echo PHP_VERSION;')"

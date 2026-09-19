@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HEAD_SHA="$(git rev-parse HEAD)"
+DRUSH="${DRUSH:-vendor/bin/drush}"
+PROOF_SCRIPT="/tmp/personal-secretary-prove-bilingual-existing-install.php"
+cp scripts/prove-bilingual-existing-install.php "${PROOF_SCRIPT}"
+
+restore_head() {
+  if [[ "$(git rev-parse HEAD)" != "${HEAD_SHA}" ]]; then
+    git switch --detach "${HEAD_SHA}" >/dev/null
+  fi
+}
+trap restore_head EXIT
+
+git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+BASE_SHA="$(git rev-parse refs/remotes/origin/main)"
+
+if [[ "${BASE_SHA}" == "${HEAD_SHA}" ]]; then
+  echo "Existing-install proof requires a work-branch descendant of main." >&2
+  exit 1
+fi
+
+git switch --detach "${BASE_SHA}" >/dev/null
+./scripts/rebuild development
+PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=seed "${DRUSH}" php:script "${PROOF_SCRIPT}"
+
+git switch --detach "${HEAD_SHA}" >/dev/null
+"${DRUSH}" config:import -y
+"${DRUSH}" updatedb -y
+"${DRUSH}" cache:rebuild
+./scripts/verify development
+PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=verify "${DRUSH}" php:script "${PROOF_SCRIPT}"
+
+git diff --exit-code
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
+echo "EXISTING_INSTALL_TRANSITION=PASS"

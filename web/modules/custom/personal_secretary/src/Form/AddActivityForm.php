@@ -113,8 +113,8 @@ final class AddActivityForm extends FormBase {
       '#type' => 'radios',
       '#title' => $this->t('Time mode'),
       '#options' => [
-        ActivitySeries::TIME_MODE_TIMED => $this->t('Horaire'),
-        ActivitySeries::TIME_MODE_ALL_DAY => $this->t('Toute la journée'),
+        ActivitySeries::TIME_MODE_TIMED => $this->t('Timed'),
+        ActivitySeries::TIME_MODE_ALL_DAY => $this->t('All day'),
       ],
       '#default_value' => ActivitySeries::TIME_MODE_TIMED,
       '#required' => TRUE,
@@ -147,7 +147,7 @@ final class AddActivityForm extends FormBase {
 
     $form['concerned_person_ids'] = [
       '#type' => 'checkboxes',
-      '#title' => $this->t('Personnes concernées'),
+      '#title' => $this->t('Concerned people'),
       '#options' => $people,
       '#required' => FALSE,
       '#description' => $this->t('Optional. Empty means no specific Person is expressed.'),
@@ -172,7 +172,7 @@ final class AddActivityForm extends FormBase {
     ];
     $form['all_day_end_date'] = [
       '#type' => 'date',
-      '#title' => $this->t('Date de fin (incluse)'),
+      '#title' => $this->t('End date (inclusive)'),
       '#description' => $this->t('Optional for all-day activities. Leave blank for one day.'),
       '#required' => FALSE,
       '#states' => [

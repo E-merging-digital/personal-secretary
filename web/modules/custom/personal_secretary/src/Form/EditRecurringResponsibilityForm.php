@@ -101,12 +101,10 @@ final class EditRecurringResponsibilityForm extends FormBase {
         (int) $form_state->getValue('responsible_person_id'),
       );
     }
-    catch (InvalidArgumentException | RuntimeException $exception) {
+    catch (InvalidArgumentException | RuntimeException) {
       $form_state->setErrorByName(
         'effective_from_date',
-        $this->t('The recurring responsibility change is not valid: @message', [
-          '@message' => $exception->getMessage(),
-        ]),
+        $this->t('The recurring responsibility change is not valid.'),
       );
     }
   }

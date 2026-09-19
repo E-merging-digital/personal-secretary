@@ -90,12 +90,10 @@ final class EditTimeCommitmentForm extends FormBase {
         (string) $form_state->getValue('mode'),
       );
     }
-    catch (InvalidArgumentException | RuntimeException $exception) {
+    catch (InvalidArgumentException | RuntimeException) {
       $form_state->setErrorByName(
         'effective_from_date',
-        $this->t('The time commitment change is not valid: @message', [
-          '@message' => $exception->getMessage(),
-        ]),
+        $this->t('The time commitment change is not valid.'),
       );
     }
   }
