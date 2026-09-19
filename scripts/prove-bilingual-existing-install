@@ -26,8 +26,8 @@ git switch --detach "${BASE_SHA}" >/dev/null
 PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=seed "${DRUSH}" php:script "${PROOF_SCRIPT}"
 
 git switch --detach "${HEAD_SHA}" >/dev/null
-"${DRUSH}" updatedb -y
 "${DRUSH}" config:import -y
+"${DRUSH}" updatedb -y
 "${DRUSH}" cache:rebuild
 ./scripts/verify development
 PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=verify "${DRUSH}" php:script "${PROOF_SCRIPT}"
