@@ -3,6 +3,8 @@ set -euo pipefail
 
 HEAD_SHA="$(git rev-parse HEAD)"
 DRUSH="${DRUSH:-vendor/bin/drush}"
+PROOF_SCRIPT="/tmp/personal-secretary-prove-bilingual-existing-install.php"
+cp scripts/prove-bilingual-existing-install.php "${PROOF_SCRIPT}"
 
 restore_head() {
   if [[ "$(git rev-parse HEAD)" != "${HEAD_SHA}" ]]; then
@@ -21,14 +23,14 @@ fi
 
 git switch --detach "${BASE_SHA}" >/dev/null
 ./scripts/rebuild development
-PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=seed "${DRUSH}" php:script scripts/prove-bilingual-existing-install.php
+PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=seed "${DRUSH}" php:script "${PROOF_SCRIPT}"
 
 git switch --detach "${HEAD_SHA}" >/dev/null
 "${DRUSH}" updatedb -y
 "${DRUSH}" config:import -y
 "${DRUSH}" cache:rebuild
 ./scripts/verify development
-PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=verify "${DRUSH}" php:script scripts/prove-bilingual-existing-install.php
+PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=verify "${DRUSH}" php:script "${PROOF_SCRIPT}"
 
 git diff --exit-code
 test -z "$(git status --porcelain=v1 --untracked-files=all)"
