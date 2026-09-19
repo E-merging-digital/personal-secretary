@@ -72,6 +72,26 @@ final class ActivityCaptureInterpreterKernelTest extends KernelTestBase {
     self::assertFalse($extraction->containsInternalIdentity());
   }
 
+  /**
+   * Proves governed Terra uses the current strict static schema.
+   */
+  public function testGovernedTerraUsesStrictStaticSchema(): void {
+    $interpreter = new ActivityCaptureInterpreter(
+      $this->container->get('ai.provider'),
+      ActivityCaptureInterpreter::GOVERNED_TERRA_PROVIDER_ID,
+      ActivityCaptureInterpreter::GOVERNED_TERRA_MODEL_ID,
+    );
+    $input = $this->syntheticInput();
+    $method = new ReflectionMethod($interpreter, 'buildChatInput');
+    $chatInput = $method->invoke($interpreter, $input);
+
+    self::assertTrue($chatInput->getChatStructuredJsonSchema()['strict']);
+    self::assertSame(
+      ActivityCaptureExtraction::structuredJsonSchema(),
+      $chatInput->getChatStructuredJsonSchema()['schema'],
+    );
+  }
+
   public function testCurrentProviderPayloadMissingUnclassifiedPersonMentionsFailsClosed(): void {
     $interpreter = new ActivityCaptureInterpreter($this->container->get('ai.provider'), 'echoai', 'gpt-test');
     $input = $this->syntheticInput();

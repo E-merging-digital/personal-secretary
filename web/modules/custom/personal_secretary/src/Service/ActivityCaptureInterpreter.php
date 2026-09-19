@@ -8,9 +8,8 @@ use Drupal\ai\AiProviderPluginManager;
 use Drupal\ai\OperationType\Chat\ChatInput;
 use Drupal\ai\OperationType\Chat\ChatMessage;
 use Drupal\personal_secretary\Value\ActivityCaptureExtraction;
+use Drupal\personal_secretary\Exception\ActivityCaptureProviderException;
 use Drupal\personal_secretary\Value\ActivityCaptureInput;
-use InvalidArgumentException;
-use RuntimeException;
 
 /**
  * Extracts narrow LOCAL_ONLY linguistic candidates through Drupal AI.
@@ -20,42 +19,103 @@ final class ActivityCaptureInterpreter implements ActivityCaptureInterpreterInte
   public const PRIMARY_AI_ATTEMPTS = 1;
   public const MAX_TOTAL_ATTEMPTS = 2;
 
+  public const GOVERNED_TERRA_PROVIDER_ID = 'openai';
+
+  public const GOVERNED_TERRA_MODEL_ID = 'gpt-5.6-terra';
+
+  public const GOVERNED_TERRA_REQUEST_TAG = 'personal-secretary-governed-terra';
+
+  public const GOVERNED_TERRA_FAILURE_MESSAGE = 'AI activity capture is temporarily unavailable. Use the structured Add activity form instead.';
+
+  private const BASE_REQUEST_TAG = 'personal-secretary-activity-capture';
+
+  private const SKIP_MODERATION_TAG = 'skip_moderation';
+
+  private const GOVERNED_TERRA_CONFIGURATION = [
+    'store' => FALSE,
+    'reasoning_effort' => 'none',
+    'background' => FALSE,
+  ];
+
   public function __construct(
     private readonly AiProviderPluginManager $providerManager,
     private readonly string $providerId,
     private readonly string $modelId,
   ) {
     if (trim($providerId) === '' || trim($modelId) === '') {
-      throw new InvalidArgumentException('Activity capture provider and model must be supplied by the runtime.');
+      throw new \InvalidArgumentException('Activity capture provider and model must be supplied by the runtime.');
     }
   }
 
+  /**
+   * Interprets one activity-capture input through the selected provider.
+   */
   public function interpret(ActivityCaptureInput $input): ActivityCaptureExtraction {
+    $chatInput = $this->buildChatInput($input);
+    $tags = [self::BASE_REQUEST_TAG];
+
+    try {
+      $provider = $this->providerManager->createInstance($this->providerId);
+      if ($this->isGovernedTerra()) {
+        $provider->setConfiguration(self::GOVERNED_TERRA_CONFIGURATION);
+        $tags[] = self::GOVERNED_TERRA_REQUEST_TAG;
+        $tags[] = self::SKIP_MODERATION_TAG;
+      }
+      $output = $provider->chat($chatInput, $this->modelId, $tags);
+    }
+    catch (ActivityCaptureProviderException $e) {
+      throw $e;
+    }
+    catch (\Throwable $e) {
+      if ($this->isGovernedTerra()) {
+        throw new ActivityCaptureProviderException(
+          self::GOVERNED_TERRA_FAILURE_MESSAGE,
+          previous: $e,
+        );
+      }
+      throw $e;
+    }
+
+    $normalized = $output->getNormalized();
+    if (!$normalized instanceof ChatMessage) {
+      throw new \RuntimeException('Activity capture requires a non-streamed normalized chat response.');
+    }
+
+    $decoded = json_decode($normalized->getText(), TRUE, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($decoded)) {
+      throw new \RuntimeException('Activity capture structured response must decode to an object.');
+    }
+
+    return ActivityCaptureExtraction::fromProviderArray($decoded);
+  }
+
+  /**
+   * Builds the bounded chat input and structural output schema.
+   */
+  private function buildChatInput(ActivityCaptureInput $input): ChatInput {
     $chatInput = new ChatInput([
       new ChatMessage('user', $this->buildUserPrompt($input)),
     ]);
     $chatInput->setSystemPrompt($this->systemPrompt());
     $chatInput->setChatStructuredJsonSchema([
       'name' => 'activity_capture_extraction',
-      'strict' => FALSE,
+      'strict' => $this->isGovernedTerra(),
       'schema' => ActivityCaptureExtraction::structuredJsonSchema(),
     ]);
-
-    $provider = $this->providerManager->createInstance($this->providerId);
-    $output = $provider->chat($chatInput, $this->modelId, ['personal-secretary-activity-capture']);
-    $normalized = $output->getNormalized();
-    if (!$normalized instanceof ChatMessage) {
-      throw new RuntimeException('Activity capture requires a non-streamed normalized chat response.');
-    }
-
-    $decoded = json_decode($normalized->getText(), TRUE, 512, JSON_THROW_ON_ERROR);
-    if (!is_array($decoded)) {
-      throw new RuntimeException('Activity capture structured response must decode to an object.');
-    }
-
-    return ActivityCaptureExtraction::fromProviderArray($decoded);
+    return $chatInput;
   }
 
+  /**
+   * Determines whether the exact governed Terra runtime was selected.
+   */
+  private function isGovernedTerra(): bool {
+    return $this->providerId === self::GOVERNED_TERRA_PROVIDER_ID
+      && $this->modelId === self::GOVERNED_TERRA_MODEL_ID;
+  }
+
+  /**
+   * Builds the bounded user prompt for linguistic extraction.
+   */
   private function buildUserPrompt(ActivityCaptureInput $input): string {
     return implode("\n", [
       'Contexte synthétique/local uniquement.',
@@ -66,6 +126,9 @@ final class ActivityCaptureInterpreter implements ActivityCaptureInterpreterInte
     ]);
   }
 
+  /**
+   * Returns the fixed system prompt for activity extraction.
+   */
   private function systemPrompt(): string {
     return <<<'PROMPT'
 Tu extrais uniquement des candidats linguistiques à partir d'une courte demande française.
