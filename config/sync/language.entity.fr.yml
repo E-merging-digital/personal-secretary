@@ -1,8 +1,11 @@
+uuid: f8b4354b-48cc-517a-8c11-a8fcddfdabac
 langcode: en
 status: true
-dependencies: {  }
+dependencies:
+  module:
+    - language
 id: fr
-label: Français
+label: French
 direction: ltr
 weight: 0
 locked: false

@@ -1,6 +1,9 @@
+uuid: 29a5760e-bff9-5bd5-9735-40d154e90843
 langcode: en
 status: true
-dependencies: {  }
+dependencies:
+  module:
+    - language
 id: en
 label: English
 direction: ltr
