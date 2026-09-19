@@ -4,17 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: bilingual-fr-en-product-ui
+  phase: drush-13-8-tooling-maintenance
   purpose: >-
-    Enable a deterministic French/English product interface with Drupal Core
-    multilingual primitives while preserving English configuration source truth,
-    user-authored domain data and terminal timezone semantics.
+    Keep repository tooling current through a bounded Drush 13.8.0 lock update
+    while preserving the existing Drupal/PHP stack and product semantics.
 
 active_tasks:
-  - issue: 147
+  - issue: 165
     purpose: >-
-      Materialize the bilingual French/English product UI, durable User language
-      preference, Core switcher and repository-owned French translation catalog.
+      Update only the Drush lock from 13.7.6 to 13.8.0 and prove the existing
+      repository tooling, rebuild, multilingual transition and production path.
 
 historical_context:
   - issue: 58
@@ -226,11 +225,12 @@ historical_context:
       Historical terminal user-timezone delivery established Drupal User.timezone,
       Europe/Brussels fallback and network-free browser suggestion without rewriting
       recurrence truth.
-
-planned_tasks:
-  - issue: 165
+  - issue: 147
     purpose: >-
-      Evaluate Drush 13.8.0 as a separate queued tooling-only maintenance lot.
+      Historical terminal bilingual delivery established deterministic French and
+      English product UI while preserving English configuration source truth.
+
+planned_tasks: []
 
 waiting_external_tasks:
   - issue: 150
@@ -267,15 +267,13 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #147 bilingual French/English product UI and return Project Lead for
-    terminal review.
+    Complete #165 as the active bounded Drush tooling maintenance work unit and
+    return Project Lead for terminal review without merging.
   - >-
     Resume #150 immediately if Postmark approval becomes actionable.
   - >-
     Keep #177 waiting on OpenAI retention/residency approval; do not start real
     provider adoption while that external gate remains unresolved.
-  - >-
-    Keep #165 Drush tooling queued as the next planned bounded work unit.
 
 dependency_re_evaluation:
   - package: drupal/pwa
