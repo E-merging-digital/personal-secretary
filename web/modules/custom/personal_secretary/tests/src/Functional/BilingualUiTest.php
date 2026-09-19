@@ -215,9 +215,13 @@ final class BilingualUiTest extends BrowserTestBase {
     );
     $this->assertSurfacePair(
       '/personal-secretary/setup',
-      ['Configurer votre première activité', 'Nom du foyer', 'Nom de la personne responsable', 'Créer la première activité'],
-      ['Set up your first activity', 'Household name', 'Responsible Person name', 'Create first activity'],
+      ['Configurer votre première activité', 'Nom du foyer', 'Nom de la personne responsable'],
+      ['Set up your first activity', 'Household name', 'Responsible Person name'],
     );
+    $this->drupalGet('/fr/personal-secretary/setup');
+    $this->assertSession()->buttonExists('Créer la première activité');
+    $this->drupalGet('/en/personal-secretary/setup');
+    $this->assertSession()->buttonExists('Create first activity');
 
     $futureSeriesReloaded = $this->container->get('entity_type.manager')
       ->getStorage('personal_sec_activity_series')

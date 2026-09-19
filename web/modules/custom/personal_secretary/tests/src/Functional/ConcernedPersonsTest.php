@@ -82,7 +82,7 @@ final class ConcernedPersonsTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertUpcomingArticleContains(
       'Synthetic concerned weekly',
-      ['Pour', 'Synthetic Eva', 'Synthetic Barbara'],
+      ['For', 'Synthetic Eva', 'Synthetic Barbara'],
     );
 
     $weekly = $this->seriesByLabel('Synthetic concerned weekly');
@@ -115,7 +115,7 @@ final class ConcernedPersonsTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertUpcomingArticleContains(
       'Synthetic concerned one-off unassigned',
-      ['Pour', 'Synthetic Eva'],
+      ['For', 'Synthetic Eva'],
     );
 
     $oneOff = $this->seriesByLabel('Synthetic concerned one-off unassigned');
@@ -141,7 +141,7 @@ final class ConcernedPersonsTest extends BrowserTestBase {
     ], 'Add activity');
     $empty = $this->seriesByLabel('Synthetic empty concerned one-off');
     $this->assertTrue($empty->get('concerned_persons')->isEmpty());
-    $this->assertUpcomingArticleExcludes('Synthetic empty concerned one-off', 'Pour');
+    $this->assertUpcomingArticleExcludes('Synthetic empty concerned one-off', 'For');
 
     $beforeForeignAttempt = count($manager->getStorage('personal_sec_activity_series')->loadMultiple());
     $foreignStart = $nowLocal->modify('+4 days')->setTime(15, 0);
@@ -216,7 +216,7 @@ final class ConcernedPersonsTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertTodayArticleContains(
       'Synthetic Today assigned concerned',
-      ['Pour', 'Synthetic Eva'],
+      ['For', 'Synthetic Eva'],
     );
     $this->assertSession()->pageTextNotContains('Synthetic Today concerned-only current Person');
 
