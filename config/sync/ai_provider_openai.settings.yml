@@ -1,0 +1,3 @@
+api_key: personal_secretary_openai_api_key
+moderation: true
+host: ''
