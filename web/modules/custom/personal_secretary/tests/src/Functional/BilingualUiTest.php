@@ -10,6 +10,7 @@ use Drupal\block\Entity\Block;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
@@ -17,12 +18,14 @@ use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\Entity\User;
 use Drupal\user\UserInterface;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Proves the bilingual product UI while preserving domain and timezone truth.
  *
  * @group personal_secretary
  */
+#[RunTestsInSeparateProcesses]
 final class BilingualUiTest extends BrowserTestBase {
 
   protected static $modules = ['block', 'field', 'personal_secretary'];
@@ -31,6 +34,12 @@ final class BilingualUiTest extends BrowserTestBase {
 
   protected function setUp(): void {
     parent::setUp();
+
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
 
     $this->config('system.site')
       ->set('default_langcode', 'fr')

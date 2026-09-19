@@ -61,8 +61,8 @@ final class AllDayActivityTest extends BrowserTestBase {
 
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->pageTextContains('Horaire');
-    $this->assertSession()->pageTextContains('Toute la journée');
+    $this->assertSession()->pageTextContains('Timed');
+    $this->assertSession()->pageTextContains('All day');
     $this->assertSession()->fieldValueEquals('time_mode', ActivitySeries::TIME_MODE_TIMED);
     $this->assertSession()->fieldExists('all_day_end_date');
 
@@ -97,7 +97,7 @@ final class AllDayActivityTest extends BrowserTestBase {
     ])->toString();
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertUpcomingArticleContains('Synthetic timed regression', ['09:15', '10:45']);
-    $this->assertUpcomingArticleExcludes('Synthetic timed regression', 'Toute la journée');
+    $this->assertUpcomingArticleExcludes('Synthetic timed regression', 'All day');
     $this->assertSession()->linkByHrefExists($timedRescheduleUrl);
     $this->drupalGet($timedRescheduleUrl);
     $this->assertSession()->statusCodeEquals(200);
@@ -168,7 +168,7 @@ final class AllDayActivityTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertUpcomingArticleContains(
       'Synthetic all-day one-off',
-      ['Toute la journée', $oneDayDate, 'Synthetic library', 'Synthetic concerned child', 'Synthetic prepare bag'],
+      ['All day', $oneDayDate, 'Synthetic library', 'Synthetic concerned child', 'Synthetic prepare bag'],
     );
     $this->assertUpcomingArticleExcludes('Synthetic all-day one-off', '00:00');
     $this->assertSession()->linkByHrefNotExists($rescheduleUrl);
@@ -303,7 +303,7 @@ final class AllDayActivityTest extends BrowserTestBase {
       'series' => (int) $futureWeekly->id(),
     ])->toString();
     $this->drupalGet('/personal-secretary/upcoming');
-    $this->assertUpcomingArticleContains('Synthetic future weekly all-day', ['Toute la journée']);
+    $this->assertUpcomingArticleContains('Synthetic future weekly all-day', ['All day']);
     $this->assertSession()->linkByHrefNotExists($scheduleUrl);
 
     $concernedOnlyStart = $nowLocal->modify('+2 days')->setTime(0, 0);
@@ -315,7 +315,7 @@ final class AllDayActivityTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Synthetic future weekly all-day');
-    $this->assertSession()->pageTextContains('Toute la journée');
+    $this->assertSession()->pageTextContains('All day');
     $this->assertSession()->pageTextNotContains('Synthetic concerned-only all-day');
 
     $todayStart = $nowLocal->setTime(0, 0);
@@ -333,7 +333,7 @@ final class AllDayActivityTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertTodayArticleContains(
       'Synthetic Today all-day overlap',
-      ['Toute la journée', 'Synthetic Today location', 'Synthetic DST concerned person'],
+      ['All day', 'Synthetic Today location', 'Synthetic DST concerned person'],
     );
     $this->assertTodayArticleExcludes('Synthetic Today all-day overlap', '00:00');
     $this->assertSession()->pageTextNotContains('Synthetic Today concerned-only all-day');
