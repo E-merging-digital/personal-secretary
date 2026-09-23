@@ -70,6 +70,10 @@ final class SmtpTransportPrivacyContractKernelTest extends KernelTestBase {
     $this->assertSame('personal_secretary_smtp_token', $override->get('key_id'));
 
     $canonical = new FileStorage(dirname(DRUPAL_ROOT) . '/config/sync');
+    $update = $canonical->read('update.settings');
+    $this->assertIsArray($update);
+    $this->assertSame([], $update['notification']['emails'] ?? NULL);
+
     $smtp = $canonical->read('phpmailer_smtp.settings');
     $this->assertIsArray($smtp);
     $this->assertSame('', $smtp['smtp_password']);
