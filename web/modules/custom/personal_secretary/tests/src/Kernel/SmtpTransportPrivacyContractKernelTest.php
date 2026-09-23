@@ -42,6 +42,7 @@ final class SmtpTransportPrivacyContractKernelTest extends KernelTestBase {
     $this->installConfig(['system', 'phpmailer_smtp', 'personal_secretary']);
     $this->loadCanonicalConfig([
       'system.mail',
+      'update.settings',
       'personal_secretary.settings',
       'phpmailer_smtp.settings',
       'phpmailer_smtp.format',
@@ -58,6 +59,7 @@ final class SmtpTransportPrivacyContractKernelTest extends KernelTestBase {
     $mailConfig = $this->config('system.mail');
     $this->assertSame('php_mail', $mailConfig->get('interface.default'));
     $this->assertSame('phpmailer_smtp', $mailConfig->get('interface.personal_secretary_preparation_reminder'));
+    $this->assertSame([], $this->config('update.settings')->get('notification.emails'));
     $this->assertFalse((bool) $this->config('personal_secretary.settings')->get('external_smtp_egress'));
 
     $key = $this->config('key.key.personal_secretary_smtp_token');
