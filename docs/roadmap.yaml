@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: drush-13-8-tooling-maintenance
+  phase: google-calendar-account-connection
   purpose: >-
-    Keep repository tooling current through a bounded Drush 13.8.0 lock update
-    while preserving the existing Drupal/PHP stack and product semantics.
+    Materialize a User-owned Google Calendar account connection without calendar
+    event read/write or Personal Secretary event-data egress.
 
 active_tasks:
-  - issue: 165
+  - issue: 84
     purpose: >-
-      Update only the Drush lock from 13.7.6 to 13.8.0 and prove the existing
-      repository tooling, rebuild, multilingual transition and production path.
+      Add bounded Google Calendar Connect, deterministic connection status,
+      invalid-state reconnect and local-first disconnect for authenticated Users.
 
 historical_context:
   - issue: 58
@@ -230,23 +230,24 @@ historical_context:
       Historical terminal bilingual delivery established deterministic French and
       English product UI while preserving English configuration source truth.
 
+  - issue: 150
+    purpose: >-
+      Historical terminal first usable PROD established the private production
+      application and completed its required infrastructure and SMTP prerequisites.
+  - issue: 165
+    purpose: >-
+      Historical terminal Drush tooling maintenance updated the bounded Drush lock
+      while preserving product semantics and the existing Drupal/PHP stack.
+
 planned_tasks: []
 
 waiting_external_tasks:
-  - issue: 150
-    purpose: >-
-      Remain frozen while Postmark account approval is pending; resume immediately
-      if that external gate becomes actionable.
   - issue: 177
     purpose: >-
       Remain blocked on OpenAI retention and EU residency/processing approval before
       any real-personal-data provider adoption or live inference is reconsidered.
 
-deferred_tasks:
-  - issue: 84
-    purpose: >-
-      Google Calendar account connection remains deferred until it is separately
-      rescheduled after the current Personal Secretary product slices.
+deferred_tasks: []
 
 external_dependencies:
   - repository: E-merging-digital/infrastructure
@@ -267,10 +268,8 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #165 as the active bounded Drush tooling maintenance work unit and
-    return Project Lead for terminal review without merging.
-  - >-
-    Resume #150 immediately if Postmark approval becomes actionable.
+    Complete #84 as the active Google Calendar account-connection work unit
+    without event read/write, real OAuth execution or merge during Delivery.
   - >-
     Keep #177 waiting on OpenAI retention/residency approval; do not start real
     provider adoption while that external gate remains unresolved.

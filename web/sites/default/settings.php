@@ -15,6 +15,19 @@ $config['config_split.config_split.development']['status'] = $environment === 'd
 $settings['config_sync_directory'] = dirname(__DIR__, 3) . '/config/sync';
 
 
+// Easy Encryption private decryption material must never be stored in the
+// database or repository in production. Infrastructure supplies an external
+// writable directory through this environment variable before real OAuth use.
+$easy_encryption_private_key_directory = trim((string) (
+  getenv('PERSONAL_SECRETARY_EASY_ENCRYPTION_PRIVATE_KEY_DIRECTORY') ?: ''
+));
+if ($easy_encryption_private_key_directory !== '') {
+  $settings['easy_encryption']['private_key_directory'] =
+    $easy_encryption_private_key_directory;
+}
+
+
+
 $reverse_proxy_host = trim((string) (getenv('DRUPAL_REVERSE_PROXY_HOST') ?: ''));
 if ($reverse_proxy_host !== '') {
   $reverse_proxy_addresses = gethostbynamel($reverse_proxy_host);
