@@ -6,8 +6,16 @@ DRUSH="${DRUSH:-vendor/bin/drush}"
 PROOF_SCRIPT="/tmp/personal-secretary-prove-bilingual-existing-install.php"
 cp scripts/prove-bilingual-existing-install.php "${PROOF_SCRIPT}"
 
+ensure_site_default_checkout_writable() {
+  chmod u+w web/sites/default
+  if [[ -e web/sites/default/settings.php ]]; then
+    chmod u+w web/sites/default/settings.php
+  fi
+}
+
 restore_head() {
   if [[ "$(git rev-parse HEAD)" != "${HEAD_SHA}" ]]; then
+    ensure_site_default_checkout_writable
     git switch --detach "${HEAD_SHA}" >/dev/null
   fi
 }
@@ -21,10 +29,12 @@ if [[ "${BASE_SHA}" == "${HEAD_SHA}" ]]; then
   exit 1
 fi
 
+ensure_site_default_checkout_writable
 git switch --detach "${BASE_SHA}" >/dev/null
 ./scripts/rebuild development
 PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=seed "${DRUSH}" php:script "${PROOF_SCRIPT}"
 
+ensure_site_default_checkout_writable
 git switch --detach "${HEAD_SHA}" >/dev/null
 "${DRUSH}" config:import -y
 "${DRUSH}" updatedb -y

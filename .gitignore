@@ -40,3 +40,5 @@
 /.ddev/.web-cache/
 /.ddev/.gitignore
 /.ddev/config.local.yaml
+
+/.easy_encryption/

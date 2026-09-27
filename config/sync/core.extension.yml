@@ -12,6 +12,7 @@ module:
   datetime_range: 0
   dblog: 0
   dynamic_page_cache: 0
+  easy_encryption: 0
   field: 0
   file: 0
   filter: 0
@@ -24,6 +25,7 @@ module:
   mysql: 0
   navigation: 0
   node: 0
+  oauth2_client: 0
   page_cache: 0
   path: 0
   path_alias: 0
