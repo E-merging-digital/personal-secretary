@@ -50,6 +50,10 @@ final class ProductShellTest extends BrowserTestBase {
 
   public function testProductUserLoginLandsOnTodayAndKeepsProfileExplicit(): void {
     $user = $this->createProductUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
+
+    // Exercise the ordinary human login form. BrowserTestBase::drupalLogin()
+    // otherwise uses a one-time login URL with destination=user/{id}.
+    $this->useOneTimeLoginLinks = FALSE;
     $this->drupalLogin($user);
     $this->assertSession()->addressMatches('#/personal-secretary/today$#');
     $this->assertSession()->elementExists('css', '[data-personal-secretary-shell]');
