@@ -21,47 +21,6 @@ restore_head() {
 }
 trap restore_head EXIT
 
-diagnose_block_config_boundary() {
-  local boundary="$1"
-  local config_name
-  local sync_path
-  local status_output
-
-  echo "=== R2E_DIAGNOSTIC_BOUNDARY=${boundary} ==="
-  status_output="$("${DRUSH}" config:status --format=json 2>&1 || true)"
-  echo "R2E_CONFIG_STATUS=${status_output}"
-
-  for config_name in \
-    block.block.personal_secretary_product_content \
-    block.block.personal_secretary_product_messages \
-    block.block.personal_secretary_product_page_title \
-    block.block.personal_secretary_product_shell
-  do
-    sync_path="config/sync/${config_name}.yml"
-    echo "R2E_CONFIG=${config_name}"
-
-    if [[ -f "${sync_path}" ]]; then
-      php -r '
-        require "vendor/autoload.php";
-        $data = Symfony\Component\Yaml\Yaml::parseFile($argv[1]);
-        ksort($data);
-        echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), PHP_EOL;
-      ' "${sync_path}" 2>&1 | sed 's/^/R2E_SYNC=/' || true
-    else
-      echo "R2E_SYNC=MISSING"
-    fi
-
-    PERSONAL_SECRETARY_DIAG_CONFIG="${config_name}" "${DRUSH}" php:eval '
-      $name = getenv("PERSONAL_SECRETARY_DIAG_CONFIG");
-      $data = \Drupal::config($name)->getRawData();
-      if (is_array($data)) {
-        ksort($data);
-      }
-      print json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
-    ' 2>&1 | sed 's/^/R2E_ACTIVE=/' || true
-  done
-}
-
 git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
 BASE_SHA="$(git rev-parse refs/remotes/origin/main)"
 
@@ -78,12 +37,8 @@ PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=seed "${DRUSH}" php:script "${PROOF_SC
 ensure_site_default_checkout_writable
 git switch --detach "${HEAD_SHA}" >/dev/null
 "${DRUSH}" config:import -y
-diagnose_block_config_boundary "A_AFTER_CONFIG_IMPORT"
 "${DRUSH}" updatedb -y
-diagnose_block_config_boundary "B_AFTER_UPDATEDB"
 "${DRUSH}" cache:rebuild
-diagnose_block_config_boundary "C_AFTER_CACHE_REBUILD"
-diagnose_block_config_boundary "D_BEFORE_VERIFY"
 ./scripts/verify development
 PERSONAL_SECRETARY_EXISTING_INSTALL_PHASE=verify "${DRUSH}" php:script "${PROOF_SCRIPT}"
 
