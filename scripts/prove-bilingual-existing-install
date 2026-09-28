@@ -43,7 +43,7 @@ diagnose_block_config_boundary() {
     if [[ -f "${sync_path}" ]]; then
       php -r '
         require "vendor/autoload.php";
-        $data = Symfony\\Component\\Yaml\\Yaml::parseFile($argv[1]);
+        $data = Symfony\Component\Yaml\Yaml::parseFile($argv[1]);
         ksort($data);
         echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), PHP_EOL;
       ' "${sync_path}" 2>&1 | sed 's/^/R2E_SYNC=/' || true
@@ -53,7 +53,7 @@ diagnose_block_config_boundary() {
 
     PERSONAL_SECRETARY_DIAG_CONFIG="${config_name}" "${DRUSH}" php:eval '
       $name = getenv("PERSONAL_SECRETARY_DIAG_CONFIG");
-      $data = \\Drupal::config($name)->getRawData();
+      $data = \Drupal::config($name)->getRawData();
       if (is_array($data)) {
         ksort($data);
       }
