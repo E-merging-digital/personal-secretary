@@ -64,12 +64,12 @@ final class ProductShellTest extends BrowserTestBase {
     $this->assertSession()->elementExists('css', '[data-ps-menu-toggle][aria-expanded="true"]');
     $this->assertSession()->elementExists('css', '[data-ps-menu][data-open="true"]');
     $this->assertSession()->linkExists('Personal Secretary');
-    $this->assertSession()->linkExists('Tasks');
-    $this->assertSession()->linkExists('Activities');
-    $this->assertSession()->linkExists('Preparations');
+    $this->assertSession()->linkExists('Tâches');
+    $this->assertSession()->linkExists('Activités');
+    $this->assertSession()->linkExists('Préparatifs');
     $this->assertSession()->linkExists('Google Calendar');
-    $this->assertSession()->linkExists('Settings');
-    $this->assertSession()->linkNotExists('Manage Household access');
+    $this->assertSession()->linkExists('Paramètres');
+    $this->assertSession()->linkNotExists('Gérer l’accès aux foyers');
 
     $this->drupalGet('/admin');
     $this->assertSession()->statusCodeEquals(403);
