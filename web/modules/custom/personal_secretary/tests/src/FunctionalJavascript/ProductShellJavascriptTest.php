@@ -8,6 +8,7 @@ use Drupal\block\Entity\Block;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -33,6 +34,10 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
       ->install(['personal_secretary_product']);
     $this->placeProductBlocks();
 
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+
     $this->installUserReferenceField(
       CurrentPersonResolver::FIELD_NAME,
       'personal_secretary_person',
@@ -54,6 +59,10 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     // Representative mobile viewport.
     $this->getSession()->resizeWindow(390, 844);
     $this->drupalGet('/personal-secretary/today');
+    $this->assertSession()->elementExists(
+      'css',
+      '[data-personal-secretary-shell]',
+    );
     $this->assertJsCondition(
       "document.querySelector('.ps-product-header')?.dataset.navigationEnhanced === 'true'",
     );
