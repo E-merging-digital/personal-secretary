@@ -95,8 +95,8 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $this->assertJsCondition(
       "document.querySelector('[data-ps-menu]').dataset.open === 'true'",
     );
-    $toggle->keyDown(27);
-    $toggle->keyUp(27);
+    $toggle->keyDown('Escape');
+    $toggle->keyUp('Escape');
     $this->assertJsCondition(
       "document.querySelector('[data-ps-menu]').dataset.open === 'false'",
     );
