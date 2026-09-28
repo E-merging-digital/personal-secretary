@@ -55,7 +55,7 @@ final class ProductShellTest extends BrowserTestBase {
     $page = $this->getSession()->getPage();
     $page->fillField('name', $user->getAccountName());
     $page->fillField('pass', $user->passRaw);
-    $submit = $this->assertSession()->elementExists('css', '#user-login-form button[name="op"]');
+    $submit = $this->assertSession()->elementExists('css', '#user-login-form input[name="op"]');
     $submit->press();
 
     $this->assertSession()->addressMatches('#/personal-secretary/today$#');
