@@ -79,6 +79,16 @@ final class ProductShellTest extends BrowserTestBase {
     $this->assertSession()->elementNotExists('css', '[data-personal-secretary-shell]');
   }
 
+  public function testProductEntryDispatchesAnonymousAndNonProductUser(): void {
+    $this->drupalGet('/personal-secretary');
+    $this->assertSession()->addressMatches('#/user/login$#');
+
+    $user = $this->createProductUser([]);
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary');
+    $this->assertSession()->addressMatches('#/user/' . $user->id() . '$#');
+  }
+
   public function testOperatorAndSiteAdminKeepDistinctChromeAuthority(): void {
     $operator = $this->createProductUser([
       HouseholdAuthorizationService::PRODUCT_USE_PERMISSION,
