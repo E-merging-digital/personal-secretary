@@ -51,10 +51,13 @@ final class TodayController extends ControllerBase {
     }
 
     $build = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-today']],
       '#cache' => ['max-age' => 0],
       'day' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
+        '#attributes' => ['class' => ['ps-today__date-context']],
         '#value' => $this->t('Today: @date (@timezone)', [
           '@date' => $today['local_date'],
           '@timezone' => $today['timezone'],
@@ -62,6 +65,7 @@ final class TodayController extends ControllerBase {
       ],
       'tasks' => [
         '#type' => 'container',
+        '#attributes' => ['class' => ['ps-today-section', 'ps-today-section--tasks']],
         'heading' => [
           '#type' => 'html_tag',
           '#tag' => 'h2',
@@ -83,11 +87,15 @@ final class TodayController extends ControllerBase {
       ];
     }
     else {
-      $build['tasks']['items'] = ['#type' => 'container'];
+      $build['tasks']['items'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-today-stack']],
+      ];
       foreach ($today['tasks'] as $delta => $item) {
         $id = (int) $item['id'];
         $build['tasks']['items'][$delta] = [
           '#type' => 'container',
+          '#attributes' => ['class' => ['ps-card', 'ps-task-card']],
           'title' => [
             '#type' => 'html_tag',
             '#tag' => 'strong',
@@ -96,6 +104,7 @@ final class TodayController extends ControllerBase {
           'due' => [
             '#type' => 'html_tag',
             '#tag' => 'span',
+            '#attributes' => ['class' => ['ps-task-card__due']],
             '#value' => $item['overdue']
               ? $this->t('Overdue: @due', ['@due' => (string) $item['due_label']])
               : $this->t('Due: @due', ['@due' => (string) $item['due_label']]),
@@ -121,6 +130,7 @@ final class TodayController extends ControllerBase {
 
     $build['preparations'] = [
       '#type' => 'container',
+      '#attributes' => ['class' => ['ps-today-section', 'ps-today-section--preparations']],
       'heading' => [
         '#type' => 'html_tag',
         '#tag' => 'h2',
@@ -141,13 +151,17 @@ final class TodayController extends ControllerBase {
       ];
     }
     else {
-      $build['preparations']['items'] = ['#type' => 'container'];
+      $build['preparations']['items'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-today-stack']],
+      ];
       foreach ($today['preparations'] as $delta => $item) {
         if (($item['prepared'] ?? FALSE) === TRUE) {
           throw new RuntimeException('Today preparation read exposed a prepared candidate.');
         }
         $build['preparations']['items'][$delta] = [
           '#type' => 'container',
+          '#attributes' => ['class' => ['ps-card', 'ps-preparation-card']],
           'item' => [
             '#type' => 'component',
             '#component' => 'personal_secretary:preparation-item',
@@ -169,6 +183,7 @@ final class TodayController extends ControllerBase {
 
     $build['activities'] = [
       '#type' => 'container',
+      '#attributes' => ['class' => ['ps-today-section', 'ps-today-section--activities']],
       'heading' => [
         '#type' => 'html_tag',
         '#tag' => 'h2',
@@ -189,7 +204,10 @@ final class TodayController extends ControllerBase {
       ];
     }
     else {
-      $build['activities']['items'] = ['#type' => 'container'];
+      $build['activities']['items'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-today-stack']],
+      ];
       foreach ($today['activities'] as $delta => $item) {
         $build['activities']['items'][$delta] = [
           '#type' => 'component',

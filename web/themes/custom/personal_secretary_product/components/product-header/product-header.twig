@@ -1,0 +1,32 @@
+<div class="ps-product-header" data-personal-secretary-shell data-product-posture="{{ posture }}">
+  <div class="ps-product-header__top">
+    <a class="ps-product-header__brand" href="{{ home_url }}">
+      <span class="ps-product-header__mark" aria-hidden="true">PS</span>
+      <span>{{ brand_label }}</span>
+    </a>
+    <button class="ps-product-header__menu-toggle" type="button" aria-controls="ps-primary-navigation" aria-expanded="true" data-ps-menu-toggle>
+      <span aria-hidden="true">☰</span>
+      <span class="visually-hidden">{{ menu_label }}</span>
+    </button>
+  </div>
+  <nav id="ps-primary-navigation" class="ps-product-header__nav" aria-label="{{ navigation_label }}" data-ps-menu data-open="true">
+    <ul>
+      <li><a href="{{ today_url }}"{% if today_active %} aria-current="page"{% endif %}>{{ today_label }}</a></li>
+      <li><a href="{{ tasks_url }}"{% if tasks_active %} aria-current="page"{% endif %}>{{ tasks_label }}</a></li>
+      <li><a href="{{ activities_url }}"{% if activities_active %} aria-current="page"{% endif %}>{{ activities_label }}</a></li>
+      <li><a href="{{ preparations_url }}"{% if preparations_active %} aria-current="page"{% endif %}>{{ preparations_label }}</a></li>
+      <li><a href="{{ calendar_url }}"{% if calendar_active %} aria-current="page"{% endif %}>{{ calendar_label }}</a></li>
+      <li><a href="{{ settings_url }}"{% if settings_active %} aria-current="page"{% endif %}>{{ settings_label }}</a></li>
+    </ul>
+  </nav>
+  <div class="ps-product-header__utilities">
+    {% if operator_url %}
+      <a class="ps-product-header__utility" href="{{ operator_url }}">{{ operator_label }}</a>
+    {% endif %}
+    <a class="ps-product-header__utility" href="{{ account_url }}">{{ account_label }}</a>
+    <div class="ps-product-header__languages" aria-label="{{ 'Site language'|t }}">
+      <a href="{{ fr_url }}" lang="fr" hreflang="fr"{% if current_langcode == 'fr' %} aria-current="true"{% endif %}>FR</a>
+      <a href="{{ en_url }}" lang="en" hreflang="en"{% if current_langcode == 'en' %} aria-current="true"{% endif %}>EN</a>
+    </div>
+  </div>
+</div>

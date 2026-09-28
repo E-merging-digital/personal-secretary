@@ -4,16 +4,16 @@ schema_version: 1
 # Do not store live issue state, PR numbers, commit SHAs, CI state or merge state.
 
 current_goal:
-  phase: google-calendar-account-connection
+  phase: product-shell-today
   purpose: >-
-    Materialize a User-owned Google Calendar account connection without calendar
-    event read/write or Personal Secretary event-data egress.
+    Materialize the first coherent Personal Secretary product shell around Today
+    without changing domain, authorization, mutation or recurrence truth.
 
 active_tasks:
-  - issue: 84
+  - issue: 192
     purpose: >-
-      Add bounded Google Calendar Connect, deterministic connection status,
-      invalid-state reconnect and local-first disconnect for authenticated Users.
+      Add the project-owned product theme, Core SDC shell, Today product entry,
+      responsive navigation, role-aware chrome separation and FR/EN presentation.
 
 historical_context:
   - issue: 58
@@ -69,6 +69,11 @@ historical_context:
     purpose: >-
       Terminal provider-agnostic calendar eligibility materialized
       TimeCommitmentRule lifecycle and reconstructible calendar candidates.
+  - issue: 84
+    purpose: >-
+      Terminal Google Calendar account connection established User-owned
+      connection status, connect/reconnect and local-first disconnect without
+      event read/write or synchronization.
   - issue: 85
     purpose: >-
       Accepted preparation-surface architecture selected derived-only My
@@ -268,8 +273,8 @@ external_dependencies:
 
 execution_sequence:
   - >-
-    Complete #84 as the active Google Calendar account-connection work unit
-    without event read/write, real OAuth execution or merge during Delivery.
+    Complete #192 as the bounded Product shell + Today work unit, validate the
+    exact candidate in CI, then return for browser/Figma/human acceptance gates.
   - >-
     Keep #177 waiting on OpenAI retention/residency approval; do not start real
     provider adoption while that external gate remains unresolved.

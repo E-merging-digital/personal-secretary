@@ -1,0 +1,65 @@
+$schema: https://git.drupalcode.org/project/drupal/-/raw/11.x/core/assets/schemas/v1/metadata.schema.json
+name: Product header
+status: stable
+props:
+  type: object
+  required:
+    - brand_label
+    - home_url
+    - menu_label
+    - navigation_label
+    - today_label
+    - today_url
+    - today_active
+    - tasks_label
+    - tasks_url
+    - tasks_active
+    - activities_label
+    - activities_url
+    - activities_active
+    - preparations_label
+    - preparations_url
+    - preparations_active
+    - calendar_label
+    - calendar_url
+    - calendar_active
+    - settings_label
+    - settings_url
+    - settings_active
+    - fr_url
+    - en_url
+    - current_langcode
+    - account_label
+    - account_url
+    - posture
+  properties:
+    brand_label: { type: string }
+    home_url: { type: string }
+    menu_label: { type: string }
+    navigation_label: { type: string }
+    today_label: { type: string }
+    today_url: { type: string }
+    today_active: { type: boolean }
+    tasks_label: { type: string }
+    tasks_url: { type: string }
+    tasks_active: { type: boolean }
+    activities_label: { type: string }
+    activities_url: { type: string }
+    activities_active: { type: boolean }
+    preparations_label: { type: string }
+    preparations_url: { type: string }
+    preparations_active: { type: boolean }
+    calendar_label: { type: string }
+    calendar_url: { type: string }
+    calendar_active: { type: boolean }
+    settings_label: { type: string }
+    settings_url: { type: string }
+    settings_active: { type: boolean }
+    fr_url: { type: string }
+    en_url: { type: string }
+    current_langcode: { type: string }
+    account_label: { type: string }
+    account_url: { type: string }
+    operator_label: { type: string }
+    operator_url: { type: string }
+    posture: { type: string }
