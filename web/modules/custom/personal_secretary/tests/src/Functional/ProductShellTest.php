@@ -85,11 +85,11 @@ final class ProductShellTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalLogout();
 
-    $admin = $this->createProductUser([
-      HouseholdAuthorizationService::PRODUCT_USE_PERMISSION,
-      HouseholdAuthorizationService::ADMIN_PERMISSION,
-      'access administration pages',
-    ]);
+    $admin = $this->createProductUser(
+      [],
+      NULL,
+      TRUE,
+    );
     $this->drupalLogin($admin);
     $this->drupalGet('/en/personal-secretary/today');
     $this->assertSession()->elementExists('css', '[data-product-posture="site-admin"]');
@@ -117,11 +117,15 @@ final class ProductShellTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Paramètres');
   }
 
-  private function createProductUser(array $permissions, ?string $name = NULL): UserInterface {
+  private function createProductUser(
+    array $permissions,
+    ?string $name = NULL,
+    bool $siteAdmin = FALSE,
+  ): UserInterface {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Shell Person ' . uniqid('', TRUE));
     $household = $domain->createHousehold('Shell Household ' . uniqid('', TRUE), [(int) $person->id()]);
-    $user = $this->drupalCreateUser($permissions, $name);
+    $user = $this->drupalCreateUser($permissions, $name, $siteAdmin);
     $this->assertInstanceOf(UserInterface::class, $user);
     $user->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
     $user->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $household->id()]]);
