@@ -95,8 +95,11 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $this->assertJsCondition(
       "document.querySelector('[data-ps-menu]').dataset.open === 'true'",
     );
-    $toggle->keyDown('Escape');
-    $toggle->keyUp('Escape');
+    // Mink Selenium's synthetic key event does not bubble from the toggle,
+    // so target the header where the product keydown listener is attached.
+    $header = $assert->elementExists('css', '.ps-product-header');
+    $header->keyDown('Escape');
+    $header->keyUp('Escape');
     $this->assertJsCondition(
       "document.querySelector('[data-ps-menu]').dataset.open === 'false'",
     );
