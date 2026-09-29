@@ -986,3 +986,9 @@ msgstr "Paramètres"
 msgctxt "PersonalTask"
 msgid "Household"
 msgstr "Foyer concerné"
+
+msgid "This task status can be changed again later."
+msgstr "Le statut de cette tâche pourra être modifié à nouveau plus tard."
+
+msgid "Confirm this task action."
+msgstr "Confirmez cette action sur la tâche."
