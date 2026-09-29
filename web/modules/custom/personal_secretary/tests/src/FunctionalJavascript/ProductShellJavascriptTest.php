@@ -248,6 +248,59 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     );
   }
 
+  public function testPersonalTaskListCompleteUndoAndDeleteConfirmation(): void {
+    $context = $this->createTaskBrowserContext('Task list browser', 1);
+    $task = $this->createTaskForUser(
+      $context['user'],
+      (int) $context['households'][0]->id(),
+      'Browser overdue task title',
+      PersonalTask::DUE_DATE,
+      '2000-01-01',
+    );
+    $taskId = (int) $task->id();
+    $rowSelector = '[data-ps-task-id="' . $taskId . '"]';
+
+    $this->drupalLogin($context['user']);
+    $this->drupalGet('/personal-secretary/tasks/mine');
+
+    $assert = $this->assertSession();
+    $assert->elementTextContains(
+      'css',
+      $rowSelector . ' .ps-task-row__title',
+      'Browser overdue task title',
+    );
+    $assert->elementTextContains(
+      'css',
+      $rowSelector . ' .ps-task-row__due',
+      'Overdue: 2000-01-01',
+    );
+    $assert->elementExists('css', $rowSelector . ' .ps-task-row__complete');
+    $assert->elementExists('css', $rowSelector . ' .ps-task-row__edit');
+    $assert->elementExists('css', $rowSelector . ' .ps-task-row__delete');
+
+    $assert
+      ->elementExists('css', $rowSelector . ' .ps-task-row__complete')
+      ->click();
+    $assert->addressMatches('#/personal-secretary/tasks/mine#');
+    $assert->elementNotExists('css', $rowSelector);
+    $assert->pageTextContains('Task completed.');
+    $assert->buttonExists('Reopen task')->click();
+
+    $assert->addressMatches('#/personal-secretary/tasks/mine$#');
+    $assert->elementExists('css', $rowSelector);
+
+    $assert
+      ->elementExists('css', $rowSelector . ' .ps-task-row__delete')
+      ->click();
+    $assert->pageTextContains('This action cannot be undone.');
+
+    $storage = $this->container
+      ->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $storage->resetCache([$taskId]);
+    $this->assertInstanceOf(PersonalTask::class, $storage->load($taskId));
+  }
+
   private function createProductUser(): UserInterface {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Browser Shell Person');
@@ -307,6 +360,25 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $user->save();
 
     return ['user' => $user, 'households' => $households];
+  }
+
+  private function createTaskForUser(
+    UserInterface $user,
+    int $householdId,
+    string $title,
+    string $dueMode,
+    ?string $dueDate = NULL,
+  ): PersonalTask {
+    $accountSwitcher = $this->container->get('account_switcher');
+    $accountSwitcher->switchTo($user);
+    try {
+      return $this->container
+        ->get('personal_secretary.personal_task_mutation')
+        ->createTask($title, $householdId, $dueMode, $dueDate);
+    }
+    finally {
+      $accountSwitcher->switchBack();
+    }
   }
 
   private function loadTaskByTitle(string $title): PersonalTask {
