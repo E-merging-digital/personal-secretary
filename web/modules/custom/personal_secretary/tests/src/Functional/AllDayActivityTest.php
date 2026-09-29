@@ -126,6 +126,12 @@ final class AllDayActivityTest extends BrowserTestBase {
 
     $oneDayStart = new DateTimeImmutable($oneDayDate . ' 00:00:00', $brussels);
     $oneDayEnd = $oneDayStart->modify('+1 day');
+    $oneDayDisplay = $this->container->get('date.formatter')->format(
+      $oneDayStart->setTime(12, 0)->getTimestamp(),
+      'custom',
+      'j M Y',
+      'Europe/Brussels',
+    );
     $oneDayBase = $baseProjection->project(
       $oneDay,
       $oneDayStart->setTimezone($utc)->modify('-1 second'),
@@ -168,7 +174,7 @@ final class AllDayActivityTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertUpcomingArticleContains(
       'Synthetic all-day one-off',
-      ['All day', $oneDayDate, 'Synthetic library', 'Synthetic concerned child', 'Synthetic prepare bag'],
+      ['All day', $oneDayDisplay, 'Synthetic library', 'Synthetic concerned child', 'Synthetic prepare bag'],
     );
     $this->assertUpcomingArticleExcludes('Synthetic all-day one-off', '00:00');
     $this->assertSession()->linkByHrefNotExists($rescheduleUrl);
