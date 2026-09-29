@@ -63,9 +63,10 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
 
     $person = $domain->createPerson('Preparation current person');
     $otherPerson = $domain->createPerson('Preparation other person');
+    $emptyPerson = $domain->createPerson('Preparation empty person');
     $h1 = $domain->createHousehold(
       'Preparation authorized household',
-      [(int) $person->id(), (int) $otherPerson->id()],
+      [(int) $person->id(), (int) $otherPerson->id(), (int) $emptyPerson->id()],
     );
     $h2 = $domain->createHousehold(
       'Preparation unauthorized household',
@@ -77,6 +78,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $noGrant = $this->productUser($person->id(), [], 'Europe/Brussels');
     $unlinked = $this->productUser(NULL, [$h1->id()], 'Europe/Brussels');
     $stale = $this->productUser(999999, [$h1->id()], 'Europe/Brussels');
+    $emptyGranted = $this->productUser($emptyPerson->id(), [$h1->id()], 'Europe/Brussels');
     $fallback = $this->productUser($person->id(), [$h1->id()], '');
 
     $userStorage = $this->container->get('entity_type.manager')->getStorage('user');
@@ -92,6 +94,35 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
 
     $dueNowSeries = $this->createSeriesWithRule('Due now preparation activity', (int) $h1->id(), (int) $person->id(), $fixedNow->modify('+1 day'));
     $preparationMutations->createPreparationRequirement($dueNowSeries, 'Due now preparation', 86400, $effectiveFrom);
+
+    $allDayStart = $fixedNow
+      ->setTimezone(new DateTimeZone('Europe/Brussels'))
+      ->modify('+2 days')
+      ->setTime(0, 0, 0);
+    $allDayEnd = $allDayStart->modify('+1 day');
+    $allDaySeries = $domain->createActivitySeries(
+      'All-day preparation activity',
+      (int) $h1->id(),
+      $allDayStart,
+      $allDayEnd,
+      'FREQ=DAILY;COUNT=1',
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $responsibilityMutations->createResponsibilityRule(
+      $allDaySeries,
+      (int) $person->id(),
+      $allDayStart,
+      $allDayEnd,
+      'FREQ=DAILY;COUNT=1',
+    );
+    $preparationMutations->createPreparationRequirement(
+      $allDaySeries,
+      'All-day preparation',
+      86400,
+      $effectiveFrom,
+    );
 
     $longLeadSeries = $this->createSeriesWithRule('Long lead activity outside seven days', (int) $h1->id(), (int) $person->id(), $fixedNow->modify('+12 days'));
     $preparationMutations->createPreparationRequirement($longLeadSeries, 'Long lead preparation due inside seven days', 10 * 86400, $effectiveFrom);
@@ -136,7 +167,16 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     }
 
     $beforeItems = $this->itemsByInstruction($before['items']);
-    foreach (['Active overdue preparation', 'Due now preparation', 'Long lead preparation due inside seven days', 'Preparation removed by cancel', 'Preparation moved out by reschedule', 'Preparation disappears after responsibility override', 'Old preparation requirement'] as $expected) {
+    foreach ([
+      'Active overdue preparation',
+      'Due now preparation',
+      'All-day preparation',
+      'Long lead preparation due inside seven days',
+      'Preparation removed by cancel',
+      'Preparation moved out by reschedule',
+      'Preparation disappears after responsibility override',
+      'Old preparation requirement',
+    ] as $expected) {
       $this->assertArrayHasKey($expected, $beforeItems);
     }
     foreach (['Preparation due exactly at window end', 'Preparation due after seven days', 'Preparation for already started activity', 'Unauthorized H2 thirty day lead preparation', 'Other person preparation', 'Preparation appears after responsibility override'] as $excluded) {
@@ -144,6 +184,36 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     }
     $this->assertTrue($beforeItems['Active overdue preparation']['overdue']);
     $this->assertFalse($beforeItems['Due now preparation']['overdue']);
+
+    $dateFormatter = $this->container->get('date.formatter');
+
+    $timedItem = $beforeItems['Due now preparation'];
+    $this->assertFalse($timedItem['all_day']);
+    $timedStart = new DateTimeImmutable($timedItem['activity_start_iso']);
+    $timedDue = new DateTimeImmutable($timedItem['due_time_iso']);
+    $this->assertSame(
+      $dateFormatter->format($timedStart->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels'),
+      $timedItem['activity_start'],
+    );
+    $this->assertSame(
+      $dateFormatter->format($timedDue->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels'),
+      $timedItem['due_time'],
+    );
+
+    $allDayItem = $beforeItems['All-day preparation'];
+    $this->assertTrue($allDayItem['all_day']);
+    $this->assertSame('', $allDayItem['activity_start']);
+    $this->assertSame($allDayStart->format('Y-m-d'), $allDayItem['all_day_start_date']);
+    $this->assertSame($allDayStart->format('Y-m-d'), $allDayItem['all_day_end_date']);
+    $this->assertSame(
+      $dateFormatter->format(
+        $allDayStart->setTime(12, 0, 0)->getTimestamp(),
+        'custom',
+        'j M Y',
+        'Europe/Brussels',
+      ),
+      $allDayItem['all_day_start_label'],
+    );
     $this->assertSame(10 * 86400, $before['max_lead_time_seconds']);
     $this->assertSame($fixedNow->modify('+17 days')->format(DATE_ATOM), $before['occurrence_projection_end']);
     $this->assertGreaterThan(
@@ -182,7 +252,14 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     }
 
     $afterItems = $this->itemsByInstruction($after['items']);
-    foreach (['Active overdue preparation', 'Due now preparation', 'Long lead preparation due inside seven days', 'Preparation appears after responsibility override', 'Replacement preparation requirement'] as $expected) {
+    foreach ([
+      'Active overdue preparation',
+      'Due now preparation',
+      'All-day preparation',
+      'Long lead preparation due inside seven days',
+      'Preparation appears after responsibility override',
+      'Replacement preparation requirement',
+    ] as $expected) {
       $this->assertArrayHasKey($expected, $afterItems);
     }
     foreach (['Preparation removed by cancel', 'Preparation moved out by reschedule', 'Preparation disappears after responsibility override', 'Old preparation requirement', 'Unauthorized H2 thirty day lead preparation', 'Preparation due exactly at window end', 'Preparation due after seven days', 'Preparation for already started activity'] as $excluded) {
@@ -200,6 +277,15 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     }
     $this->assertSame('Europe/Brussels', $fallbackModel['timezone']);
 
+    // #198 diagnostic and durable scope proof: a Household member with no
+    // effective responsibility must not inherit another Person's preparations.
+    $emptyModel = $preparations->mineForUser($emptyGranted, $fixedNow);
+    $this->assertSame(
+      [],
+      $emptyModel['items'],
+      'A Household member without effective responsibility must have no preparation items.',
+    );
+
     $this->drupalLogin($authorized);
     $countsBefore = $this->domainCounts();
     $this->drupalGet($route);
@@ -208,6 +294,22 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Long lead preparation due inside seven days');
     $this->assertSession()->pageTextContains('Preparation appears after responsibility override');
     $this->assertSession()->pageTextContains('Replacement preparation requirement');
+    $this->assertSession()->pageTextContains('All-day preparation');
+    $this->assertSession()->pageTextContains('All-day preparation activity');
+    $this->assertSession()->pageTextContains('All day');
+    $this->assertSession()->pageTextContains($afterItems['Due now preparation']['activity_start']);
+
+    $allDayRendered = $afterItems['All-day preparation'];
+    $allDayArticle = '//article[contains(@class, "personal-secretary-preparation-item")][.//h3[normalize-space()="All-day preparation"]]';
+    $this->assertSession()->elementExists(
+      'xpath',
+      $allDayArticle . '//time[@datetime="' . $allDayRendered['all_day_start_date'] . '"]',
+    );
+    $this->assertSession()->elementNotExists(
+      'xpath',
+      $allDayArticle . '//time[@datetime="' . $allDayRendered['activity_start_iso'] . '"]',
+    );
+
     $this->assertSession()->pageTextContains('Overdue');
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
@@ -226,6 +328,16 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Active overdue preparation');
     $this->assertSession()->pageTextContains('Long lead preparation due inside seven days');
+    $this->drupalLogout();
+
+    $this->drupalLogin($emptyGranted);
+    $this->drupalGet($route);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 7 days.');
+    $this->assertSession()->elementNotExists(
+      'xpath',
+      '//article[contains(concat(" ", normalize-space(@class), " "), " personal-secretary-preparation-item ")][.//h3[normalize-space()="Active overdue preparation"]]',
+    );
     $this->drupalLogout();
 
     $this->drupalLogin($unlinked);

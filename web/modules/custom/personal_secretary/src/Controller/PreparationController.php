@@ -6,6 +6,7 @@ namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
 use Drupal\personal_secretary\Service\CurrentUserPreparationService;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
@@ -59,14 +60,18 @@ final class PreparationController extends ControllerBase {
     ));
 
     $build = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-preparation-surface']],
       '#cache' => ['max-age' => 0],
       'window' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
+        '#attributes' => ['class' => ['ps-preparation-window']],
         '#value' => $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
       ],
       'to_prepare' => [
         '#type' => 'container',
+        '#attributes' => ['class' => ['ps-preparation-section']],
         'heading' => [
           '#type' => 'html_tag',
           '#tag' => 'h2',
@@ -75,6 +80,7 @@ final class PreparationController extends ControllerBase {
       ],
       'prepared' => [
         '#type' => 'container',
+        '#attributes' => ['class' => ['ps-preparation-section']],
         'heading' => [
           '#type' => 'html_tag',
           '#tag' => 'h2',
@@ -87,11 +93,17 @@ final class PreparationController extends ControllerBase {
       $build['to_prepare']['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('Nothing currently needs preparation.'),
+        '#attributes' => ['class' => ['ps-empty-state']],
+        '#value' => $model['items'] === []
+          ? $this->t('No upcoming preparations are assigned to you in the next 7 days.')
+          : $this->t('Nothing currently needs preparation.'),
       ];
     }
     else {
-      $build['to_prepare']['items'] = ['#type' => 'container'];
+      $build['to_prepare']['items'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-preparation-list']],
+      ];
       foreach ($toPrepare as $delta => $item) {
         $build['to_prepare']['items'][$delta] = $this->itemBuild($item, FALSE, 'mine');
       }
@@ -101,11 +113,15 @@ final class PreparationController extends ControllerBase {
       $build['prepared']['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
+        '#attributes' => ['class' => ['ps-empty-state']],
         '#value' => $this->t('No current preparation has been marked prepared.'),
       ];
     }
     else {
-      $build['prepared']['items'] = ['#type' => 'container'];
+      $build['prepared']['items'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-preparation-list']],
+      ];
       foreach ($prepared as $delta => $item) {
         $build['prepared']['items'][$delta] = $this->itemBuild($item, TRUE, 'mine');
       }
@@ -120,42 +136,33 @@ final class PreparationController extends ControllerBase {
    * @return array<string, mixed>
    */
   private function itemBuild(array $item, bool $prepared, string $returnSurface): array {
-    $build = [
+    return [
       '#type' => 'container',
+      '#attributes' => [
+        'class' => [
+          'ps-preparation-row',
+          $prepared ? 'ps-preparation-row--prepared' : 'ps-preparation-row--pending',
+        ],
+      ],
       'item' => [
         '#type' => 'component',
         '#component' => 'personal_secretary:preparation-item',
         '#props' => $this->presentationProps($item),
       ],
-    ];
-
-    if ($prepared) {
-      $preparedTime = trim((string) ($item['prepared_time'] ?? ''));
-      $preparedTimeIso = trim((string) ($item['prepared_time_iso'] ?? ''));
-      $build['state'] = [
+      'state' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $preparedTime !== ''
-          ? $this->t('Prepared at @time.', ['@time' => $preparedTime])
-          : $this->t('Prepared.'),
-      ];
-      if ($preparedTime !== '' && $preparedTimeIso !== '') {
-        $build['state']['#value'] = $this->t('Prepared at @time.', ['@time' => $preparedTime]);
-      }
-      $build['action'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Mark not prepared'),
-        '#url' => $this->actionUrl('personal_secretary.mark_preparation_not_prepared', $item, $returnSurface),
-      ];
-      return $build;
-    }
-
-    $build['action'] = [
-      '#type' => 'link',
-      '#title' => $this->t('Mark prepared'),
-      '#url' => $this->actionUrl('personal_secretary.mark_preparation_prepared', $item, $returnSurface),
+        '#attributes' => ['class' => ['ps-preparation-row__state']],
+        '#value' => $prepared
+          ? $this->t('Prepared')
+          : $this->t('Not prepared'),
+      ],
+      'action' => $this->actionForm(
+        $prepared ? 'not_prepared' : 'prepared',
+        $item,
+        $returnSurface,
+      ),
     ];
-    return $build;
   }
 
   /**
@@ -170,6 +177,11 @@ final class PreparationController extends ControllerBase {
       'due_time_iso' => (string) $item['due_time_iso'],
       'overdue' => (bool) $item['overdue'],
       'activity_label' => (string) $item['activity_label'],
+      'all_day' => (bool) $item['all_day'],
+      'all_day_start_date' => (string) $item['all_day_start_date'],
+      'all_day_end_date' => (string) $item['all_day_end_date'],
+      'all_day_start_label' => (string) $item['all_day_start_label'],
+      'all_day_end_label' => (string) $item['all_day_end_label'],
       'activity_start' => (string) $item['activity_start'],
       'activity_start_iso' => (string) $item['activity_start_iso'],
       'display_timezone' => (string) $item['display_timezone'],
@@ -179,13 +191,15 @@ final class PreparationController extends ControllerBase {
   /**
    * @param array<string, mixed> $item
    */
-  private function actionUrl(string $route, array $item, string $returnSurface): Url {
-    return Url::fromRoute($route, [
-      'series' => (int) $item['_completion_series_id'],
-      'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
-      'preparation_requirement' => (int) $item['_completion_requirement_id'],
-      'return_surface' => $returnSurface,
-    ]);
+  private function actionForm(string $action, array $item, string $returnSurface): array {
+    return $this->formBuilder()->getForm(
+      PreparationCompletionTransitionForm::class,
+      $action,
+      (int) $item['_completion_series_id'],
+      (string) $item['_completion_original_occurrence_key'],
+      (int) $item['_completion_requirement_id'],
+      $returnSurface,
+    );
   }
 
 }

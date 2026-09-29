@@ -1017,3 +1017,9 @@ msgstr "Non attribué"
 
 msgid "Back to My upcoming"
 msgstr "Retour aux activités à venir"
+
+msgid "Not prepared"
+msgstr "Non prêt"
+
+msgid "No upcoming preparations are assigned to you in the next 7 days."
+msgstr "Aucun préparatif à venir ne vous est attribué dans les 7 prochains jours."

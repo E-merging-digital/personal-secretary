@@ -210,9 +210,17 @@ final class BilingualUiTest extends BrowserTestBase {
     );
     $this->assertSurfacePair(
       '/personal-secretary/preparations/mine',
-      ['Mes préparatifs', 'Préparer le cahier bleu – ne pas traduire'],
-      ['My preparations', 'Préparer le cahier bleu – ne pas traduire'],
+      ['Mes préparatifs', 'Préparer le cahier bleu – ne pas traduire', 'Non prêt'],
+      ['My preparations', 'Préparer le cahier bleu – ne pas traduire', 'Not prepared'],
     );
+
+    $this->drupalGet('/fr/personal-secretary/preparations/mine');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->buttonExists('Marquer comme prêt');
+
+    $this->drupalGet('/en/personal-secretary/preparations/mine');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->buttonExists('Mark prepared');
     $this->assertSurfacePair(
       '/personal-secretary/setup',
       ['Configurer votre première activité', 'Nom du foyer', 'Nom de la personne responsable'],

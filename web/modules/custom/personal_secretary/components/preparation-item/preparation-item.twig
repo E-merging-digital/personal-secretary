@@ -2,18 +2,32 @@
   <h3>{{ instruction }}</h3>
   <dl>
     <div>
+      <dt>{{ 'Activity'|t }}</dt>
+      <dd>
+        <strong>{{ activity_label }}</strong>
+        {% if all_day %}
+          —
+          {% if all_day_start_date == all_day_end_date %}
+            <time datetime="{{ all_day_start_date }}">{{ all_day_start_label }}</time>
+          {% else %}
+            <time datetime="{{ all_day_start_date }}">{{ all_day_start_label }}</time>
+            –
+            <time datetime="{{ all_day_end_date }}">{{ all_day_end_label }}</time>
+          {% endif %}
+          · {{ 'All day'|t }}
+        {% else %}
+          —
+          <time datetime="{{ activity_start_iso }}">{{ activity_start }}</time>
+          ({{ display_timezone }})
+        {% endif %}
+      </dd>
+    </div>
+    <div>
       <dt>{{ 'Due'|t }}</dt>
       <dd>
         <time datetime="{{ due_time_iso }}">{{ due_time }}</time>
         ({{ display_timezone }})
         {% if overdue %}<strong>{{ 'Overdue'|t }}</strong>{% endif %}
-      </dd>
-    </div>
-    <div>
-      <dt>{{ 'Activity'|t }}</dt>
-      <dd>
-        {{ activity_label }} —
-        <time datetime="{{ activity_start_iso }}">{{ activity_start }}</time>
       </dd>
     </div>
   </dl>

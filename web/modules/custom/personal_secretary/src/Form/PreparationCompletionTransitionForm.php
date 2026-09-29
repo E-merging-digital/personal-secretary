@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
-use Drupal\Core\Form\ConfirmFormBase;
+use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
-use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\PreparationCompletionService;
 use InvalidArgumentException;
@@ -16,9 +15,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Confirms mark-prepared or mark-not-prepared for one exact preparation.
+ * Performs one reversible preparation completion transition via Form API POST.
  */
-final class PreparationCompletionTransitionForm extends ConfirmFormBase {
+final class PreparationCompletionTransitionForm extends FormBase {
 
   public function __construct(
     private readonly PreparationCompletionService $completionService,
@@ -33,38 +32,67 @@ final class PreparationCompletionTransitionForm extends ConfirmFormBase {
   }
 
   public function getFormId(): string {
-    return 'personal_secretary_preparation_' . $this->action();
+    return 'personal_secretary_preparation_completion_transition';
   }
 
-  public function getQuestion(): TranslatableMarkup {
+  /**
+   * {@inheritdoc}
+   */
+  public function buildForm(
+    array $form,
+    FormStateInterface $form_state,
+    ?string $explicitAction = NULL,
+    ?int $explicitSeriesId = NULL,
+    ?string $explicitOriginalOccurrenceKey = NULL,
+    ?int $explicitRequirementId = NULL,
+    ?string $explicitReturnSurface = NULL,
+  ): array {
+    $action = $explicitAction ?? $this->action();
+    $seriesId = $explicitSeriesId ?? $this->seriesId();
+    $originalOccurrenceKey = $explicitOriginalOccurrenceKey ?? $this->originalOccurrenceKey();
+    $requirementId = $explicitRequirementId ?? $this->requirementId();
+    $returnSurface = $explicitReturnSurface ?? $this->returnSurface();
+
+    $route = $this->routeForAction($action);
+    $this->returnRouteName($returnSurface);
+
+    if ($seriesId <= 0 || $requirementId <= 0 || trim($originalOccurrenceKey) === '') {
+      throw new NotFoundHttpException('The requested preparation is unavailable.');
+    }
+
     try {
-      $state = $this->completionService->describeCurrentPreparation(
-        $this->seriesId(),
-        $this->originalOccurrenceKey(),
-        $this->requirementId(),
+      $this->completionService->describeCurrentPreparation(
+        $seriesId,
+        $originalOccurrenceKey,
+        $requirementId,
       );
     }
     catch (InvalidArgumentException|RuntimeException $exception) {
       throw new NotFoundHttpException('The requested preparation is unavailable.', $exception);
     }
 
-    return match ($this->action()) {
-      'prepared' => $this->t('Mark %preparation prepared?', ['%preparation' => $state['instruction']]),
-      'not_prepared' => $this->t('Mark %preparation not prepared?', ['%preparation' => $state['instruction']]),
-      default => throw new NotFoundHttpException('Unknown preparation completion action.'),
-    };
-  }
+    $form['#action'] = Url::fromRoute($route, [
+      'series' => $seriesId,
+      'original_occurrence_key' => $originalOccurrenceKey,
+      'preparation_requirement' => $requirementId,
+      'return_surface' => $returnSurface,
+    ])->toString();
 
-  public function getCancelUrl(): Url {
-    return Url::fromRoute($this->returnRoute());
-  }
+    $form['#attributes']['class'][] = 'ps-preparation-action-form';
+    $form['submit'] = [
+      '#type' => 'submit',
+      '#value' => match ($action) {
+        'prepared' => $this->t('Mark prepared'),
+        'not_prepared' => $this->t('Mark not prepared'),
+        default => throw new NotFoundHttpException('Unknown preparation completion action.'),
+      },
+      '#button_type' => 'primary',
+      '#attributes' => [
+        'class' => ['ps-preparation-action-form__submit'],
+      ],
+    ];
 
-  public function getConfirmText(): TranslatableMarkup {
-    return match ($this->action()) {
-      'prepared' => $this->t('Mark prepared'),
-      'not_prepared' => $this->t('Mark not prepared'),
-      default => $this->t('Confirm'),
-    };
+    return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
@@ -108,6 +136,23 @@ final class PreparationCompletionTransitionForm extends ConfirmFormBase {
     return (string) ($this->currentRouteMatch->getRouteObject()?->getDefault('_preparation_completion_action') ?? '');
   }
 
+  /**
+   * Resolves the mutation route for a completion action.
+   *
+   * @param string $action
+   *   Completion action identifier.
+   *
+   * @return string
+   *   Route name for the requested action.
+   */
+  private function routeForAction(string $action): string {
+    return match ($action) {
+      'prepared' => 'personal_secretary.mark_preparation_prepared',
+      'not_prepared' => 'personal_secretary.mark_preparation_not_prepared',
+      default => throw new NotFoundHttpException('Unknown preparation completion action.'),
+    };
+  }
+
   private function seriesId(): int {
     return (int) $this->currentRouteMatch->getParameter('series');
   }
@@ -120,12 +165,41 @@ final class PreparationCompletionTransitionForm extends ConfirmFormBase {
     return (int) $this->currentRouteMatch->getParameter('preparation_requirement');
   }
 
-  private function returnRoute(): string {
-    return match ((string) $this->currentRouteMatch->getParameter('return_surface')) {
+  /**
+   * Reads the requested product return surface.
+   *
+   * @return string
+   *   Product return surface identifier.
+   */
+  private function returnSurface(): string {
+    return (string) $this->currentRouteMatch->getParameter('return_surface');
+  }
+
+  /**
+   * Resolves the return route for a product surface.
+   *
+   * @param string $returnSurface
+   *   Product return surface identifier.
+   *
+   * @return string
+   *   Route name for the requested product surface.
+   */
+  private function returnRouteName(string $returnSurface): string {
+    return match ($returnSurface) {
       'mine' => 'personal_secretary.my_preparations',
       'today' => 'personal_secretary.today',
       default => throw new NotFoundHttpException('Unknown preparation return surface.'),
     };
+  }
+
+  /**
+   * Resolves the current request return route.
+   *
+   * @return string
+   *   Route name for the current return surface.
+   */
+  private function returnRoute(): string {
+    return $this->returnRouteName($this->returnSurface());
   }
 
 }
