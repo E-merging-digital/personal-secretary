@@ -174,7 +174,6 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $this->drupalGet('/personal-secretary/tasks/add');
 
     $assert = $this->assertSession();
-    $assert->statusCodeEquals(200);
     $mode = $assert->fieldExists('due_mode');
 
     $this->assertJsCondition(
