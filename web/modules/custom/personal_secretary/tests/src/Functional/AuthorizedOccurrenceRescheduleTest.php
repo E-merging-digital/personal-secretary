@@ -108,6 +108,8 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
 
     $authorized = $this->createScopedUser($current, [(int) $h1->id()], TRUE);
+    $authorized->set('timezone', 'America/New_York');
+    $authorized->save();
     $this->drupalLogout();
     $this->drupalLogin($authorized);
 
@@ -128,6 +130,9 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
       $nowLocal->modify('+4 days')->setTime(0, 0),
     );
     $allDayUrl = $this->rescheduleUrl($allDay, $allDayTarget->originalOccurrenceKey);
+    $weeklyDetailUrl = $this->detailUrl($weekly, $weeklyTarget->originalOccurrenceKey);
+    $allDayDetailUrl = $this->detailUrl($allDay, $allDayTarget->originalOccurrenceKey);
+    $secretDetailUrl = $this->detailUrl($secret, $secretTarget->originalOccurrenceKey);
 
     $this->drupalGet('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
@@ -136,6 +141,10 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Reschedule occurrence');
     $this->assertSession()->linkByHrefExists($weeklyUrl);
     $this->assertSession()->linkByHrefNotExists($allDayUrl);
+    $this->assertSession()->linkByHrefExists($weeklyDetailUrl);
+    $this->assertSession()->linkByHrefExists($allDayDetailUrl);
+    $this->assertSession()->pageTextContains('This occurrence');
+    $this->assertSession()->pageTextNotContains('Activity settings');
     foreach ([
       'Change recurring schedule',
       'Change recurring responsibility',
@@ -145,6 +154,40 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     ] as $adminOnlyLink) {
       $this->assertSession()->linkNotExists($adminOnlyLink);
     }
+
+    $readCountsBefore = [
+      'series' => count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple()),
+      'exceptions' => count($entityTypeManager->getStorage('personal_sec_activity_exception')->loadMultiple()),
+      'rules' => count($entityTypeManager->getStorage('personal_sec_resp_rule')->loadMultiple()),
+    ];
+    $weeklyViewerTime = (new DateTimeImmutable($weeklyTarget->utcStart))
+      ->setTimezone(new DateTimeZone('America/New_York'))
+      ->format('H:i');
+
+    $this->drupalGet($weeklyDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Authorized weekly reschedule');
+    $this->assertSession()->pageTextContains($weeklyViewerTime);
+    $this->assertSession()->pageTextContains('America/New_York');
+    $this->assertSession()->pageTextContains('Reschedule Current Person');
+    $this->assertSession()->linkExists('Back to My upcoming');
+    $this->assertSession()->linkNotExists('Change recurring schedule');
+    $this->assertSame($readCountsBefore, [
+      'series' => count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple()),
+      'exceptions' => count($entityTypeManager->getStorage('personal_sec_activity_exception')->loadMultiple()),
+      'rules' => count($entityTypeManager->getStorage('personal_sec_resp_rule')->loadMultiple()),
+    ]);
+
+    $this->drupalGet($secretDetailUrl);
+    $this->assertSession()->statusCodeEquals(404);
+    $this->assertSession()->pageTextNotContains('Secret H2 reschedule target');
+
+    $this->drupalGet($allDayDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Authorized all-day no self-reschedule');
+    $this->assertSession()->pageTextContains('All day');
+    $this->assertSession()->pageTextNotContains('00:00');
+    $this->assertSession()->linkExists('Back to My upcoming');
 
     $this->drupalGet($weeklyUrl);
     $this->assertSession()->statusCodeEquals(200);
@@ -156,9 +199,14 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
 
     $seriesCount = count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple());
     $oldDisplay = (new DateTimeImmutable($weeklyTarget->sourceLocalStart))->format('Y-m-d H:i');
+    $oldViewerTime = (new DateTimeImmutable($weeklyTarget->utcStart))
+      ->setTimezone(new DateTimeZone('America/New_York'))
+      ->format('H:i');
     $newStart = (new DateTimeImmutable($weeklyTarget->sourceLocalStart))->modify('+30 minutes');
     $newEnd = $newStart->modify('+1 hour');
-    $newDisplay = $newStart->format('Y-m-d H:i');
+    $newViewerTime = $newStart
+      ->setTimezone(new DateTimeZone('America/New_York'))
+      ->format('H:i');
 
     $this->drupalGet($weeklyUrl);
     $this->submitForm([
@@ -169,7 +217,15 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextNotContains($oldDisplay);
-    $this->assertSession()->pageTextContains($newDisplay);
+    $this->assertSession()->pageTextContains($newViewerTime);
+    $this->assertSession()->pageTextContains('Rescheduled');
+
+    $this->drupalGet($weeklyDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Rescheduled');
+    $this->assertSession()->pageTextContains($newViewerTime);
+    $this->assertSession()->pageTextNotContains($oldViewerTime);
+
     $this->assertCount(
       $seriesCount,
       $entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple(),
@@ -415,6 +471,16 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     );
     $this->assertNotEmpty($projected);
     return [$series, $projected[0]];
+  }
+
+  private function detailUrl(ActivitySeries $series, string $originalOccurrenceKey): string {
+    return Url::fromRoute(
+      'personal_secretary.occurrence_detail',
+      [
+        'series' => $series->id(),
+        'original_occurrence_key' => $originalOccurrenceKey,
+      ],
+    )->toString();
   }
 
   private function rescheduleUrl(ActivitySeries $series, string $originalOccurrenceKey): string {

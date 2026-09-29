@@ -109,9 +109,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     )[0];
     $exceptions->createCancel($cancelledSeries, $cancelTarget);
 
-    $rescheduledLocalDisplay = $rescheduledStartUtc->setTimezone($sourceTimezone)->format('Y-m-d H:i');
-    $originalLocalDisplay = $originalStartUtc->setTimezone($sourceTimezone)->format('Y-m-d H:i');
-    $dueLocalDisplay = $rescheduledStartUtc->modify('-1 hour')->setTimezone($sourceTimezone)->format('Y-m-d H:i');
+    $rescheduledLocalDisplay = $rescheduledStartUtc->setTimezone($sourceTimezone)->format('H:i');
+    $originalLocalDisplay = $originalStartUtc->setTimezone($sourceTimezone)->format('H:i');
+    $dueLocalDisplay = $rescheduledStartUtc->modify('-1 hour')->setTimezone($sourceTimezone)->format('H:i');
 
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
@@ -152,7 +152,13 @@ final class UpcomingViewTest extends BrowserTestBase {
       ->setTimezone($sourceTimezone);
     $firstDate = $nowLocal->modify('+2 days')->format('Y-m-d');
     $localStart = new DateTimeImmutable($firstDate . ' 09:00:00', $sourceTimezone);
-    $dueDisplay = $localStart->modify('-60 minutes')->format('Y-m-d H:i');
+    $dueAt = $localStart->modify('-60 minutes');
+    $dueDisplay = $this->container->get('date.formatter')->format(
+      $dueAt->getTimestamp(),
+      'custom',
+      'j M Y, H:i',
+      'Europe/Brussels',
+    );
 
     $this->submitForm([
       'household_name' => 'Synthetic Setup Household',
@@ -254,7 +260,13 @@ final class UpcomingViewTest extends BrowserTestBase {
 
     $secondStart = $nowLocal->modify('+3 days')->setTime(14, 0);
     $secondDate = $secondStart->format('Y-m-d');
-    $dueDisplay = $secondStart->modify('-30 minutes')->format('Y-m-d H:i');
+    $dueAt = $secondStart->modify('-30 minutes');
+    $dueDisplay = $this->container->get('date.formatter')->format(
+      $dueAt->getTimestamp(),
+      'custom',
+      'j M Y, H:i',
+      'Europe/Brussels',
+    );
     $this->submitForm([
       'household_id' => (string) $household->id(),
       'responsible_person_id' => (string) $person->id(),
