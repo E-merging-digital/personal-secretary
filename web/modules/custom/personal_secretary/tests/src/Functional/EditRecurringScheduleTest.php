@@ -200,11 +200,11 @@ final class EditRecurringScheduleTest extends BrowserTestBase {
     $this->assertSame($seriesRecurrence['end_value'], $replacementRecurrence['end_value']);
 
     $this->assertCount($initialPreparationCount, $preparationStorage->loadMultiple());
-    $this->assertSession()->pageTextContains($firstStart->format('Y-m-d H:i'));
-    $this->assertSession()->pageTextContains($newStart->format('Y-m-d H:i'));
+    $this->assertSession()->pageTextContains($firstStart->format('H:i'));
+    $this->assertSession()->pageTextContains($newStart->format('H:i'));
     $this->assertSession()->pageTextContains('Synthetic Schedule Person');
     $this->assertSession()->pageTextContains('Prepare synthetic schedule equipment');
-    $this->assertSession()->pageTextContains($newStart->modify('-1 hour')->format('Y-m-d H:i'));
+    $this->assertSession()->pageTextContains($newStart->modify('-1 hour')->format('H:i'));
   }
 
 }

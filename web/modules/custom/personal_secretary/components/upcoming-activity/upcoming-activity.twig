@@ -1,55 +1,54 @@
-<article class="personal-secretary-upcoming-activity">
-  <h2>{{ activity_label }}</h2>
+<article class="personal-secretary-upcoming-activity ps-upcoming-card">
+  <header class="ps-upcoming-card__header">
+    <h2 class="ps-upcoming-card__title">{{ activity_label }}</h2>
+    {% if is_rescheduled %}
+      <span class="ps-upcoming-card__status">{{ 'Rescheduled'|t }}</span>
+    {% endif %}
+  </header>
 
-  <dl>
-    <div>
-      <dt>{{ 'When'|t }}</dt>
-      <dd>
-        {% if all_day %}
-          {{ 'All day'|t }} —
-          {% if all_day_start_date == all_day_end_date %}
-            <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
-          {% else %}
-            {{ 'from'|t }} <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
-            {{ 'to'|t }} <time datetime="{{ all_day_end_date }}">{{ all_day_end_date }}</time>
-          {% endif %}
-          ({{ source_timezone }})
-        {% else %}
-          <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
-          –
-          <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
-          ({{ source_timezone }})
-        {% endif %}
-      </dd>
-    </div>
+  <div class="ps-upcoming-card__when">
+    {% if all_day %}
+      <strong>{{ 'All day'|t }}</strong>
+      {% if all_day_start_date == all_day_end_date %}
+        <time datetime="{{ all_day_start_date }}">{{ all_day_start_label }}</time>
+      {% else %}
+        {{ 'from'|t }} <time datetime="{{ all_day_start_date }}">{{ all_day_start_label }}</time>
+        {{ 'to'|t }} <time datetime="{{ all_day_end_date }}">{{ all_day_end_label }}</time>
+      {% endif %}
+      <span class="ps-upcoming-card__timezone">{{ source_timezone }}</span>
+    {% else %}
+      <span class="ps-upcoming-card__date"><time datetime="{{ display_start_iso }}">{{ display_start_date }}</time></span>
+      <span class="ps-upcoming-card__time">
+        <time datetime="{{ display_start_iso }}">{{ display_start_time }}</time>
+        –
+        {% if not same_display_date %}<time datetime="{{ display_end_iso }}">{{ display_end_date }}</time>{% endif %}
+        <time datetime="{{ display_end_iso }}">{{ display_end_time }}</time>
+      </span>
+      <span class="ps-upcoming-card__timezone">{{ display_timezone }}</span>
+    {% endif %}
+  </div>
+
+  <dl class="ps-upcoming-card__facts">
     {% if location %}
-      <div>
-        <dt>{{ 'Location'|t }}</dt>
-        <dd>{{ location }}</dd>
-      </div>
+      <div><dt>{{ 'Location'|t }}</dt><dd>{{ location }}</dd></div>
     {% endif %}
     {% if concerned_person_labels %}
-      <div>
-        <dt>{{ 'For'|t }}</dt>
-        <dd>{{ concerned_person_labels|join(', ') }}</dd>
-      </div>
+      <div><dt>{{ 'For'|t }}</dt><dd>{{ concerned_person_labels|join(', ') }}</dd></div>
     {% endif %}
-    <div>
-      <dt>{{ 'Responsibility'|t }}</dt>
-      <dd>{{ responsibility_label }}</dd>
-    </div>
+    <div><dt>{{ 'Responsible'|t }}</dt><dd>{{ responsibility_label }}</dd></div>
   </dl>
 
   {% if preparations %}
-    <h3>{{ 'To prepare'|t }}</h3>
-    <ul>
-      {% for preparation in preparations %}
-        <li>
-          {{ preparation.instruction }} —
-          {{ 'due'|t }}
-          <time datetime="{{ preparation.due_time_iso }}">{{ preparation.due_time }}</time>
-        </li>
-      {% endfor %}
-    </ul>
+    <section class="ps-upcoming-card__preparations">
+      <h3>{{ 'To prepare'|t }}</h3>
+      <ul>
+        {% for preparation in preparations %}
+          <li>
+            <span>{{ preparation.instruction }}</span>
+            <small>{{ 'due'|t }} <time datetime="{{ preparation.due_display_iso }}">{{ preparation.due_display }}</time></small>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
   {% endif %}
 </article>

@@ -992,3 +992,28 @@ msgstr "Le statut de cette tâche pourra être modifié à nouveau plus tard."
 
 msgid "Confirm this task action."
 msgstr "Confirmez cette action sur la tâche."
+
+
+msgid "Occurrence details"
+msgstr "Détail de l’occurrence"
+
+msgid "View details"
+msgstr "Voir le détail"
+
+msgid "This occurrence"
+msgstr "Cette occurrence"
+
+msgid "Activity settings"
+msgstr "Paramètres de l’activité"
+
+msgid "Rescheduled"
+msgstr "Replanifiée"
+
+msgid "Responsible"
+msgstr "Responsable"
+
+msgid "Not assigned"
+msgstr "Non attribué"
+
+msgid "Back to My upcoming"
+msgstr "Retour aux activités à venir"

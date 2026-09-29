@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Service;
 
 use DateTimeImmutable;
+use DateTimeInterface;
 use DateTimeZone;
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\personal_secretary\Entity\ActivityException;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\Person;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
@@ -27,6 +30,8 @@ final class UpcomingActivityService {
     private readonly EffectiveResponsibilityService $effectiveResponsibility,
     private readonly PreparationEligibilityService $preparationEligibility,
     private readonly TimeInterface $time,
+    private readonly CurrentUserTimezoneService $currentUserTimezone,
+    private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
   /**
@@ -54,7 +59,7 @@ final class UpcomingActivityService {
   public function upcoming(): array {
     [$windowStart, $windowEnd] = $this->defaultWindow();
 
-    return $this->aggregateInternal($windowStart, $windowEnd, NULL, NULL);
+    return $this->aggregateInternal($windowStart, $windowEnd, NULL, NULL, FALSE);
   }
 
   /**
@@ -91,6 +96,7 @@ final class UpcomingActivityService {
       $windowEnd,
       $personId,
       NULL,
+      TRUE,
     );
   }
 
@@ -133,7 +139,46 @@ final class UpcomingActivityService {
       $windowEnd,
       $personId,
       $householdIds,
+      TRUE,
     );
+  }
+
+  /**
+   * Resolves one exact personalized occurrence from existing projection truth.
+   *
+   * @param int[] $householdIds
+   *
+   * @return array<string, mixed>
+   */
+  public function occurrenceForPersonInHouseholds(
+    Person $person,
+    array $householdIds,
+    int $seriesId,
+    string $originalOccurrenceKey,
+  ): array {
+    if ($seriesId <= 0 || trim($originalOccurrenceKey) === '') {
+      throw new InvalidArgumentException('Occurrence detail requires an existing target identity.');
+    }
+
+    [$windowStart, $windowEnd] = $this->defaultWindow();
+    $matches = array_values(array_filter(
+      $this->aggregateInternal(
+        $windowStart,
+        $windowEnd,
+        $this->requirePersistedPersonId($person),
+        $householdIds,
+        TRUE,
+      ),
+      static fn(array $item): bool =>
+        (int) $item['responsibility_target']['series_id'] === $seriesId
+        && (string) $item['responsibility_target']['original_occurrence_key'] === $originalOccurrenceKey,
+    ));
+
+    if (count($matches) !== 1) {
+      throw new InvalidArgumentException('Occurrence detail target is unavailable in the current personalized scope.');
+    }
+
+    return $matches[0];
   }
 
   /**
@@ -162,7 +207,7 @@ final class UpcomingActivityService {
     DateTimeImmutable $windowStart,
     DateTimeImmutable $windowEnd,
   ): array {
-    return $this->aggregateInternal($windowStart, $windowEnd, NULL, NULL);
+    return $this->aggregateInternal($windowStart, $windowEnd, NULL, NULL, FALSE);
   }
 
   /**
@@ -207,6 +252,7 @@ final class UpcomingActivityService {
     DateTimeImmutable $windowEnd,
     ?int $responsiblePersonId,
     ?array $householdIds,
+    bool $viewerLocalized,
   ): array {
     $windowStart = $this->utc($windowStart);
     $windowEnd = $this->utc($windowEnd);
@@ -258,6 +304,11 @@ final class UpcomingActivityService {
       $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
       foreach ($this->effectiveOccurrences->project($series, $windowStart, $windowEnd) as $occurrence) {
+        $displayTimezoneId = $viewerLocalized
+          ? $this->currentUserTimezone->effectiveTimezone()
+          : $occurrence->sourceTimezone;
+        $displayTimezone = new DateTimeZone($displayTimezoneId);
+
         $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
 
         if ($responsiblePersonId !== NULL && (
@@ -285,12 +336,15 @@ final class UpcomingActivityService {
 
           $sourceTimezone = new DateTimeZone($occurrence->sourceTimezone);
           foreach ($this->preparationEligibility->derive($series, $occurrence) as $preparation) {
-            $dueLocal = $this->utc(new DateTimeImmutable($preparation->dueAtUtc))
-              ->setTimezone($sourceTimezone);
+            $dueUtc = $this->utc(new DateTimeImmutable($preparation->dueAtUtc));
+            $dueLocal = $dueUtc->setTimezone($sourceTimezone);
+            $dueDisplay = $dueUtc->setTimezone($displayTimezone);
             $preparations[] = [
               'instruction' => $preparation->requirementLabel,
               'due_time' => $dueLocal->format('Y-m-d H:i'),
               'due_time_iso' => $dueLocal->format(DATE_ATOM),
+              'due_display' => $this->localizedDateTime($dueDisplay, $displayTimezoneId),
+              'due_display_iso' => $dueDisplay->format(DateTimeInterface::ATOM),
             ];
           }
         }
@@ -309,6 +363,10 @@ final class UpcomingActivityService {
         [$allDayStartDate, $allDayEndDate] = $allDay
           ? $this->allDayDates($occurrence->effectiveSourceLocalStart, $occurrence->effectiveSourceLocalEnd)
           : ['', ''];
+        $effectiveStartUtc = $this->utc(new DateTimeImmutable($occurrence->effectiveUtcStart));
+        $effectiveEndUtc = $this->utc(new DateTimeImmutable($occurrence->effectiveUtcEnd));
+        $displayStart = $effectiveStartUtc->setTimezone($displayTimezone);
+        $displayEnd = $effectiveEndUtc->setTimezone($displayTimezone);
 
         $sortable[] = [
           'sort_start' => $occurrence->effectiveUtcStart,
@@ -318,6 +376,21 @@ final class UpcomingActivityService {
           'all_day' => $allDay,
           'all_day_start_date' => $allDayStartDate,
           'all_day_end_date' => $allDayEndDate,
+          'all_day_start_label' => $allDay
+            ? $this->localizedCivilDate($allDayStartDate, $occurrence->sourceTimezone)
+            : '',
+          'all_day_end_label' => $allDay
+            ? $this->localizedCivilDate($allDayEndDate, $occurrence->sourceTimezone)
+            : '',
+          'display_timezone' => $displayTimezoneId,
+          'display_start_date' => $this->localizedDate($displayStart, $displayTimezoneId),
+          'display_end_date' => $this->localizedDate($displayEnd, $displayTimezoneId),
+          'display_start_time' => $this->localizedTime($displayStart, $displayTimezoneId),
+          'display_end_time' => $this->localizedTime($displayEnd, $displayTimezoneId),
+          'display_start_iso' => $displayStart->format(DateTimeInterface::ATOM),
+          'display_end_iso' => $displayEnd->format(DateTimeInterface::ATOM),
+          'same_display_date' => $displayStart->format('Y-m-d') === $displayEnd->format('Y-m-d'),
+          'is_rescheduled' => $occurrence->exceptionAction === ActivityException::ACTION_RESCHEDULE,
           'effective_start' => (new DateTimeImmutable($occurrence->effectiveSourceLocalStart))->format('Y-m-d H:i'),
           'effective_end' => (new DateTimeImmutable($occurrence->effectiveSourceLocalEnd))->format('Y-m-d H:i'),
           'effective_start_iso' => $occurrence->effectiveSourceLocalStart,
@@ -347,6 +420,27 @@ final class UpcomingActivityService {
       },
       $sortable,
     );
+  }
+
+  private function localizedDate(DateTimeImmutable $value, string $timezoneId): string {
+    return $this->dateFormatter->format($value->getTimestamp(), 'custom', 'j M Y', $timezoneId);
+  }
+
+  private function localizedTime(DateTimeImmutable $value, string $timezoneId): string {
+    return $this->dateFormatter->format($value->getTimestamp(), 'custom', 'H:i', $timezoneId);
+  }
+
+  private function localizedDateTime(DateTimeImmutable $value, string $timezoneId): string {
+    return $this->dateFormatter->format($value->getTimestamp(), 'custom', 'j M Y, H:i', $timezoneId);
+  }
+
+  private function localizedCivilDate(string $date, string $timezoneId): string {
+    $timezone = new DateTimeZone($timezoneId);
+    $value = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $date . ' 12:00', $timezone);
+    if (!$value instanceof DateTimeImmutable || $value->format('Y-m-d') !== $date) {
+      throw new RuntimeException('ALL_DAY presentation received an invalid civil date.');
+    }
+    return $this->localizedDate($value, $timezoneId);
   }
 
   /**

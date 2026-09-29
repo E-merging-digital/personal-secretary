@@ -8,6 +8,17 @@ props:
     - all_day
     - all_day_start_date
     - all_day_end_date
+    - all_day_start_label
+    - all_day_end_label
+    - display_timezone
+    - display_start_date
+    - display_end_date
+    - display_start_time
+    - display_end_time
+    - display_start_iso
+    - display_end_iso
+    - same_display_date
+    - is_rescheduled
     - effective_start
     - effective_end
     - effective_start_iso
@@ -36,24 +47,57 @@ props:
     all_day_end_date:
       type: string
       title: Source-local inclusive all-day end date
+    all_day_start_label:
+      type: string
+      title: Localized all-day start date
+    all_day_end_label:
+      type: string
+      title: Localized inclusive all-day end date
+    display_timezone:
+      type: string
+      title: Presentation timezone
+    display_start_date:
+      type: string
+      title: Localized presentation date
+    display_end_date:
+      type: string
+      title: Localized presentation end date
+    display_start_time:
+      type: string
+      title: Localized presentation start time
+    display_end_time:
+      type: string
+      title: Localized presentation end time
+    display_start_iso:
+      type: string
+      title: Presentation-local start ISO datetime
+    display_end_iso:
+      type: string
+      title: Presentation-local end ISO datetime
+    same_display_date:
+      type: boolean
+      title: Whether presentation-local start and end share a civil date
+    is_rescheduled:
+      type: boolean
+      title: Whether an active reschedule exception supplies the effective time
     effective_start:
       type: string
-      title: Effective local start display
+      title: Effective source-local start display
     effective_end:
       type: string
-      title: Effective local end display
+      title: Effective source-local end display
     effective_start_iso:
       type: string
-      title: Effective local start ISO datetime
+      title: Effective source-local start ISO datetime
     effective_end_iso:
       type: string
-      title: Effective local end ISO datetime
+      title: Effective source-local end ISO datetime
     source_timezone:
       type: string
-      title: Source timezone
+      title: Activity source timezone
     responsibility_label:
       type: string
-      title: Responsible Person label or explicit unassigned state
+      title: Effective responsible Person label or explicit unassigned state
     preparations:
       type: array
       title: Eligible preparations
@@ -63,13 +107,21 @@ props:
           - instruction
           - due_time
           - due_time_iso
+          - due_display
+          - due_display_iso
         properties:
           instruction:
             type: string
             title: Preparation instruction
           due_time:
             type: string
-            title: Preparation due time display
+            title: Source-local preparation due time
           due_time_iso:
             type: string
-            title: Preparation due time ISO datetime
+            title: Source-local preparation due time ISO datetime
+          due_display:
+            type: string
+            title: Localized preparation due time
+          due_display_iso:
+            type: string
+            title: Presentation-local preparation due time ISO datetime

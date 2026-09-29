@@ -104,8 +104,8 @@ final class ProductShellBlock extends BlockBase implements ContainerFactoryPlugi
 
   private function isActivityRoute(string $routeName): bool {
     return in_array($routeName, [
-      'personal_secretary.upcoming', 'personal_secretary.my_upcoming', 'personal_secretary.add_activity',
-      'personal_secretary.edit_recurring_schedule', 'personal_secretary.edit_recurring_responsibility',
+      'personal_secretary.upcoming', 'personal_secretary.my_upcoming', 'personal_secretary.occurrence_detail',
+      'personal_secretary.add_activity', 'personal_secretary.edit_recurring_schedule', 'personal_secretary.edit_recurring_responsibility',
       'personal_secretary.edit_time_commitment', 'personal_secretary.pause_recurring_activity',
       'personal_secretary.responsibility_occurrence', 'personal_secretary.reschedule_occurrence',
       'personal_secretary.cancel_occurrence',

@@ -6,6 +6,7 @@ namespace Drupal\Tests\personal_secretary\Functional;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
@@ -157,6 +158,15 @@ final class MyUpcomingTest extends BrowserTestBase {
       'FREQ=DAILY;COUNT=1',
     );
 
+    $ruleAOccurrence = $effectiveProjection->project($ruleASeries, $nowUtc, $windowEnd)[0];
+    $ruleBOccurrence = $effectiveProjection->project($ruleBSeries, $nowUtc, $windowEnd)[0];
+    $ruleADetailUrl = $this->detailUrl($ruleASeries, $ruleAOccurrence->originalOccurrenceKey);
+    $ruleBDetailUrl = $this->detailUrl($ruleBSeries, $ruleBOccurrence->originalOccurrenceKey);
+    $overrideToADetailUrl = $this->detailUrl(
+      $overrideToASeries,
+      $overrideToAOccurrence->originalOccurrenceKey,
+    );
+
     $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
     $this->assertInstanceOf(UserInterface::class, $authorized);
     $authorized->set(
@@ -178,6 +188,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Override away from A activity');
     $this->assertSession()->pageTextContains('Clear responsibility activity');
     $this->assertSession()->pageTextContains('No responsibility activity');
+    $this->assertSession()->pageTextContains('Not assigned');
     $this->assertSession()->pageTextContains('A Current Person');
     $this->assertSession()->pageTextContains('B Other Person');
 
@@ -195,6 +206,11 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Override to A activity');
     $this->assertSession()->pageTextContains('Prepare included A kit');
     $this->assertSession()->pageTextContains('Prepare included override kit');
+    $this->assertSession()->linkByHrefExists($ruleADetailUrl);
+    $this->assertSession()->linkByHrefExists($overrideToADetailUrl);
+    $this->assertSession()->pageTextContains('This occurrence');
+    $this->assertSession()->pageTextContains('Activity settings');
+    $this->assertSession()->linkExists('Change responsibility');
 
     $this->assertSession()->pageTextNotContains('Rule B activity');
     $this->assertSession()->pageTextNotContains('Override away from A activity');
@@ -217,6 +233,29 @@ final class MyUpcomingTest extends BrowserTestBase {
         ->target_id,
     );
 
+    $this->drupalGet($ruleADetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextContains('A Current Person');
+    $this->assertSession()->pageTextContains('Prepare included A kit');
+    $this->assertSession()->linkExists('Back to My upcoming');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+    $this->assertSession()->pageTextContains('This occurrence');
+    $this->assertSession()->pageTextContains('Activity settings');
+    $this->assertSame($countsBefore, $this->domainCounts());
+
+    $this->drupalGet($overrideToADetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Override to A activity');
+    $this->assertSession()->pageTextContains('A Current Person');
+    $this->assertSession()->pageTextContains('Prepare included override kit');
+
+    $this->drupalGet($ruleBDetailUrl);
+    $this->assertSession()->statusCodeEquals(404);
+    $this->assertSession()->pageTextNotContains('Rule B activity');
+    $this->assertSession()->pageTextNotContains('B Other Person');
+    $this->assertSame($countsBefore, $this->domainCounts());
+
     $unlinked = $this->drupalCreateUser(['administer personal secretary domain']);
     $this->assertInstanceOf(UserInterface::class, $unlinked);
     $this->drupalLogout();
@@ -234,6 +273,16 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertRemediationOnly();
 
     $this->assertInstanceOf(ActivitySeries::class, $noneSeries);
+  }
+
+  private function detailUrl(ActivitySeries $series, string $originalOccurrenceKey): string {
+    return Url::fromRoute(
+      'personal_secretary.occurrence_detail',
+      [
+        'series' => (int) $series->id(),
+        'original_occurrence_key' => $originalOccurrenceKey,
+      ],
+    )->toString();
   }
 
   private function createSeriesWithRule(

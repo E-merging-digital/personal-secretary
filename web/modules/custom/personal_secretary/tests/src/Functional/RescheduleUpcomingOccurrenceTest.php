@@ -84,8 +84,8 @@ final class RescheduleUpcomingOccurrenceTest extends BrowserTestBase {
     $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
     $this->drupalLogin($authorized);
 
-    $oldDisplay = $originalStartLocal->format('Y-m-d H:i');
-    $oldDueDisplay = $originalStartLocal->modify('-1 hour')->format('Y-m-d H:i');
+    $oldDisplay = $originalStartLocal->format('H:i');
+    $oldDueDisplay = $originalStartLocal->modify('-1 hour')->format('H:i');
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Synthetic reschedule activity');
@@ -117,8 +117,8 @@ final class RescheduleUpcomingOccurrenceTest extends BrowserTestBase {
     $newDate = $originalStartLocal->format('Y-m-d');
     $newLocalStart = new DateTimeImmutable($newDate . ' 10:30:00', $sourceTimezone);
     $newLocalEnd = new DateTimeImmutable($newDate . ' 11:30:00', $sourceTimezone);
-    $newDisplay = $newLocalStart->format('Y-m-d H:i');
-    $newDueDisplay = $newLocalStart->modify('-1 hour')->format('Y-m-d H:i');
+    $newDisplay = $newLocalStart->format('H:i');
+    $newDueDisplay = $newLocalStart->modify('-1 hour')->format('H:i');
 
     $this->submitForm([
       'new_date' => $newDate,

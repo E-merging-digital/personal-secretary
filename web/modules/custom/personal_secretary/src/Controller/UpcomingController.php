@@ -13,6 +13,7 @@ use Drupal\personal_secretary\Service\PauseRecurringActivityService;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Renders the first read-only Personal Secretary application surfaces.
@@ -73,7 +74,7 @@ final class UpcomingController extends ControllerBase {
       $build['rename_household_member'] = $this->renameHouseholdMemberLink();
       $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
     }
-    $build['items'] = $this->buildItems($items, TRUE, FALSE);
+    $build['items'] = $this->buildItems($items, TRUE, FALSE, FALSE);
     $build['add_activity'] = $this->addActivityLink();
 
     return $build;
@@ -118,8 +119,40 @@ final class UpcomingController extends ControllerBase {
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE);
     return $build;
+  }
+
+  public function detail(string $series, string $original_occurrence_key): array {
+    $householdIds = $this->householdAuthorization->authorizedHouseholdIds($this->currentUser());
+
+    try {
+      $person = $this->currentPersonResolver->resolve($this->currentUser());
+      $item = $this->upcomingActivities->occurrenceForPersonInHouseholds(
+        $person,
+        $householdIds,
+        (int) $series,
+        $original_occurrence_key,
+      );
+    }
+    catch (InvalidArgumentException|\RuntimeException $exception) {
+      throw new NotFoundHttpException('The requested occurrence is unavailable.', $exception);
+    }
+
+    $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-occurrence-detail']],
+      '#cache' => ['max-age' => 0],
+      'back' => [
+        '#type' => 'link',
+        '#title' => $this->t('Back to My upcoming'),
+        '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
+        '#attributes' => ['class' => ['ps-occurrence-detail__back']],
+      ],
+      'occurrence' => $this->buildItems([$item], $isAdmin, !$isAdmin, FALSE),
+    ];
   }
 
   /**
@@ -144,9 +177,13 @@ final class UpcomingController extends ControllerBase {
   private function buildItems(
     array $items,
     bool $includeAdminMutationLinks,
-    bool $includeSelfCancelLinks,
+    bool $includeSelfMutationLinks,
+    bool $includeDetailLinks,
   ): array {
-    $build = ['#type' => 'container'];
+    $build = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-upcoming-list'], 'role' => 'list'],
+    ];
 
     foreach ($items as $delta => $item) {
       $scheduleTarget = $item['schedule_target'];
@@ -156,88 +193,110 @@ final class UpcomingController extends ControllerBase {
       unset($item['schedule_target'], $item['responsibility_target'], $item['cancel_target']);
 
       if ($item['responsibility_label'] === '') {
-        $item['responsibility_label'] = (string) $this->t('Unassigned');
+        $item['responsibility_label'] = (string) $this->t('Not assigned');
       }
 
+      $build[$delta] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-upcoming-list__item'], 'role' => 'listitem'],
+      ];
       $build[$delta]['activity'] = [
         '#type' => 'component',
         '#component' => 'personal_secretary:upcoming-activity',
         '#props' => $item,
       ];
 
-      if (!$includeAdminMutationLinks) {
-        if ($includeSelfCancelLinks && $actionTarget !== NULL) {
-          if (!$allDay) {
-            $build[$delta]['reschedule'] = $this->rescheduleLink($actionTarget);
-          }
-          $build[$delta]['cancel'] = $this->cancelLink($actionTarget);
+      $occurrenceActions = [];
+      if ($includeDetailLinks) {
+        $occurrenceActions['detail'] = $this->detailLink($responsibilityTarget);
+      }
+      if ($includeAdminMutationLinks) {
+        $occurrenceActions['responsibility'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Change responsibility'),
+          '#url' => Url::fromRoute('personal_secretary.responsibility_occurrence', [
+            'series' => $responsibilityTarget['series_id'],
+            'original_occurrence_key' => $responsibilityTarget['original_occurrence_key'],
+          ]),
+          '#attributes' => ['class' => ['ps-action-link']],
+        ];
+      }
+      if (($includeAdminMutationLinks || $includeSelfMutationLinks) && $actionTarget !== NULL) {
+        if (!$allDay) {
+          $occurrenceActions['reschedule'] = $this->rescheduleLink($actionTarget);
         }
+        $occurrenceActions['cancel'] = $this->cancelLink($actionTarget);
+      }
+
+      if ($occurrenceActions !== []) {
+        $build[$delta]['occurrence_actions'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--occurrence']],
+          'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('This occurrence')],
+          'links' => ['#type' => 'container', '#attributes' => ['class' => ['ps-action-group__links']]] + $occurrenceActions,
+        ];
+      }
+
+      if (!$includeAdminMutationLinks) {
         continue;
       }
 
+      $seriesActions = [];
       if (!$allDay) {
-        $build[$delta]['schedule'] = [
+        $seriesActions['schedule'] = [
           '#type' => 'link',
           '#title' => $this->t('Change recurring schedule'),
-          '#url' => Url::fromRoute(
-            'personal_secretary.edit_recurring_schedule',
-            ['series' => $scheduleTarget['series_id']],
-          ),
+          '#url' => Url::fromRoute('personal_secretary.edit_recurring_schedule', ['series' => $scheduleTarget['series_id']]),
+          '#attributes' => ['class' => ['ps-action-link']],
         ];
       }
-      $build[$delta]['recurring_responsibility'] = [
+      $seriesActions['recurring_responsibility'] = [
         '#type' => 'link',
         '#title' => $this->t('Change recurring responsibility'),
-        '#url' => Url::fromRoute(
-          'personal_secretary.edit_recurring_responsibility',
-          ['series' => $scheduleTarget['series_id']],
-        ),
+        '#url' => Url::fromRoute('personal_secretary.edit_recurring_responsibility', ['series' => $scheduleTarget['series_id']]),
+        '#attributes' => ['class' => ['ps-action-link']],
       ];
-      $build[$delta]['time_commitment'] = [
+      $seriesActions['time_commitment'] = [
         '#type' => 'link',
         '#title' => $this->t('Change time commitment'),
-        '#url' => Url::fromRoute(
-          'personal_secretary.edit_time_commitment',
-          ['series' => $scheduleTarget['series_id']],
-        ),
+        '#url' => Url::fromRoute('personal_secretary.edit_time_commitment', ['series' => $scheduleTarget['series_id']]),
+        '#attributes' => ['class' => ['ps-action-link']],
       ];
       if ($this->pauseRecurringActivity->canPause((int) $scheduleTarget['series_id'])) {
-        $build[$delta]['pause'] = [
+        $seriesActions['pause'] = [
           '#type' => 'link',
           '#title' => $this->t('Pause recurring activity'),
-          '#url' => Url::fromRoute(
-            'personal_secretary.pause_recurring_activity',
-            ['series' => $scheduleTarget['series_id']],
-          ),
+          '#url' => Url::fromRoute('personal_secretary.pause_recurring_activity', ['series' => $scheduleTarget['series_id']]),
+          '#attributes' => ['class' => ['ps-action-link']],
         ];
       }
 
-      $responsibilityRouteParameters = [
-        'series' => $responsibilityTarget['series_id'],
-        'original_occurrence_key' => $responsibilityTarget['original_occurrence_key'],
+      $build[$delta]['series_actions'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--series']],
+        'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('Activity settings')],
+        'links' => ['#type' => 'container', '#attributes' => ['class' => ['ps-action-group__links']]] + $seriesActions,
       ];
-      $build[$delta]['responsibility'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Change responsibility'),
-        '#url' => Url::fromRoute(
-          'personal_secretary.responsibility_occurrence',
-          $responsibilityRouteParameters,
-        ),
-      ];
-
-      if ($actionTarget !== NULL) {
-        $routeParameters = [
-          'series' => $actionTarget['series_id'],
-          'original_occurrence_key' => $actionTarget['original_occurrence_key'],
-        ];
-        if (!$allDay) {
-          $build[$delta]['reschedule'] = $this->rescheduleLink($actionTarget);
-        }
-        $build[$delta]['cancel'] = $this->cancelLink($actionTarget);
-      }
     }
 
     return $build;
+  }
+
+  /**
+   * @param array{series_id: int, original_occurrence_key: string} $target
+   *
+   * @return array<string, mixed>
+   */
+  private function detailLink(array $target): array {
+    return [
+      '#type' => 'link',
+      '#title' => $this->t('View details'),
+      '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
+        'series' => $target['series_id'],
+        'original_occurrence_key' => $target['original_occurrence_key'],
+      ]),
+      '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--primary']],
+    ];
   }
 
   /**
@@ -256,6 +315,7 @@ final class UpcomingController extends ControllerBase {
           'original_occurrence_key' => $target['original_occurrence_key'],
         ],
       ),
+      '#attributes' => ['class' => ['ps-action-link']],
     ];
   }
 
@@ -270,6 +330,7 @@ final class UpcomingController extends ControllerBase {
           'original_occurrence_key' => $target['original_occurrence_key'],
         ],
       ),
+      '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--danger']],
     ];
   }
 

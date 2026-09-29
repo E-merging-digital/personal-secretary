@@ -109,9 +109,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     )[0];
     $exceptions->createCancel($cancelledSeries, $cancelTarget);
 
-    $rescheduledLocalDisplay = $rescheduledStartUtc->setTimezone($sourceTimezone)->format('Y-m-d H:i');
-    $originalLocalDisplay = $originalStartUtc->setTimezone($sourceTimezone)->format('Y-m-d H:i');
-    $dueLocalDisplay = $rescheduledStartUtc->modify('-1 hour')->setTimezone($sourceTimezone)->format('Y-m-d H:i');
+    $rescheduledLocalDisplay = $rescheduledStartUtc->setTimezone($sourceTimezone)->format('H:i');
+    $originalLocalDisplay = $originalStartUtc->setTimezone($sourceTimezone)->format('H:i');
+    $dueLocalDisplay = $rescheduledStartUtc->modify('-1 hour')->setTimezone($sourceTimezone)->format('H:i');
 
     $this->drupalGet('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
