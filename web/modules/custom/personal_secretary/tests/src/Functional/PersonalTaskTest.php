@@ -279,11 +279,10 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertInstanceOf(PersonalTask::class, $beforeSubmit);
     $this->assertSame(PersonalTask::STATUS_OPEN, (string) $beforeSubmit->get('status')->value, 'GET must not complete a task.');
 
+    $this->assertSession()->pageTextNotContains('This action cannot be undone.');
     $this->submitForm([], 'Mark complete');
-    $this->assertSession()->pageTextContains('Completed');
-    $this->assertSession()->linkExists('Reopen task');
-
-    $this->drupalGet('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Task completed.');
+    $this->assertSession()->buttonExists('Reopen task');
     $this->assertSession()->pageTextNotContains('Synthetic task after edit');
 
     $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/edit');
@@ -291,11 +290,13 @@ final class PersonalTaskTest extends BrowserTestBase {
 
     $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/reopen');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextNotContains('This action cannot be undone.');
     $this->submitForm([], 'Reopen task');
     $this->assertSession()->pageTextContains('Synthetic task after edit');
 
     $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/delete');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('This action cannot be undone.');
     $storage->resetCache([$taskId]);
     $this->assertInstanceOf(PersonalTask::class, $storage->load($taskId), 'GET must not delete a task.');
     $this->submitForm([], 'Delete task');

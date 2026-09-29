@@ -6,6 +6,7 @@
   --ps-line: #dbe3ea;
   --ps-surface: #ffffff;
   --ps-canvas: #f4f7f9;
+  --ps-danger: #9d2828;
 }
 body { background: var(--ps-canvas); color: var(--ps-ink); }
 .ps-app { min-height: 100vh; }
@@ -85,4 +86,39 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
   .ps-product-header__nav a { width:100%; }
   .ps-product-header__utilities { flex-wrap:wrap; justify-content:flex-start; }
   .ps-product-header__utility { padding-inline:.35rem; }
+}
+
+
+.ps-task-list-form { display:grid; gap:1rem; }
+.ps-task-list__toolbar { display:flex; justify-content:flex-end; }
+.ps-task-list__add {
+  display:inline-flex; align-items:center; min-height:44px; padding:.55rem .8rem;
+  border-radius:.7rem; background:var(--ps-brand); color:#fff; font-weight:700; text-decoration:none;
+}
+.ps-task-list { display:grid; gap:.75rem; }
+.ps-task-row {
+  display:grid; gap:.65rem; border:1px solid var(--ps-line); border-radius:.9rem;
+  background:var(--ps-surface); padding:.95rem;
+}
+.ps-task-row__title { margin:0; font-size:1.08rem; line-height:1.35; }
+.ps-task-row__due { margin:0; color:var(--ps-muted); }
+.ps-task-row--overdue .ps-task-row__due { color:var(--ps-ink); font-weight:750; }
+.ps-task-row__actions { display:flex; flex-wrap:wrap; gap:.55rem; align-items:center; }
+.ps-task-row__complete,
+.ps-task-row__edit,
+.ps-task-row__delete,
+.ps-task-undo__action {
+  display:inline-flex; align-items:center; min-height:44px; padding:.5rem .75rem;
+  border-radius:.7rem;
+}
+.ps-task-row__edit { color:var(--ps-ink); text-decoration:none; }
+.ps-task-row__delete { color:var(--ps-danger); text-decoration:none; font-weight:650; }
+.ps-task-undo {
+  display:flex; align-items:center; gap:.75rem; border:1px solid var(--ps-line);
+  border-radius:.8rem; background:var(--ps-surface); padding:.75rem;
+}
+@media (min-width:58rem) {
+  .ps-task-row { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
+  .ps-task-row__title,.ps-task-row__due { grid-column:1; }
+  .ps-task-row__actions { grid-column:2; grid-row:1 / span 2; justify-content:flex-end; }
 }

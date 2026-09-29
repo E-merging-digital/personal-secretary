@@ -59,12 +59,24 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
     };
   }
 
+  public function getDescription() {
+    return match ($this->action()) {
+      'complete', 'reopen' => $this->t('This task status can be changed again later.'),
+      'delete' => parent::getDescription(),
+      default => $this->t('Confirm this task action.'),
+    };
+  }
+
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     try {
       if ($this->action() === 'complete') {
         $this->taskMutations->completeTask($this->taskId());
         $this->messenger()->addStatus($this->t('Task completed. You can reopen it below if this was accidental.'));
-        $form_state->setRedirect('personal_secretary.task_status', ['task' => $this->taskId()]);
+        $form_state->setRedirect(
+          'personal_secretary.my_tasks',
+          [],
+          ['query' => ['reopen_task' => $this->taskId()]],
+        );
         return;
       }
       if ($this->action() === 'reopen') {

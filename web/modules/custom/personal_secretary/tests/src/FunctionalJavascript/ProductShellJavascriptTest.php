@@ -10,6 +10,7 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
+use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\user\UserInterface;
@@ -167,6 +168,145 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $assert->addressMatches('#/personal-secretary/today$#');
   }
 
+  public function testPersonalTaskDueFieldVisibility(): void {
+    $user = $this->createProductUser();
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/tasks/add');
+
+    $assert = $this->assertSession();
+    $mode = $assert->fieldExists('due_mode');
+
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
+
+    $mode->selectOption(PersonalTask::DUE_DATE);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent !== null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
+
+    $mode->selectOption(PersonalTask::DUE_DATE_TIME);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent !== null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent !== null",
+    );
+  }
+
+  public function testPersonalTaskHouseholdUxAndPersistence(): void {
+    $single = $this->createTaskBrowserContext('Single browser task', 1);
+    $this->drupalLogin($single['user']);
+    $this->drupalGet('/personal-secretary/tasks/add');
+
+    $assert = $this->assertSession();
+    $assert->fieldNotExists('household');
+    $assert->pageTextContains('Household');
+    $assert->pageTextContains((string) $single['households'][0]->label());
+
+    $page = $this->getSession()->getPage();
+    $page->fillField('title', 'Single household browser task');
+    $page->pressButton('Add task');
+    $assert->addressMatches('#/personal-secretary/tasks/mine$#');
+    $assert->pageTextContains('Task added.');
+    $assert->pageTextContains('Single household browser task');
+
+    $persisted = $this->loadTaskByTitle('Single household browser task');
+    $this->assertSame(
+      (int) $single['households'][0]->id(),
+      (int) $persisted->get('household')->target_id,
+    );
+
+    $this->drupalLogout();
+    $multiple = $this->createTaskBrowserContext('Multiple browser task', 2);
+    $this->drupalLogin($multiple['user']);
+    $this->drupalGet('/personal-secretary/tasks/add');
+
+    $select = $assert->fieldExists('household');
+    $assert->pageTextContains('Household');
+    $select->selectOption((string) $multiple['households'][1]->id());
+    $page = $this->getSession()->getPage();
+    $page->fillField('title', 'Multiple household browser task');
+    $page->pressButton('Add task');
+    $assert->addressMatches('#/personal-secretary/tasks/mine$#');
+    $assert->pageTextContains('Task added.');
+    $assert->pageTextContains('Multiple household browser task');
+
+    $persisted = $this->loadTaskByTitle('Multiple household browser task');
+    $this->assertSame(
+      (int) $multiple['households'][1]->id(),
+      (int) $persisted->get('household')->target_id,
+    );
+  }
+
+  public function testPersonalTaskListCompleteUndoAndDeleteConfirmation(): void {
+    $context = $this->createTaskBrowserContext('Task list browser', 1);
+    $task = $this->createTaskForUser(
+      $context['user'],
+      (int) $context['households'][0]->id(),
+      'Browser overdue task title',
+      PersonalTask::DUE_DATE,
+      '2000-01-01',
+    );
+    $taskId = (int) $task->id();
+    $rowSelector = '[data-ps-task-id="' . $taskId . '"]';
+
+    $this->drupalLogin($context['user']);
+    $this->drupalGet('/personal-secretary/tasks/mine');
+
+    $assert = $this->assertSession();
+    $assert->elementTextContains(
+      'css',
+      $rowSelector . ' .ps-task-row__title',
+      'Browser overdue task title',
+    );
+    $assert->elementTextContains(
+      'css',
+      $rowSelector . ' .ps-task-row__due',
+      'Overdue: 2000-01-01',
+    );
+    $assert->elementExists('css', $rowSelector . ' .ps-task-row__complete');
+    $assert->elementExists('css', $rowSelector . ' .ps-task-row__edit');
+    $assert->elementExists('css', $rowSelector . ' .ps-task-row__delete');
+
+    $assert
+      ->elementExists('css', $rowSelector . ' .ps-task-row__complete')
+      ->click();
+    $assert->addressMatches('#/personal-secretary/tasks/mine#');
+    $assert->elementNotExists('css', $rowSelector);
+    $assert->pageTextContains('Task completed.');
+    $assert->buttonExists('Reopen task')->click();
+
+    $assert->addressMatches('#/personal-secretary/tasks/mine$#');
+    $assert->elementExists('css', $rowSelector);
+
+    $assert
+      ->elementExists('css', $rowSelector . ' .ps-task-row__delete')
+      ->click();
+    $assert->pageTextContains('This action cannot be undone.');
+
+    $storage = $this->container
+      ->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $storage->resetCache([$taskId]);
+    $this->assertInstanceOf(PersonalTask::class, $storage->load($taskId));
+  }
+
   private function createProductUser(): UserInterface {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Browser Shell Person');
@@ -191,6 +331,75 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $user->save();
 
     return $user;
+  }
+
+  /**
+   * @return array{user: \Drupal\user\UserInterface, households: array<int, \Drupal\personal_secretary\Entity\Household>}
+   */
+  private function createTaskBrowserContext(string $label, int $householdCount): array {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson($label . ' person');
+    $households = [];
+    for ($i = 1; $i <= $householdCount; $i++) {
+      $households[] = $domain->createHousehold(
+        $label . ' household ' . $i,
+        [(int) $person->id()],
+      );
+    }
+
+    $user = $this->drupalCreateUser([
+      HouseholdAuthorizationService::PRODUCT_USE_PERMISSION,
+    ]);
+    $this->assertInstanceOf(UserInterface::class, $user);
+    $user->set(
+      CurrentPersonResolver::FIELD_NAME,
+      ['target_id' => (int) $person->id()],
+    );
+    $user->set(
+      HouseholdAuthorizationService::FIELD_NAME,
+      array_map(
+        static fn ($household): array => ['target_id' => (int) $household->id()],
+        $households,
+      ),
+    );
+    $user->set('timezone', 'Europe/Brussels');
+    $user->save();
+
+    return ['user' => $user, 'households' => $households];
+  }
+
+  private function createTaskForUser(
+    UserInterface $user,
+    int $householdId,
+    string $title,
+    string $dueMode,
+    ?string $dueDate = NULL,
+  ): PersonalTask {
+    $accountSwitcher = $this->container->get('account_switcher');
+    $accountSwitcher->switchTo($user);
+    try {
+      return $this->container
+        ->get('personal_secretary.personal_task_mutation')
+        ->createTask($title, $householdId, $dueMode, $dueDate);
+    }
+    finally {
+      $accountSwitcher->switchBack();
+    }
+  }
+
+  private function loadTaskByTitle(string $title): PersonalTask {
+    $storage = $this->container
+      ->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $ids = $storage
+      ->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('title', $title)
+      ->execute();
+    $this->assertCount(1, $ids);
+    $task = $storage->load((int) reset($ids));
+    $this->assertInstanceOf(PersonalTask::class, $task);
+    return $task;
   }
 
   private function placeProductBlocks(): void {

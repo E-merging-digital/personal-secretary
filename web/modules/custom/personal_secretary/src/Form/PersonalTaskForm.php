@@ -71,19 +71,29 @@ final class PersonalTaskForm extends FormBase {
       foreach ($eligible as $id => $household) {
         $options[$id] = (string) $household->label();
       }
-      $form['household'] = [
-        '#type' => 'select',
-        '#title' => $this->t('Household'),
-        '#required' => TRUE,
-        '#options' => $options,
-        '#default_value' => count($options) === 1 ? (string) array_key_first($options) : NULL,
-      ];
+      if (count($options) === 1) {
+        $form['household_context'] = [
+          '#type' => 'item',
+          '#title' => $this->t('Household', [], ['context' => 'PersonalTask']),
+          '#markup' => $this->t('@household', [
+            '@household' => (string) reset($options),
+          ]),
+        ];
+      }
+      else {
+        $form['household'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Household', [], ['context' => 'PersonalTask']),
+          '#required' => TRUE,
+          '#options' => $options,
+        ];
+      }
     }
     else {
       $household = $task->get('household')->entity;
       $form['scope'] = [
         '#type' => 'item',
-        '#title' => $this->t('Household'),
+        '#title' => $this->t('Household', [], ['context' => 'PersonalTask']),
         '#markup' => $household !== NULL ? $this->t('@household', ['@household' => (string) $household->label()]) : $this->t('Unavailable'),
       ];
     }
@@ -115,14 +125,18 @@ final class PersonalTaskForm extends FormBase {
     if ($localDue !== NULL) {
       $defaultDateTime = DrupalDateTime::createFromFormat('Y-m-d H:i', $localDue, new DateTimeZone($timezone));
     }
-    $form['due_at'] = [
+    $form['due_at_group'] = [
+      '#type' => 'container',
+      '#states' => [
+        'visible' => [':input[name="due_mode"]' => ['value' => PersonalTask::DUE_DATE_TIME]],
+      ],
+    ];
+    $form['due_at_group']['due_at'] = [
       '#type' => 'datetime',
       '#title' => $this->t('Due date and time'),
       '#default_value' => $defaultDateTime,
       '#date_timezone' => $timezone,
-      '#states' => [
-        'visible' => [':input[name="due_mode"]' => ['value' => PersonalTask::DUE_DATE_TIME]],
-      ],
+      '#parents' => ['due_at'],
     ];
 
     $form['actions']['submit'] = [
@@ -179,7 +193,7 @@ final class PersonalTaskForm extends FormBase {
       else {
         $this->taskMutations->createTask(
           (string) $form_state->getValue('title'),
-          (int) $form_state->getValue('household'),
+          $this->householdIdForCreate($form_state),
           $mode,
           $dueDate,
           $dueAt,
@@ -205,6 +219,19 @@ final class PersonalTaskForm extends FormBase {
       throw new AccessDeniedHttpException('Completed PersonalTask must be reopened before editing.');
     }
     return $task;
+  }
+
+  private function householdIdForCreate(FormStateInterface $form_state): int {
+    $eligible = $this->taskMutations->eligibleHouseholds();
+    if (count($eligible) === 1) {
+      return (int) array_key_first($eligible);
+    }
+
+    $selected = (int) $form_state->getValue('household');
+    if ($selected <= 0 || !isset($eligible[$selected])) {
+      throw new InvalidArgumentException('Selected Household is no longer eligible.');
+    }
+    return $selected;
   }
 
   private function taskId(): int {
