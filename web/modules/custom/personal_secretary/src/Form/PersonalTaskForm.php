@@ -115,14 +115,18 @@ final class PersonalTaskForm extends FormBase {
     if ($localDue !== NULL) {
       $defaultDateTime = DrupalDateTime::createFromFormat('Y-m-d H:i', $localDue, new DateTimeZone($timezone));
     }
-    $form['due_at'] = [
+    $form['due_at_group'] = [
+      '#type' => 'container',
+      '#states' => [
+        'visible' => [':input[name="due_mode"]' => ['value' => PersonalTask::DUE_DATE_TIME]],
+      ],
+    ];
+    $form['due_at_group']['due_at'] = [
       '#type' => 'datetime',
       '#title' => $this->t('Due date and time'),
       '#default_value' => $defaultDateTime,
       '#date_timezone' => $timezone,
-      '#states' => [
-        'visible' => [':input[name="due_mode"]' => ['value' => PersonalTask::DUE_DATE_TIME]],
-      ],
+      '#parents' => ['due_at'],
     ];
 
     $form['actions']['submit'] = [
