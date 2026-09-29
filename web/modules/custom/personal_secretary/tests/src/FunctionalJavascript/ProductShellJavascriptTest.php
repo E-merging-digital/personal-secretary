@@ -222,6 +222,9 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $page = $this->getSession()->getPage();
     $page->fillField('title', 'Single household browser task');
     $page->pressButton('Add task');
+    $assert->addressMatches('#/personal-secretary/tasks/mine$#');
+    $assert->pageTextContains('Task added.');
+    $assert->pageTextContains('Single household browser task');
 
     $persisted = $this->loadTaskByTitle('Single household browser task');
     $this->assertSame(
@@ -240,6 +243,9 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $page = $this->getSession()->getPage();
     $page->fillField('title', 'Multiple household browser task');
     $page->pressButton('Add task');
+    $assert->addressMatches('#/personal-secretary/tasks/mine$#');
+    $assert->pageTextContains('Task added.');
+    $assert->pageTextContains('Multiple household browser task');
 
     $persisted = $this->loadTaskByTitle('Multiple household browser task');
     $this->assertSame(
