@@ -6,6 +6,7 @@ namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\TodayService;
 use InvalidArgumentException;
@@ -167,16 +168,7 @@ final class TodayController extends ControllerBase {
             '#component' => 'personal_secretary:preparation-item',
             '#props' => $this->preparationProps($item),
           ],
-          'action' => [
-            '#type' => 'link',
-            '#title' => $this->t('Mark prepared'),
-            '#url' => Url::fromRoute('personal_secretary.mark_preparation_prepared', [
-              'series' => (int) $item['_completion_series_id'],
-              'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
-              'preparation_requirement' => (int) $item['_completion_requirement_id'],
-              'return_surface' => 'today',
-            ]),
-          ],
+          'action' => $this->preparationActionForm($item, 'today'),
         ];
       }
     }
@@ -245,10 +237,37 @@ final class TodayController extends ControllerBase {
       'due_time_iso' => (string) $item['due_time_iso'],
       'overdue' => (bool) $item['overdue'],
       'activity_label' => (string) $item['activity_label'],
+      'all_day' => (bool) $item['all_day'],
+      'all_day_start_date' => (string) $item['all_day_start_date'],
+      'all_day_end_date' => (string) $item['all_day_end_date'],
+      'all_day_start_label' => (string) $item['all_day_start_label'],
+      'all_day_end_label' => (string) $item['all_day_end_label'],
       'activity_start' => (string) $item['activity_start'],
       'activity_start_iso' => (string) $item['activity_start_iso'],
       'display_timezone' => (string) $item['display_timezone'],
     ];
+  }
+
+  /**
+   * Builds the preparation completion transition form.
+   *
+   * @param array<string, mixed> $item
+   *   Preparation read-model item.
+   * @param string $returnSurface
+   *   Product surface to return to after the transition.
+   *
+   * @return array<string, mixed>
+   *   Render array for the transition form.
+   */
+  private function preparationActionForm(array $item, string $returnSurface): array {
+    return $this->formBuilder()->getForm(
+      PreparationCompletionTransitionForm::class,
+      'prepared',
+      (int) $item['_completion_series_id'],
+      (string) $item['_completion_original_occurrence_key'],
+      (int) $item['_completion_requirement_id'],
+      $returnSurface,
+    );
   }
 
 }

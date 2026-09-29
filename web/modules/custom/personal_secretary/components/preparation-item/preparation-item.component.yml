@@ -9,6 +9,11 @@ props:
     - due_time_iso
     - overdue
     - activity_label
+    - all_day
+    - all_day_start_date
+    - all_day_end_date
+    - all_day_start_label
+    - all_day_end_label
     - activity_start
     - activity_start_iso
     - display_timezone
@@ -28,9 +33,24 @@ props:
     activity_label:
       type: string
       title: Related activity label
+    all_day:
+      type: boolean
+      title: Whether the related effective occurrence is all-day
+    all_day_start_date:
+      type: string
+      title: Effective all-day start civil date
+    all_day_end_date:
+      type: string
+      title: Effective all-day inclusive end civil date
+    all_day_start_label:
+      type: string
+      title: Localized all-day start date
+    all_day_end_label:
+      type: string
+      title: Localized all-day inclusive end date
     activity_start:
       type: string
-      title: Viewer-local activity start display
+      title: Viewer-local timed activity start display
     activity_start_iso:
       type: string
       title: Viewer-local activity start ISO datetime

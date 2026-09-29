@@ -9,6 +9,7 @@ use DateTimeInterface;
 use DateTimeZone;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Entity\ActivitySeries;
@@ -36,6 +37,7 @@ final class CurrentUserPreparationService {
     private readonly PreparationCompletionService $preparationCompletion,
     private readonly TimeInterface $time,
     private readonly ConfigFactoryInterface $configFactory,
+    private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
   public function mine(?DateTimeImmutable $nowUtc = NULL): array {
@@ -166,6 +168,7 @@ final class CurrentUserPreparationService {
       if ($activityLabel === '') {
         throw new RuntimeException('Current-user preparation ActivitySeries has no presentation label.');
       }
+      $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
       foreach ($this->effectiveOccurrences->project($series, $nowUtc, $projectionEndUtc) as $occurrence) {
         $effectiveStartUtc = $this->utc(new DateTimeImmutable($occurrence->effectiveUtcStart));
@@ -199,17 +202,31 @@ final class CurrentUserPreparationService {
             $preparation->seriesRevisionId,
             $preparation->originalOccurrenceKey,
           ]);
+          [$allDayStartDate, $allDayEndDate] = $allDay
+            ? $this->allDayDates($occurrence->effectiveSourceLocalStart, $occurrence->effectiveSourceLocalEnd)
+            : ['', ''];
 
           $items[] = [
             'sort_due' => $dueAtUtc->format(DateTimeInterface::ATOM),
             'sort_occurrence' => $occurrenceIdentity,
             'sort_requirement' => $preparation->requirementId,
             'instruction' => $preparation->requirementLabel,
-            'due_time' => $dueLocal->format('Y-m-d H:i'),
+            'due_time' => $this->localizedDateTime($dueLocal, $displayTimezoneId),
             'due_time_iso' => $dueLocal->format(DateTimeInterface::ATOM),
             'overdue' => $dueAtUtc < $nowUtc,
             'activity_label' => $activityLabel,
-            'activity_start' => $startLocal->format('Y-m-d H:i'),
+            'all_day' => $allDay,
+            'all_day_start_date' => $allDayStartDate,
+            'all_day_end_date' => $allDayEndDate,
+            'all_day_start_label' => $allDay
+              ? $this->localizedCivilDate($allDayStartDate, $occurrence->sourceTimezone)
+              : '',
+            'all_day_end_label' => $allDay
+              ? $this->localizedCivilDate($allDayEndDate, $occurrence->sourceTimezone)
+              : '',
+            'activity_start' => $allDay
+              ? ''
+              : $this->localizedDateTime($startLocal, $displayTimezoneId),
             'activity_start_iso' => $startLocal->format(DateTimeInterface::ATOM),
             'display_timezone' => $displayTimezoneId,
             '_completion_series_id' => $seriesId,
@@ -250,6 +267,94 @@ final class CurrentUserPreparationService {
       'max_lead_time_seconds' => $maximumLeadTimeSeconds,
       'occurrence_projection_end' => $projectionEndUtc->format(DateTimeInterface::ATOM),
       'items' => $items,
+    ];
+  }
+
+  /**
+   * Formats a localized preparation date and time.
+   *
+   * @param \DateTimeImmutable $value
+   *   Date and time value to format.
+   * @param string $timezoneId
+   *   Display timezone identifier.
+   *
+   * @return string
+   *   Localized date and time label.
+   */
+  private function localizedDateTime(DateTimeImmutable $value, string $timezoneId): string {
+    return $this->dateFormatter->format(
+      $value->getTimestamp(),
+      'custom',
+      'j M Y, H:i',
+      $timezoneId,
+    );
+  }
+
+  /**
+   * Formats a localized preparation date.
+   *
+   * @param \DateTimeImmutable $value
+   *   Date value to format.
+   * @param string $timezoneId
+   *   Display timezone identifier.
+   *
+   * @return string
+   *   Localized date label.
+   */
+  private function localizedDate(DateTimeImmutable $value, string $timezoneId): string {
+    return $this->dateFormatter->format(
+      $value->getTimestamp(),
+      'custom',
+      'j M Y',
+      $timezoneId,
+    );
+  }
+
+  /**
+   * Formats one source-local civil date without inventing a clock time.
+   *
+   * @param string $date
+   *   Civil date in Y-m-d format.
+   * @param string $timezoneId
+   *   Source timezone identifier.
+   *
+   * @return string
+   *   Localized civil-date label.
+   */
+  private function localizedCivilDate(string $date, string $timezoneId): string {
+    $timezone = new DateTimeZone($timezoneId);
+    $value = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $date . ' 12:00', $timezone);
+    if (!$value instanceof DateTimeImmutable || $value->format('Y-m-d') !== $date) {
+      throw new RuntimeException('ALL_DAY preparation presentation received an invalid civil date.');
+    }
+    return $this->localizedDate($value, $timezoneId);
+  }
+
+  /**
+   * Derives inclusive civil dates for an all-day occurrence.
+   *
+   * @param string $sourceLocalStart
+   *   Source-local occurrence start.
+   * @param string $sourceLocalEnd
+   *   Source-local exclusive occurrence end.
+   *
+   * @return array{0:string,1:string}
+   *   Inclusive start and end civil dates.
+   */
+  private function allDayDates(string $sourceLocalStart, string $sourceLocalEnd): array {
+    $start = new DateTimeImmutable($sourceLocalStart);
+    $end = new DateTimeImmutable($sourceLocalEnd);
+    if (
+      $start->format('H:i:s') !== '00:00:00'
+      || $end->format('H:i:s') !== '00:00:00'
+      || $end <= $start
+    ) {
+      throw new RuntimeException('ALL_DAY preparation presentation requires positive source-local midnight boundaries.');
+    }
+
+    return [
+      $start->format('Y-m-d'),
+      $end->modify('-1 day')->format('Y-m-d'),
     ];
   }
 

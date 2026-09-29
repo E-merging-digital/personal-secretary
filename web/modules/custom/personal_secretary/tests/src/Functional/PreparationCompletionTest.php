@@ -7,7 +7,6 @@ namespace Drupal\Tests\personal_secretary\Functional;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
-use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
@@ -78,15 +77,17 @@ final class PreparationCompletionTest extends BrowserTestBase {
     $this->syntheticCompletion($h2Series, (int) $h2Base->seriesRevisionId, $h2Base->originalOccurrenceKey, (int) $h2Req->id(), (int) $a->id(), (int) $u1->id());
     $this->assertArrayNotHasKey('Completion H2 preparation', $this->index($this->readMine($u1, $now)));
 
-    // Mark from Today through the real ConfirmForm POST path; the item disappears immediately.
+    // Mark directly from Today through the embedded Form API POST.
     $taskCount = count($manager->getStorage(PersonalTask::ENTITY_TYPE_ID)->loadMultiple());
     $this->drupalLogin($u1);
-    $markToday = $this->actionUrl('personal_secretary.mark_preparation_prepared', $item, 'today');
-    $this->drupalGet($markToday);
+    $this->drupalGet('/personal-secretary/today');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Completion main preparation');
+    $this->assertSession()->buttonExists('Mark prepared');
     $this->assertSame(1, $this->completionCount()); // Only the pre-seeded unauthorized H2 row exists before POST.
     $this->submitForm([], 'Mark prepared');
     $this->assertSession()->addressEquals('/personal-secretary/today');
+    $this->assertSession()->pageTextContains('Preparation marked prepared.');
     $this->assertSession()->pageTextNotContains('Completion main preparation');
     $this->drupalLogout();
     $switcher->switchTo($u1);
@@ -132,23 +133,25 @@ final class PreparationCompletionTest extends BrowserTestBase {
       $switcher->switchBack();
     }
 
-    // GET product and confirm-form routes never mutate completion state; only POST removes it.
+    // Opening product surfaces is read-only; the embedded POST reverses
+    // the state directly.
     $this->drupalLogin($u1);
     $count = $this->completionCount();
     $this->drupalGet($mine);
+    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('To prepare');
     $this->assertSession()->pageTextContains('Prepared');
-    $this->assertSession()->linkExists('Mark not prepared');
-    $this->assertSame($count, $this->completionCount());
-    $form = $this->actionUrl('personal_secretary.mark_preparation_not_prepared', $item, 'mine');
-    $this->drupalGet($form);
-    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->buttonExists('Mark not prepared');
     $this->assertSame($count, $this->completionCount());
     $this->submitForm([], 'Mark not prepared');
     $this->assertSession()->addressEquals($mine);
+    $this->assertSession()->pageTextContains('Preparation marked not prepared.');
     $this->assertSame($count - 1, $this->completionCount());
     $this->drupalGet('/personal-secretary/today');
+    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Completion main preparation');
+    $this->assertSession()->buttonExists('Mark prepared');
+    $this->assertSame($count - 1, $this->completionCount());
     $this->drupalLogout();
 
     $switcher->switchTo($u1);
@@ -288,15 +291,6 @@ final class PreparationCompletionTest extends BrowserTestBase {
       'prepared_at' => $this->container->get('datetime.time')->getCurrentTime(), 'prepared_by_user' => $user,
     ]);
     $row->save();
-  }
-
-  private function actionUrl(string $route, array $item, string $return = 'mine'): string {
-    return Url::fromRoute($route, [
-      'series' => $item['_completion_series_id'],
-      'original_occurrence_key' => $item['_completion_original_occurrence_key'],
-      'preparation_requirement' => $item['_completion_requirement_id'],
-      'return_surface' => $return,
-    ])->toString();
   }
 
   private function findOccurrence(array $occurrences, string $key): object {
