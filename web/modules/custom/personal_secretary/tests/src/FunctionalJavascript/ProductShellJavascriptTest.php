@@ -209,6 +209,45 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     );
   }
 
+  public function testPersonalTaskHouseholdUxAndPersistence(): void {
+    $single = $this->createTaskBrowserContext('Single browser task', 1);
+    $this->drupalLogin($single['user']);
+    $this->drupalGet('/personal-secretary/tasks/add');
+
+    $assert = $this->assertSession();
+    $assert->fieldNotExists('household');
+    $assert->pageTextContains('Household');
+    $assert->pageTextContains((string) $single['households'][0]->label());
+
+    $page = $this->getSession()->getPage();
+    $page->fillField('title', 'Single household browser task');
+    $page->pressButton('Add task');
+
+    $persisted = $this->loadTaskByTitle('Single household browser task');
+    $this->assertSame(
+      (int) $single['households'][0]->id(),
+      (int) $persisted->get('household')->target_id,
+    );
+
+    $this->drupalLogout();
+    $multiple = $this->createTaskBrowserContext('Multiple browser task', 2);
+    $this->drupalLogin($multiple['user']);
+    $this->drupalGet('/personal-secretary/tasks/add');
+
+    $select = $assert->fieldExists('household');
+    $assert->pageTextContains('Household');
+    $select->selectOption((string) $multiple['households'][1]->id());
+    $page = $this->getSession()->getPage();
+    $page->fillField('title', 'Multiple household browser task');
+    $page->pressButton('Add task');
+
+    $persisted = $this->loadTaskByTitle('Multiple household browser task');
+    $this->assertSame(
+      (int) $multiple['households'][1]->id(),
+      (int) $persisted->get('household')->target_id,
+    );
+  }
+
   private function createProductUser(): UserInterface {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Browser Shell Person');
@@ -233,6 +272,56 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $user->save();
 
     return $user;
+  }
+
+  /**
+   * @return array{user: \Drupal\user\UserInterface, households: array<int, \Drupal\personal_secretary\Entity\Household>}
+   */
+  private function createTaskBrowserContext(string $label, int $householdCount): array {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson($label . ' person');
+    $households = [];
+    for ($i = 1; $i <= $householdCount; $i++) {
+      $households[] = $domain->createHousehold(
+        $label . ' household ' . $i,
+        [(int) $person->id()],
+      );
+    }
+
+    $user = $this->drupalCreateUser([
+      HouseholdAuthorizationService::PRODUCT_USE_PERMISSION,
+    ]);
+    $this->assertInstanceOf(UserInterface::class, $user);
+    $user->set(
+      CurrentPersonResolver::FIELD_NAME,
+      ['target_id' => (int) $person->id()],
+    );
+    $user->set(
+      HouseholdAuthorizationService::FIELD_NAME,
+      array_map(
+        static fn ($household): array => ['target_id' => (int) $household->id()],
+        $households,
+      ),
+    );
+    $user->set('timezone', 'Europe/Brussels');
+    $user->save();
+
+    return ['user' => $user, 'households' => $households];
+  }
+
+  private function loadTaskByTitle(string $title): PersonalTask {
+    $storage = $this->container
+      ->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $ids = $storage
+      ->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('title', $title)
+      ->execute();
+    $this->assertCount(1, $ids);
+    $task = $storage->load((int) reset($ids));
+    $this->assertInstanceOf(PersonalTask::class, $task);
+    return $task;
   }
 
   private function placeProductBlocks(): void {
