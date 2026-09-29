@@ -977,3 +977,7 @@ msgstr "Vous avez besoin d’un foyer autorisé contenant le membre du foyer li�
 
 msgid "Your current Person context is no longer valid."
 msgstr "Votre contexte de personne actuel n’est plus valide."
+
+
+msgid "Settings"
+msgstr "Paramètres"

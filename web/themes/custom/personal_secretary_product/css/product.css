@@ -1,0 +1,88 @@
+:root {
+  --ps-brand: #1b9ae4;
+  --ps-brand-strong: #086fae;
+  --ps-ink: #17202a;
+  --ps-muted: #607080;
+  --ps-line: #dbe3ea;
+  --ps-surface: #ffffff;
+  --ps-canvas: #f4f7f9;
+}
+body { background: var(--ps-canvas); color: var(--ps-ink); }
+.ps-app { min-height: 100vh; }
+.ps-app__header {
+  position: sticky; top: 0; z-index: 500;
+  background: rgba(255,255,255,.98); border-bottom: 1px solid var(--ps-line);
+  box-shadow: 0 2px 12px rgba(23,32,42,.06);
+}
+.ps-app__main { width: min(100% - 2rem, 72rem); margin-inline: auto; padding-block: 1.25rem 3rem; }
+.ps-product-header { width: min(100% - 2rem, 76rem); margin-inline: auto; padding-block: .65rem; }
+.ps-product-header__top,.ps-product-header__utilities { display:flex; align-items:center; gap:.75rem; }
+.ps-product-header__top { justify-content:space-between; }
+.ps-product-header__brand {
+  display:inline-flex; align-items:center; gap:.65rem; min-height:44px;
+  color:var(--ps-ink); font-size:1.05rem; font-weight:750; text-decoration:none;
+}
+.ps-product-header__mark {
+  display:inline-grid; place-items:center; width:2.25rem; height:2.25rem;
+  border-radius:.75rem; background:var(--ps-brand); color:#fff; font-size:.78rem; letter-spacing:.04em;
+}
+.ps-product-header__menu-toggle {
+  display:none; min-width:44px; min-height:44px; border:1px solid var(--ps-line);
+  border-radius:.75rem; background:var(--ps-surface); color:var(--ps-ink); font-size:1.3rem;
+}
+.ps-product-header__nav { margin-top:.65rem; }
+.ps-product-header__nav ul { display:flex; flex-wrap:wrap; gap:.25rem; margin:0; padding:0; list-style:none; }
+.ps-product-header__nav a,.ps-product-header__utility,.ps-product-header__languages a {
+  display:inline-flex; align-items:center; min-height:44px; border-radius:.7rem;
+  padding:.55rem .8rem; color:var(--ps-ink); text-decoration:none;
+}
+.ps-product-header__nav a:hover,.ps-product-header__nav a:focus-visible,
+.ps-product-header__utility:hover,.ps-product-header__utility:focus-visible,
+.ps-product-header__languages a:hover,.ps-product-header__languages a:focus-visible { background:#eaf5fc; outline:2px solid transparent; }
+.ps-product-header__nav a[aria-current="page"] { background:#dff1fb; color:var(--ps-brand-strong); font-weight:700; }
+.ps-product-header__utilities { justify-content:flex-end; margin-top:.35rem; color:var(--ps-muted); font-size:.9rem; }
+.ps-product-header__languages { display:inline-flex; gap:.15rem; border-left:1px solid var(--ps-line); padding-left:.4rem; }
+.ps-product-header__languages a[aria-current="true"] { color:var(--ps-brand-strong); font-weight:750; }
+.ps-app__main h1 { margin-block:0 .5rem; font-size:clamp(1.8rem,4vw,2.65rem); line-height:1.12; }
+.ps-today { display:flex; flex-direction:column; gap:1rem; }
+.ps-today__date-context { margin:0 0 .4rem; color:var(--ps-muted); order:0; }
+.ps-today-section--tasks { order:1; }
+.ps-today-section--activities { order:2; }
+.ps-today-section--preparations { order:3; }
+.ps-today-section {
+  border:1px solid var(--ps-line); border-radius:1rem; background:var(--ps-surface);
+  padding:1rem; box-shadow:0 5px 18px rgba(23,32,42,.04);
+}
+.ps-today-section > h2 { display:inline-block; margin:0 0 .8rem; font-size:1.25rem; }
+.ps-today-section > a { float:right; min-height:44px; padding:.45rem .25rem; }
+.ps-today-stack { clear:both; display:grid; gap:.75rem; }
+.ps-card,.personal-secretary-today-activity,.personal-secretary-preparation-item {
+  border:1px solid var(--ps-line); border-radius:.85rem; background:#fff; padding:.9rem;
+}
+.ps-card h3,.personal-secretary-today-activity h3,.personal-secretary-preparation-item h3 { margin:0 0 .45rem; font-size:1.05rem; }
+.ps-card a { display:inline-flex; align-items:center; min-height:40px; margin-right:.45rem; }
+.ps-task-card__due { display:block; margin-block:.35rem; color:var(--ps-muted); }
+.ps-empty-state { clear:both; margin:0; border:1px dashed #b9c7d2; border-radius:.8rem; background:#f8fafb; padding:1rem; color:var(--ps-muted); }
+.personal-secretary-today-activity dl,.personal-secretary-preparation-item dl { margin:0; }
+.personal-secretary-today-activity dl > div,.personal-secretary-preparation-item dl > div {
+  display:grid; grid-template-columns:minmax(5rem,auto) 1fr; gap:.6rem; margin-top:.35rem;
+}
+.personal-secretary-today-activity dt,.personal-secretary-preparation-item dt { color:var(--ps-muted); font-weight:650; }
+.personal-secretary-today-activity dd,.personal-secretary-preparation-item dd { margin:0; }
+@media (min-width:58rem) {
+  .ps-product-header { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:1rem; }
+  .ps-product-header__nav,.ps-product-header__utilities { margin-top:0; }
+  .ps-product-header__nav ul { justify-content:center; }
+  .ps-today { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); }
+  .ps-today__date-context { grid-column:1/-1; }
+  .ps-today-section--tasks,.ps-today-section--activities { grid-column:span 6; }
+  .ps-today-section--preparations { grid-column:1/-1; }
+}
+@media (max-width:57.99rem) {
+  .ps-product-header[data-navigation-enhanced="true"] .ps-product-header__menu-toggle { display:inline-grid; place-items:center; }
+  .ps-product-header[data-navigation-enhanced="true"] .ps-product-header__nav[data-open="false"] { display:none; }
+  .ps-product-header__nav ul { display:grid; grid-template-columns:1fr; }
+  .ps-product-header__nav a { width:100%; }
+  .ps-product-header__utilities { flex-wrap:wrap; justify-content:flex-start; }
+  .ps-product-header__utility { padding-inline:.35rem; }
+}

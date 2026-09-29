@@ -1,0 +1,8 @@
+# Minimal Selenium Chromium service for Drupal FunctionalJavascript tests.
+services:
+  selenium-chrome:
+    image: selenium/standalone-chromium:138.0
+    container_name: ddev-${DDEV_SITENAME}-selenium-chrome
+    environment:
+      - SE_NODE_MAX_SESSIONS=1
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true

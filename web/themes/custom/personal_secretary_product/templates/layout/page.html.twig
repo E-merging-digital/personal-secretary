@@ -1,0 +1,21 @@
+<div class="ps-app">
+  <header class="ps-app__header" role="banner">
+    {{ page.header }}
+  </header>
+
+  <main id="main-content" class="ps-app__main">
+    {% if page.highlighted %}
+      <div class="ps-app__messages">{{ page.highlighted }}</div>
+    {% endif %}
+    {% if page.help %}
+      <div class="ps-app__help">{{ page.help }}</div>
+    {% endif %}
+    {{ page.content }}
+  </main>
+
+  {% if page.footer %}
+    <footer class="ps-app__footer">
+      {{ page.footer }}
+    </footer>
+  {% endif %}
+</div>

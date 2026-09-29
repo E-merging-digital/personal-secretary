@@ -40,6 +40,7 @@ for module in navigation gin_toolbar pathauto token config_split date_recur lang
   assert_module_enabled "${module}"
 done
 grep -Fxq gin <<<"${enabled_themes}"
+grep -Fxq personal_secretary_product <<<"${enabled_themes}"
 assert_module_disabled config_translation
 "${DRUSH}" php:eval '
 $checks = [
