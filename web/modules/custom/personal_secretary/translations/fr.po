@@ -981,3 +981,8 @@ msgstr "Votre contexte de personne actuel n’est plus valide."
 
 msgid "Settings"
 msgstr "Paramètres"
+
+
+msgctxt "PersonalTask"
+msgid "Household"
+msgstr "Foyer concerné"
