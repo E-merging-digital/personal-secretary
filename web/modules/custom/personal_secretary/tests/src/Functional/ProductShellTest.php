@@ -71,6 +71,9 @@ final class ProductShellTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Paramètres');
     $this->assertSession()->linkNotExists('Gérer l’accès aux foyers');
 
+    $this->drupalGet('/fr/personal-secretary/tasks/add');
+    $this->assertSession()->pageTextContains('Foyer concerné');
+
     $this->drupalGet('/admin');
     $this->assertSession()->statusCodeEquals(403);
 
