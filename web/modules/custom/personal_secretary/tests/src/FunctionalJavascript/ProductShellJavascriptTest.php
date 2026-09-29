@@ -10,6 +10,7 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
+use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\user\UserInterface;
@@ -165,6 +166,48 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     );
     $brand->click();
     $assert->addressMatches('#/personal-secretary/today$#');
+  }
+
+  public function testPersonalTaskDueFieldVisibility(): void {
+    $user = $this->createProductUser();
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/tasks/add');
+
+    $assert = $this->assertSession();
+    $assert->statusCodeEquals(200);
+    $mode = $assert->fieldExists('due_mode');
+
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
+
+    $mode->selectOption(PersonalTask::DUE_DATE);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent !== null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
+
+    $mode->selectOption(PersonalTask::DUE_DATE_TIME);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent !== null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent !== null",
+    );
   }
 
   private function createProductUser(): UserInterface {
