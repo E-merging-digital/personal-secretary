@@ -1,6 +1,6 @@
 # Decision 0021 — Taxonomie Event / Activity et contrat Google Calendar
 
-Status: **PROPOSED — pending Project Lead acceptance**
+Status: **ACCEPTED**
 
 Decision issue: #200
 Source evidence: #189
