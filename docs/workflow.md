@@ -29,6 +29,152 @@ WHAT_MATERIAL_RISK_MUST_BE_PROVEN?
 Une ambiguïté d'architecture ou d'autorité retourne au Project Lead plutôt que
 d'être inventée par Delivery.
 
+## Clarification avant Delivery
+
+Pour toute Task modifiante qui implique du comportement produit, Project Lead
+applique avant spec/Delivery :
+
+```text
+USER INTENT
+-> RESEARCH CURRENT TRUTH
+-> CLARIFICATION_LEVEL = L0 | L1 | L2
+-> resolve only material decisions
+-> spec / Task
+-> Delivery
+```
+
+La question de gate est : reste-t-il une décision utilisateur significative
+susceptible de changer ce que Personal Secretary fait, quand il le fait ou avec
+quelles données ? Si non, avancer. Si oui, clarifier avant Delivery.
+
+### L0 — direct
+
+Utiliser L0 pour une demande claire et étroite sans décision produit matérielle
+non résolue, nouveau comportement automatique, nouvelle permission ou nouvelle
+implication sensible de données. Aucun échange de clarification n'est obligatoire.
+
+### L1 — clarification légère
+
+Utiliser L1 lorsqu'un petit nombre de choix peut changer matériellement le
+comportement visible. Rechercher la vérité actuelle, poser uniquement des
+questions ciblées dont la réponse peut changer une décision matérielle, puis
+arrêter dès que le besoin est assez clair.
+
+### L2 — clarification structurée
+
+Utiliser L2 pour une fonctionnalité/workflow matériellement nouveau, une
+automatisation/proactivité, une intégration externe, email/calendrier,
+notification, permission, nouvel usage de données personnelles, nouveau modèle
+mental ou changement UX/navigation important. Utiliser une clarification courte
+et structurée avant la spec et des slices Delivery bornés. L2 n'est pas le
+défaut.
+
+### Research before question
+
+```text
+DO NOT TURN PROJECT-LEAD RESEARCH DEBT INTO USER COGNITIVE LOAD
+STOP_WHEN_CLEAR = REQUIRED
+```
+
+Avant de questionner l'utilisateur, exploiter les preuves disponibles lorsque
+raisonnablement suffisantes : dépôt, issues/commentaires, décisions/docs,
+comportement produit/navigateur, design/Figma existant et documentation
+officielle. Ne pas demander ce qui peut être établi depuis ces sources. La
+clarification n'est pas un questionnaire et ne continue pas pour complétude ou
+symétrie.
+
+### Defaults et contrôle utilisateur
+
+Un default matériel est une décision produit. Selon le risque réel, décider
+seulement ce qui est pertinent parmi : default, opt-in/opt-out, persistance,
+scope, visibilité et réversibilité. Ne pas créer de setting lorsqu'un bon default
+suffit.
+
+Pour une automatisation/proactivité, examiner proportionnellement le trigger,
+l'action, sa visibilité, le besoin de confirmation, la réversibilité, la
+désactivation, le comportement d'erreur et la visibilité post-action. Une
+capacité technique ne constitue jamais à elle seule une autorité
+d'automatisation. Si l'action surprendrait raisonnablement l'utilisateur,
+préférer suggestion ou confirmation.
+
+Pour une notification, ne clarifier que ce qui est matériel : raison, moment,
+canal, urgence, répétition, désactivation et condition d'absence de notification.
+Éviter la fatigue notificationnelle.
+
+### Email, calendrier, permissions et données
+
+Préserver explicitement la frontière :
+
+```text
+READ
+SUGGEST
+DRAFT
+CREATE
+MODIFY
+SEND
+DELETE
+```
+
+Une autorité pour une capacité faible ne vaut jamais autorité silencieuse pour
+une capacité plus forte. `DRAFT != SEND`, `READ != MODIFY` et
+`REMIND ABOUT EVENT != MODIFY CALENDAR`.
+
+Pour un nouvel usage de calendrier, email, contacts, localisation, historique,
+fichiers, données personnelles ou API externe, appliquer la minimisation et ne
+clarifier que les dimensions matérielles : données nécessaires, finalité,
+permission, stockage/rétention, visibilité, service externe et comportement sans
+permission.
+
+Pour L1/L2, demander aussi si un utilisateur raisonnable pourrait être surpris
+par le comportement. Si oui, vérifier proportionnellement visibilité,
+consentement, feedback, réversibilité et opt-out.
+
+```text
+USEFUL BY DEFAULT
+CONFIGURABLE WHEN NEEDED
+```
+
+Ne pas exposer la complexité d'implémentation avant qu'elle produise une valeur
+utilisateur.
+
+### Escalade Delivery et frontière de spec
+
+Delivery doit STOP / RETURN PROJECT LEAD lorsqu'il découvre une nouvelle décision
+matérielle concernant :
+
+- comportement utilisateur ambigu;
+- choix UX significatif;
+- default;
+- permission;
+- automatisation/proactivité;
+- action externe;
+- élargissement matériel du scope;
+- architecture durable.
+
+Delivery n'escalade pas les choix locaux de classes, services, plugins,
+composants, structure interne ou tests proportionnés lorsque le comportement
+autorisé et les gates restent respectés.
+
+Project Lead/spec définit prioritairement problème, acteur, résultat attendu,
+comportement visible, defaults matériels, règles métier, décisions, contraintes,
+cas limites, erreurs et non-scope. Delivery conserve l'autonomie technique à
+l'intérieur de ces contrats.
+
+```text
+CLARIFICATION != HUMAN_ACCEPTANCE
+```
+
+La clarification réduit les mauvaises hypothèses avant implémentation; elle ne
+remplace jamais l'acceptance humaine du comportement réel, des defaults, du
+feedback, de la réversibilité, des permissions, notifications ou automatisations.
+
+Ce gate ne déclenche aucune réécriture rétroactive du backlog. Préserver
+`VALUE_FIRST`, `MINIMUM_NECESSARY`, `SIMPLEST_SUFFICIENT_PROCESS`,
+`STOP_WHEN_DOD_MET` et `NO_PROOF_FOR_PROOF_SAKE`; pas de grilling obligatoire,
+questionnaire massif, spec lourde pour L0, ADR pour chaque choix UX local,
+setting pour chaque option, automatisation sans besoin produit ni abstraction
+spéculative.
+
 ## Unité Git
 
 ```text
