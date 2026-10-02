@@ -170,6 +170,73 @@ externe; il ne doit pas devenir une boucle de reruns.
 Entre deux processus également sûrs, choisir le plus simple, le plus court et le
 moins coûteux.
 
+## Clarification proportionnée
+
+Avant toute Task modifiante qui change le comportement produit, Project Lead
+détermine proportionnellement :
+
+```text
+CLARIFICATION_LEVEL = L0 | L1 | L2
+```
+
+- **L0** : demande claire et étroite, sans décision produit matérielle non résolue,
+  nouveau comportement automatique, nouvelle permission ou nouvelle implication
+  sensible de données. Procéder directement avec une preuve proportionnée.
+- **L1** : quelques choix non résolus peuvent changer matériellement le comportement
+  visible. Rechercher d'abord la vérité actuelle, puis poser uniquement les
+  questions qui peuvent changer une décision matérielle.
+- **L2** : fonctionnalité/workflow matériellement nouveau, automatisation ou
+  proactivité, intégration externe, email/calendrier, notification, permission,
+  nouvel usage de données personnelles, nouveau modèle mental ou changement UX /
+  navigation important. Clarifier brièvement avant spec et Delivery. L2 n'est
+  jamais le défaut.
+
+Question centrale :
+
+```text
+SIGNIFICANT_USER_DECISION_REMAINS?
+NO  -> PROCEED
+YES -> CLARIFY_BEFORE_DELIVERY
+STOP_WHEN_CLEAR = REQUIRED
+```
+
+Ne pas transformer une dette de recherche Project Lead en charge cognitive
+utilisateur. Utiliser d'abord, lorsqu'ils suffisent raisonnablement, le dépôt,
+les issues/commentaires, décisions/docs, comportement produit/navigateur,
+designs existants et documentation officielle. La clarification n'est pas un
+questionnaire : arrêter dès que le besoin est assez clair.
+
+Un default matériel est une décision produit. Pour automatisation, proactivité,
+notifications, actions externes, permissions et données personnelles, préserver
+proportionnellement visibilité, consentement, réversibilité, opt-out et
+minimisation. Une capacité technique n'autorise pas un comportement automatique.
+
+Distinguer explicitement les niveaux d'action :
+
+```text
+READ / SUGGEST / DRAFT / CREATE / MODIFY / SEND / DELETE
+```
+
+Une autorité plus faible n'autorise jamais silencieusement une capacité plus
+forte. En particulier, `DRAFT != SEND`, `READ != MODIFY` et rappeler un
+événement n'autorise pas à modifier le calendrier.
+
+Delivery retourne au Project Lead lorsqu'il découvre une nouvelle décision
+matérielle sur le comportement utilisateur, l'UX, un default, une permission,
+une automatisation/proactivité, une action externe, un élargissement de scope ou
+une architecture durable. Les choix locaux d'implémentation compatibles avec le
+contrat autorisé restent autonomes.
+
+```text
+CLARIFICATION != HUMAN_ACCEPTANCE
+```
+
+La clarification réduit les hypothèses avant implémentation; l'acceptance humaine
+reste la preuve du comportement réel. Interdire le grilling obligatoire, les
+questionnaires massifs, les specs lourdes pour L0, les settings pour chaque
+option, l'automatisation parce qu'elle est techniquement possible et les
+abstractions spéculatives.
+
 ## Exécution et Codex
 
 Lire `docs/operations/execution-capabilities.md` avant de conclure qu'une
