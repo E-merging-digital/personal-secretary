@@ -24,6 +24,10 @@ final class GoogleCalendarRouteTest extends BrowserTestBase {
   protected $defaultTheme = 'stark';
 
   public function testGoogleCalendarRouteAuthorization(): void {
+    $exportRoute = $this->container->get('router.route_provider')->getRouteByName('personal_secretary.google_calendar_export');
+    $this->assertSame('use personal secretary', $exportRoute->getRequirement('_permission'));
+    $this->assertSame('TRUE', $exportRoute->getRequirement('_user_is_logged_in'));
+    $this->assertSame('\\Drupal\\personal_secretary\\Form\\GoogleCalendarExportForm', $exportRoute->getDefault('_form'));
     $routeName = 'personal_secretary.google_calendar_status';
     $path = '/personal-secretary/calendar/google';
 
