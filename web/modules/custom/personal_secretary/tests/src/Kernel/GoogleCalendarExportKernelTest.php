@@ -301,7 +301,7 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
       );
       $this->fail('Missing OAuth capability reached the Events API.');
     }
-    catch (\\RuntimeException) {
+    catch (\RuntimeException) {
       $this->addToAssertionCount(1);
     }
 
