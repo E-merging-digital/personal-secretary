@@ -291,6 +291,20 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
   }
 
   public function testTransportRequiresAValidTokenBeforeEgress(): void {
+    $httpWithoutOauth = $this->createMock(ClientInterface::class);
+    $httpWithoutOauth->expects($this->never())->method('request');
+    $transportWithoutOauth = new GoogleCalendarEventTransport(NULL, $httpWithoutOauth);
+    try {
+      $transportWithoutOauth->insert(
+        'ps' . hash('sha256', 'synthetic-event'),
+        ['summary' => 'Synthetic'],
+      );
+      $this->fail('Missing OAuth capability reached the Events API.');
+    }
+    catch (\\RuntimeException) {
+      $this->addToAssertionCount(1);
+    }
+
     foreach ([NULL, new AccessToken(['access_token' => 'synthetic-expired', 'expires' => time() - 60])] as $token) {
       $oauth = $this->createMock(Oauth2ClientServiceInterface::class);
       $oauth->method('getAccessToken')->willReturn($token);

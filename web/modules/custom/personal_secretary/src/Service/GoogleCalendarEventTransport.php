@@ -17,7 +17,7 @@ final class GoogleCalendarEventTransport {
   private const EVENTS_URI = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 
   public function __construct(
-    private readonly Oauth2ClientServiceInterface $oauth,
+    private readonly ?Oauth2ClientServiceInterface $oauth,
     private readonly ClientInterface $httpClient,
   ) {}
 
@@ -38,6 +38,9 @@ final class GoogleCalendarEventTransport {
     if (!preg_match('/^ps[0-9a-f]{64}$/D', $eventId)
       || array_diff(array_keys($payload), ['summary', 'location', 'start', 'end']) !== []) {
       throw new \InvalidArgumentException('Invalid Google owned event payload.');
+    }
+    if ($this->oauth === NULL) {
+      throw new \\RuntimeException('Google Calendar OAuth capability is unavailable.');
     }
     $token = $this->oauth->getAccessToken(GoogleCalendar::PLUGIN_ID, NULL);
     if (!$token instanceof AccessTokenInterface || $token->getToken() === ''

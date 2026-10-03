@@ -135,7 +135,7 @@ final class GoogleCalendarExistingInstallKernelTest extends KernelTestBase {
       $manager->uninstallEntityType($installed);
     }
     $this->container->get('module_handler')->loadInclude('personal_secretary', 'install');
-    $this->assertSame('Installed GoogleCalendarProjection with zero data/token backfill.', personal_secretary_update_11011());
+    $this->assertSame('Installed Google Calendar projection with zero backfill.', personal_secretary_update_11011());
     $definition = $manager->getEntityType(GoogleCalendarProjection::ENTITY_TYPE_ID);
     $this->assertNotNull($definition);
     $this->container->get('entity_type.manager')->clearCachedDefinitions();
