@@ -19,6 +19,8 @@ use Drupal\oauth2_client\Service\Oauth2ClientServiceInterface;
 use Drupal\personal_secretary\Entity\CalendarAccountConnection;
 use Drupal\personal_secretary\Plugin\Oauth2Client\GoogleCalendar;
 use Drupal\personal_secretary\Service\GoogleCalendarConnectionService;
+use Drupal\personal_secretary\Service\GoogleCalendarExportService;
+use Drupal\personal_secretary\Service\GoogleCalendarProjectionResolver;
 use GuzzleHttp\ClientInterface;
 use League\OAuth2\Client\Token\AccessTokenInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -51,6 +53,8 @@ final class GoogleCalendarController extends ControllerBase {
     protected ClientInterface $httpClient,
     protected RequestStack $requestStack,
     protected MessengerInterface $messengerService,
+    protected GoogleCalendarProjectionResolver $projectionResolver,
+    protected GoogleCalendarExportService $exportService,
   ) {}
 
   /**
@@ -68,6 +72,8 @@ final class GoogleCalendarController extends ControllerBase {
       $container->get('http_client'),
       $container->get('request_stack'),
       $container->get('messenger'),
+      $container->get('personal_secretary.google_calendar_projection_resolver'),
+      $container->get('personal_secretary.google_calendar_export'),
     );
   }
 
@@ -199,60 +205,214 @@ final class GoogleCalendarController extends ControllerBase {
   }
 
   /**
-   * Completes connection after contrib has validated state/exchanged code.
+   * Starts incremental write consent after one explicit CSRF-protected intent.
+   */
+  public function authorizeWrite(
+    string $series,
+    string $original_occurrence_key,
+  ): RedirectResponse {
+    $seriesId = (int) $series;
+    $key = (string) $original_occurrence_key;
+    $intent = $this->pendingStore()->get('write_intent');
+    $this->pendingStore()->delete('write_intent');
+
+    if (
+      !is_array($intent)
+      || (int) ($intent['uid'] ?? 0) !== (int) $this->currentUserAccount->id()
+      || (int) ($intent['series'] ?? 0) !== $seriesId
+      || (string) ($intent['key'] ?? '') !== $key
+      || (int) ($intent['expires'] ?? 0) < time()
+    ) {
+      throw new AccessDeniedHttpException(
+        'Explicit Google export submission is required.',
+      );
+    }
+
+    $this->projectionResolver->resolve($seriesId, $key);
+    if ($this->exportService->presentationState($seriesId, $key) !== 'NO_WRITE_GRANT') {
+      throw new AccessDeniedHttpException(
+        'Incremental Google Calendar consent is unavailable.',
+      );
+    }
+
+    $client = $this->clientPlugin();
+    if (
+      !$client instanceof GoogleCalendar
+      || trim($client->getClientId()) === ''
+      || trim($client->getClientSecret()) === ''
+    ) {
+      $this->messengerService->addError(
+        $this->t('Google Calendar connection is not configured yet.'),
+      );
+      return $this->detailRedirect($seriesId, $key);
+    }
+
+    $provider = $client->providerForScopes(
+      CalendarAccountConnection::incrementalWriteScopes(),
+      TRUE,
+    );
+    $authorizationUrl = $provider->getAuthorizationUrl();
+    $stateValue = (string) $provider->getState();
+    if ($authorizationUrl === '' || $stateValue === '') {
+      throw new \RuntimeException(
+        'Google OAuth authorization state could not be created.',
+      );
+    }
+
+    $this->tempStoreFactory
+      ->get('oauth2_client')
+      ->set(
+        'oauth2_client_state-' . GoogleCalendar::PLUGIN_ID,
+        $stateValue,
+      );
+
+    $this->pendingStore()->set(
+      self::PENDING_KEY,
+      [
+        'uid' => (int) $this->currentUserAccount->id(),
+        'state_hash' => hash('sha256', $stateValue),
+        'purpose' => 'write_export',
+        'series' => $seriesId,
+        'key' => $key,
+      ],
+    );
+
+    $request = $this->requestStack->getCurrentRequest();
+    if ($request !== NULL && $request->hasSession()) {
+      $request->getSession()->save();
+    }
+
+    return new TrustedRedirectResponse($authorizationUrl);
+  }
+
+  /**
+   * Completes base connection or bounded incremental write consent.
    */
   public function complete(): RedirectResponse {
+    $writeTarget = NULL;
+    $writeGrantVerified = FALSE;
+
     try {
       $this->assertPendingContext();
+      $pending = $this->pendingStore()->get(self::PENDING_KEY);
+      if (!is_array($pending)) {
+        throw new AccessDeniedHttpException(
+          'Google OAuth pending context is missing.',
+        );
+      }
+
+      $isWrite = ($pending['purpose'] ?? NULL) === 'write_export';
+      if ($isWrite) {
+        $seriesId = (int) ($pending['series'] ?? 0);
+        $key = $pending['key'] ?? NULL;
+        if (
+          $seriesId <= 0
+          || !is_string($key)
+          || $key === ''
+          || strlen($key) > 32
+        ) {
+          throw new AccessDeniedHttpException(
+            'Google write target is invalid.',
+          );
+        }
+        $writeTarget = [$seriesId, $key];
+      }
 
       $token = $this->oauth2ClientService->retrieveAccessToken(
         GoogleCalendar::PLUGIN_ID,
       );
-      if (!$token instanceof AccessTokenInterface) {
+      if (
+        !$token instanceof AccessTokenInterface
+        || $token->getToken() === ''
+        || !$token->getExpires()
+        || $token->hasExpired()
+      ) {
         throw new \RuntimeException(
-          'Google OAuth token was not captured.',
+          'Google OAuth token was not captured or is no longer valid.',
         );
       }
 
-      $scopes = $this->validatedScopes($token);
+      $scopes = $this->validatedScopes($token, $isWrite);
       $subject = $this->fetchOidcSubject($token);
-      $this->verifyPrimaryCalendar($token);
 
-      $this->connectionService->connect(
-        $subject,
-        $scopes,
-      );
+      if ($isWrite) {
+        $this->connectionService->grantWriteAccessSameSubject(
+          $subject,
+          $scopes,
+        );
+        $writeGrantVerified = TRUE;
 
-      $this->messengerService->addStatus(
-        $this->t('Google Calendar connected.'),
-      );
-    }
-    catch (\Throwable $exception) {
-      // Existing INVALID metadata remains INVALID on failed reconnect.
-      // A first failed connection remains NOT_CONNECTED.
-      $this->connectionService->markInvalid();
+        // Re-resolve current occurrence authority/eligibility/payload only now.
+        $result = $this->exportService->create(...$writeTarget);
+        if ($result !== 'SUCCESS') {
+          throw new \RuntimeException(
+            'Google event creation was not accepted.',
+          );
+        }
 
-      try {
-        $this->oauth2ClientService->clearAccessToken(
-          GoogleCalendar::PLUGIN_ID,
+        $this->messengerService->addStatus(
+          $this->t('Occurrence added to Google Calendar.'),
         );
       }
-      catch (\Throwable) {
-        // Local token cleanup is best effort here; disconnect has its own
-        // unconditional local-cleanup path.
+      else {
+        $this->verifyPrimaryCalendar($token);
+        $this->connectionService->connect(
+          $subject,
+          $scopes,
+        );
+        $this->messengerService->addStatus(
+          $this->t('Google Calendar connected.'),
+        );
+      }
+    }
+    catch (\Throwable) {
+      if (!$writeGrantVerified) {
+        // Base connection/reconnect failure and consent identity/scope mismatch
+        // fail closed. A provider create failure after verified write consent
+        // preserves the otherwise valid connection and grant.
+        $this->connectionService->markInvalid();
+        try {
+          $this->oauth2ClientService->clearAccessToken(
+            GoogleCalendar::PLUGIN_ID,
+          );
+        }
+        catch (\Throwable) {
+          // Best-effort local token cleanup.
+        }
       }
 
       $this->messengerService->addError(
-        $this->t(
-          'Google Calendar connection could not be verified.',
-        ),
+        $writeGrantVerified
+          ? $this->t(
+            'Google Calendar export failed. The connection is still available.',
+          )
+          : $this->t(
+            'Google Calendar connection could not be verified.',
+          ),
       );
     }
     finally {
       $this->clearAuthorizationContext();
     }
 
-    return $this->statusRedirect();
+    return $writeTarget === NULL
+      ? $this->statusRedirect()
+      : $this->detailRedirect(...$writeTarget);
+  }
+
+  private function detailRedirect(
+    int $series,
+    string $key,
+  ): RedirectResponse {
+    return new RedirectResponse(
+      Url::fromRoute(
+        'personal_secretary.occurrence_detail',
+        [
+          'series' => $series,
+          'original_occurrence_key' => $key,
+        ],
+      )->toString(),
+    );
   }
 
   /**
@@ -332,16 +492,22 @@ final class GoogleCalendarController extends ControllerBase {
    */
   private function validatedScopes(
     AccessTokenInterface $token,
+    bool $write = FALSE,
   ): array {
-    $expected = CalendarAccountConnection::connectionScopes();
+    $base = CalendarAccountConnection::connectionScopes();
 
     $values = method_exists($token, 'getValues')
       ? $token->getValues()
       : [];
-
     $reported = is_array($values)
       ? ($values['scope'] ?? NULL)
       : NULL;
+
+    if ($write && (!is_string($reported) || trim($reported) === '')) {
+      throw new \RuntimeException(
+        'Google write authorization requires token-reported scopes.',
+      );
+    }
 
     if (is_string($reported) && trim($reported) !== '') {
       $actual = preg_split(
@@ -353,16 +519,34 @@ final class GoogleCalendarController extends ControllerBase {
       $actual = array_values(array_unique($actual ?: []));
       sort($actual, SORT_STRING);
 
-      if ($actual !== $expected) {
+      if ($write) {
+        $allowed = CalendarAccountConnection::writeScopes();
+        if (
+          !in_array(
+            CalendarAccountConnection::SCOPE_EVENTS_OWNED,
+            $actual,
+            TRUE,
+          )
+          || array_diff($actual, $allowed) !== []
+        ) {
+          throw new \RuntimeException(
+            'Google returned an invalid incremental OAuth scope set.',
+          );
+        }
+
+        // Local authority persists the already-held base scopes plus the newly
+        // verified owned-event grant, never any broader provider scope.
+        return $allowed;
+      }
+
+      if ($actual !== $base) {
         throw new \RuntimeException(
           'Google returned a non-exact OAuth scope set.',
         );
       }
     }
 
-    // OAuth scope is permitted to be omitted from the token response when it
-    // equals the requested set. This provider never enables incremental scopes.
-    return $expected;
+    return $base;
   }
 
   /**
@@ -380,6 +564,7 @@ final class GoogleCalendarController extends ControllerBase {
           'Accept' => 'application/json',
         ],
         'http_errors' => FALSE,
+        'allow_redirects' => FALSE,
         'timeout' => 10,
       ],
     );
@@ -425,6 +610,7 @@ final class GoogleCalendarController extends ControllerBase {
           'Accept' => 'application/json',
         ],
         'http_errors' => FALSE,
+        'allow_redirects' => FALSE,
         'timeout' => 10,
       ],
     );

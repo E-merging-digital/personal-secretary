@@ -222,6 +222,13 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $page = $this->getSession()->getPage();
     $page->fillField('title', 'Single household browser task');
     $page->pressButton('Add task');
+    $this->assertTrue(
+      $this->getSession()->wait(
+        5000,
+        "window.location.pathname === '/personal-secretary/tasks/mine'",
+      ),
+      'Add task did not reach the task list within the bounded wait.',
+    );
     $assert->addressMatches('#/personal-secretary/tasks/mine$#');
     $assert->pageTextContains('Task added.');
     $assert->pageTextContains('Single household browser task');
@@ -243,6 +250,13 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $page = $this->getSession()->getPage();
     $page->fillField('title', 'Multiple household browser task');
     $page->pressButton('Add task');
+    $this->assertTrue(
+      $this->getSession()->wait(
+        5000,
+        "window.location.pathname === '/personal-secretary/tasks/mine'",
+      ),
+      'Add task did not reach the task list within the bounded wait.',
+    );
     $assert->addressMatches('#/personal-secretary/tasks/mine$#');
     $assert->pageTextContains('Task added.');
     $assert->pageTextContains('Multiple household browser task');
@@ -287,17 +301,45 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $assert
       ->elementExists('css', $rowSelector . ' .ps-task-row__complete')
       ->click();
+    $this->assertTrue(
+      $this->getSession()->wait(
+        5000,
+        "window.location.pathname === '/personal-secretary/tasks/mine' && document.querySelector('[data-ps-task-id=\"{$taskId}\"]') === null",
+      ),
+      'Complete did not remove the task row within the bounded wait.',
+    );
     $assert->addressMatches('#/personal-secretary/tasks/mine#');
     $assert->elementNotExists('css', $rowSelector);
     $assert->pageTextContains('Task completed.');
+    $this->assertTrue(
+      $this->getSession()->wait(
+        5000,
+        "Array.from(document.querySelectorAll('button, input[type=submit]')).some(function (el) { return (el.value || el.textContent || '').trim() === 'Reopen task'; })",
+      ),
+      'Complete did not expose Reopen task within the bounded wait.',
+    );
     $assert->buttonExists('Reopen task')->click();
 
+    $this->assertTrue(
+      $this->getSession()->wait(
+        5000,
+        "window.location.pathname === '/personal-secretary/tasks/mine' && document.querySelector('[data-ps-task-id=\"{$taskId}\"]') !== null",
+      ),
+      'Reopen did not restore the task row within the bounded wait.',
+    );
     $assert->addressMatches('#/personal-secretary/tasks/mine$#');
     $assert->elementExists('css', $rowSelector);
 
     $assert
       ->elementExists('css', $rowSelector . ' .ps-task-row__delete')
       ->click();
+    $this->assertTrue(
+      $this->getSession()->wait(
+        5000,
+        "document.body && document.body.textContent.indexOf('This action cannot be undone.') !== -1",
+      ),
+      'Delete did not reach the confirmation surface within the bounded wait.',
+    );
     $assert->pageTextContains('This action cannot be undone.');
 
     $storage = $this->container

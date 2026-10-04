@@ -47,6 +47,26 @@ final class CalendarAccountConnection extends ContentEntityBase {
   public const SCOPE_CALENDARS_READONLY =
     'https://www.googleapis.com/auth/calendar.calendars.readonly';
 
+  public const SCOPE_EVENTS_OWNED =
+    'https://www.googleapis.com/auth/calendar.events.owned';
+
+  public static function incrementalWriteScopes(): array {
+    return [self::SCOPE_EVENTS_OWNED];
+  }
+
+  public static function writeScopes(): array {
+    $scopes = [...self::connectionScopes(), self::SCOPE_EVENTS_OWNED];
+    sort($scopes, SORT_STRING);
+    return $scopes;
+  }
+
+  public function hasWriteScope(): bool {
+    $scopes = array_column($this->get('scopes')->getValue(), 'value');
+    sort($scopes, SORT_STRING);
+    return $this->get('status')->value === self::STATUS_CONNECTED
+      && $scopes === self::writeScopes();
+  }
+
   /**
    * Returns the exact connection scopes in deterministic order.
    *
@@ -155,7 +175,7 @@ final class CalendarAccountConnection extends ContentEntityBase {
     $scopes = array_keys($scopes);
     sort($scopes, SORT_STRING);
 
-    if ($scopes !== self::connectionScopes()) {
+    if ($scopes !== self::connectionScopes() && $scopes !== self::writeScopes()) {
       throw new EntityStorageException(
         'CalendarAccountConnection requires exact connection scopes.',
       );

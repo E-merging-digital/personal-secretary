@@ -7,6 +7,7 @@ namespace Drupal\personal_secretary\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Form\GoogleCalendarExportForm;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\PauseRecurringActivityService;
@@ -140,6 +141,19 @@ final class UpcomingController extends ControllerBase {
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
+    $occurrence = $this->buildItems([$item], $isAdmin, !$isAdmin, FALSE);
+    try {
+      $google = $this->formBuilder()->getForm(GoogleCalendarExportForm::class, $series, $original_occurrence_key);
+      $occurrence[0]['occurrence_actions'] ??= [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--occurrence']],
+        'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('This occurrence')],
+      ];
+      $occurrence[0]['occurrence_actions']['google_calendar'] = $google;
+    }
+    catch (InvalidArgumentException|\RuntimeException) {
+      // Ineligible occurrences have no Google action; domain detail stays usable.
+    }
 
     return [
       '#type' => 'container',
@@ -151,7 +165,7 @@ final class UpcomingController extends ControllerBase {
         '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
         '#attributes' => ['class' => ['ps-occurrence-detail__back']],
       ],
-      'occurrence' => $this->buildItems([$item], $isAdmin, !$isAdmin, FALSE),
+      'occurrence' => $occurrence,
     ];
   }
 

@@ -111,6 +111,13 @@ final class GoogleCalendar extends Oauth2ClientPluginBase implements
    * {@inheritdoc}
    */
   public function getProvider(): AbstractProvider {
+    return $this->providerForScopes(CalendarAccountConnection::connectionScopes(), FALSE);
+  }
+
+  /**
+   * Builds only the base or exact incremental write provider.
+   */
+  public function providerForScopes(array $scopes, bool $incremental): GoogleCalendarProvider {
     return new GoogleCalendarProvider(
       [
         'clientId' => $this->getClientId(),
@@ -119,10 +126,11 @@ final class GoogleCalendar extends Oauth2ClientPluginBase implements
         'urlAuthorize' => $this->getAuthorizationUri(),
         'urlAccessToken' => $this->getTokenUri(),
         'urlResourceOwnerDetails' => $this->getResourceUri(),
-        'scopes' => $this->getScopes(),
+        'scopes' => $scopes,
         'scopeSeparator' => $this->getScopeSeparator(),
       ],
       $this->getCollaborators(),
+      $incremental,
     );
   }
 
