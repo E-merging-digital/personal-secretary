@@ -103,7 +103,12 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
       $this->assertArrayNotHasKey('approval_prompt', $query);
       $this->assertSame('offline', $query['access_type'] ?? NULL);
       $this->assertSame(implode(' ', $scopes), $query['scope']);
-      $this->assertSame($incremental ? 'true' : NULL, $query['include_granted_scopes'] ?? NULL);
+      if ($incremental) {
+        $this->assertSame('true', $query['include_granted_scopes'] ?? NULL);
+      }
+      else {
+        $this->assertArrayNotHasKey('include_granted_scopes', $query);
+      }
     }
   }
 
