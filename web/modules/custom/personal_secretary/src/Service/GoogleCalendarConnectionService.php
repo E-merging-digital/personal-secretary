@@ -54,6 +54,7 @@ final class GoogleCalendarConnectionService {
       return NULL;
     }
 
+    $storage->resetCache([$ids[0]]);
     $connection = $storage->load($ids[0]);
     return $connection instanceof CalendarAccountConnection
       ? $connection
@@ -138,6 +139,31 @@ final class GoogleCalendarConnectionService {
     $connection->save();
 
     return $connection;
+  }
+
+  public function hasWriteGrant(): bool {
+    return $this->currentConnection()?->hasWriteScope() ?? FALSE;
+  }
+
+  /**
+   * Grants bounded write authority only to the already connected subject.
+   */
+  public function grantWriteAccessSameSubject(string $subject, array $scopes): void {
+    $connection = $this->currentConnection();
+    sort($scopes, SORT_STRING);
+    if ($connection === NULL
+      || $connection->get('status')->value !== CalendarAccountConnection::STATUS_CONNECTED
+      || !hash_equals((string) $connection->get('provider_subject_id')->value, $subject)
+      || $scopes !== CalendarAccountConnection::writeScopes()) {
+      throw new \InvalidArgumentException('Google write authority could not be verified.');
+    }
+    $connection->set(
+      'scopes',
+      array_map(
+        static fn(string $scope): array => ['value' => $scope],
+        $scopes,
+      ),
+    )->save();
   }
 
   /**

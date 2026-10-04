@@ -1023,3 +1023,43 @@ msgstr "Non prêt"
 
 msgid "No upcoming preparations are assigned to you in the next 7 days."
 msgstr "Aucun préparatif à venir ne vous est attribué dans les 7 prochains jours."
+
+# Manual Google Calendar export and update.
+msgid "Authorize Google Calendar event access to add this occurrence to your primary calendar. Only its title, time and location are shared. Updates are always manual."
+msgstr "Autorisez l’accès aux événements Google Agenda pour ajouter cette occurrence à votre agenda principal. Seuls son titre, ses horaires et son lieu sont partagés. Les mises à jour sont toujours manuelles."
+
+msgid "This occurrence is up to date in Google Calendar."
+msgstr "Cette occurrence est à jour dans Google Agenda."
+
+msgid "This occurrence has changes to send to Google Calendar."
+msgstr "Cette occurrence comporte des modifications à envoyer à Google Agenda."
+
+msgid "Google Calendar has a conflicting event or account. No overwrite is available."
+msgstr "L’événement ou le compte Google Agenda présente un conflit. Aucun écrasement n’est proposé."
+
+msgid "The Google Calendar event is missing. No recreation is available."
+msgstr "L’événement Google Agenda est introuvable. Aucune recréation n’est proposée."
+
+msgid "This occurrence has not been added to Google Calendar."
+msgstr "Cette occurrence n’a pas été ajoutée à Google Agenda."
+
+msgid "Authorize and add to Google Calendar"
+msgstr "Autoriser et ajouter à Google Agenda"
+
+msgid "Add to Google Calendar"
+msgstr "Ajouter à Google Agenda"
+
+msgid "Update Google Calendar"
+msgstr "Mettre à jour Google Agenda"
+
+msgid "Google Calendar is up to date."
+msgstr "Google Agenda est à jour."
+
+msgid "Google Calendar could not be updated. No retry was made."
+msgstr "Google Agenda n’a pas pu être mis à jour. Aucune nouvelle tentative n’a été effectuée."
+
+msgid "Occurrence added to Google Calendar."
+msgstr "Occurrence ajoutée à Google Agenda."
+
+msgid "Google Calendar export failed. The connection is still available."
+msgstr "L’export vers Google Agenda a échoué. La connexion reste disponible."

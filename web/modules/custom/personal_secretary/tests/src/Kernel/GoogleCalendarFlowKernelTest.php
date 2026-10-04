@@ -570,6 +570,8 @@ final class GoogleCalendarFlowKernelTest extends KernelTestBase {
       $http,
       $this->container->get('request_stack'),
       $this->container->get('messenger'),
+      $this->container->get('personal_secretary.google_calendar_projection_resolver'),
+      $this->container->get('personal_secretary.google_calendar_export'),
     );
   }
 
