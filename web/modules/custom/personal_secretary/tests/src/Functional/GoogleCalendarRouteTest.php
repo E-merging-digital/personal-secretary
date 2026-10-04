@@ -32,6 +32,23 @@ final class GoogleCalendarRouteTest extends BrowserTestBase {
     $path = '/personal-secretary/calendar/google';
 
     $provider = $this->container->get('router.route_provider');
+
+    $connectRoute = $provider->getRouteByName(
+      'personal_secretary.google_calendar_connect',
+    );
+    $this->assertTrue(
+      $connectRoute->getOption('no_cache'),
+      'Base Google OAuth connect must bypass Dynamic Page Cache.',
+    );
+
+    $authorizeWriteRoute = $provider->getRouteByName(
+      'personal_secretary.google_calendar_authorize_write',
+    );
+    $this->assertTrue(
+      $authorizeWriteRoute->getOption('no_cache'),
+      'Incremental Google OAuth authorization must remain no-cache.',
+    );
+
     $accessManager = $this->container->get('access_manager');
     $currentUser = $this->container->get('current_user');
     $router = $this->container->get('router');
