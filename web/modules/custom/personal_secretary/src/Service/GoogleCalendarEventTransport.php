@@ -40,7 +40,7 @@ final class GoogleCalendarEventTransport {
       throw new \InvalidArgumentException('Invalid Google owned event payload.');
     }
     if ($this->oauth === NULL) {
-      throw new \\RuntimeException('Google Calendar OAuth capability is unavailable.');
+      throw new \RuntimeException('Google Calendar OAuth capability is unavailable.');
     }
     $token = $this->oauth->getAccessToken(GoogleCalendar::PLUGIN_ID, NULL);
     if (!$token instanceof AccessTokenInterface || $token->getToken() === ''
