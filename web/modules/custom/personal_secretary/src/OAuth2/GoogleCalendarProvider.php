@@ -31,7 +31,10 @@ final class GoogleCalendarProvider extends GenericProvider {
     if ($this->incremental) {
       $options['include_granted_scopes'] = 'true';
     }
-    return parent::getAuthorizationParameters($options);
+    $options = parent::getAuthorizationParameters($options);
+    unset($options['approval_prompt']);
+
+    return $options;
   }
 
 }

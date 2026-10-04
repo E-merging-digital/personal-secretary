@@ -99,6 +99,9 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
         'urlResourceOwnerDetails' => 'https://example.test/userinfo', 'scopes' => $scopes, 'scopeSeparator' => ' ',
       ], [], $incremental);
       parse_str((string) parse_url($provider->getAuthorizationUrl(['scope' => ['email'], 'include_granted_scopes' => 'true']), PHP_URL_QUERY), $query);
+      $this->assertSame('consent', $query['prompt'] ?? NULL);
+      $this->assertArrayNotHasKey('approval_prompt', $query);
+      $this->assertSame('offline', $query['access_type'] ?? NULL);
       $this->assertSame(implode(' ', $scopes), $query['scope']);
       $this->assertSame($incremental ? 'true' : NULL, $query['include_granted_scopes'] ?? NULL);
     }
