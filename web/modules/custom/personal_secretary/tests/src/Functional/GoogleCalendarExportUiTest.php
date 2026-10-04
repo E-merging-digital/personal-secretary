@@ -92,13 +92,17 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
     $resolved = $this->container->get('personal_secretary.google_calendar_projection_resolver')->resolve((int) $series->id(), $key);
     $builder = $this->container->get('personal_secretary.google_calendar_payload');
     $mapping = $this->container->get('personal_secretary.google_calendar_mapping')->create(
-      $series->uuid(), $key, 'synthetic-subject', $builder->eventId($series->uuid(), $key), '"synthetic-etag"', $builder->fingerprint($builder->build($resolved)),
+      $series->uuid(), $key, 'synthetic-subject', $builder->eventId($series->uuid(), $key), '"synthetic-etag"', 'https://calendar.google.com/calendar/event?eid=synthetic-ui', $builder->fingerprint($builder->build($resolved)),
     );
     $this->drupalGet($detail);
     $this->assertSession()->pageTextContains('This occurrence is up to date in Google Calendar.');
+    $this->assertSession()->linkExists('Open in Google Calendar');
+    $this->assertSession()->linkByHrefExists('https://calendar.google.com/calendar/event?eid=synthetic-ui');
     $this->assertSession()->buttonNotExists('Add to Google Calendar');
     $series->set('location', 'Synthetic changed room')->save();
     $this->drupalGet($detail);
+    $this->assertSession()->linkExists('Open in Google Calendar');
+    $this->assertSession()->linkByHrefExists('https://calendar.google.com/calendar/event?eid=synthetic-ui');
     $this->assertSession()->buttonExists('Update Google Calendar');
     foreach ([GoogleCalendarProjection::CONFLICT, GoogleCalendarProjection::REMOTE_MISSING] as $state) {
       $mapping->set('state', $state)->save();
@@ -106,6 +110,7 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
       $this->assertSession()->pageTextContains($state === GoogleCalendarProjection::CONFLICT ? 'No overwrite is available.' : 'No recreation is available.');
       $this->assertSession()->buttonNotExists('Update Google Calendar');
       $this->assertSession()->buttonNotExists('Add to Google Calendar');
+      $this->assertSession()->linkNotExists('Open in Google Calendar');
     }
 
     if (ConfigurableLanguage::load('fr') === NULL) {
@@ -127,6 +132,14 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
       'Ajouter à Google Agenda',
       (string) $translations->translate(
         'Add to Google Calendar',
+        [],
+        ['langcode' => 'fr'],
+      ),
+    );
+    $this->assertSame(
+      'Ouvrir dans Google Agenda',
+      (string) $translations->translate(
+        'Open in Google Calendar',
         [],
         ['langcode' => 'fr'],
       ),

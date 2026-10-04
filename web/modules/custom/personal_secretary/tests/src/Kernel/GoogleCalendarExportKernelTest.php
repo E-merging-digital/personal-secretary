@@ -140,11 +140,14 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     $this->assertSame('NOT_EXPORTED', $exports->presentationState((int) $series->id(), $key));
     $this->assertSame('SUCCESS', $exports->create((int) $series->id(), $key));
     $this->assertSame('CURRENT', $exports->presentationState((int) $series->id(), $key));
+    $this->assertSame('https://calendar.google.com/calendar/event?eid=synthetic-1', $exports->providerLink((int) $series->id(), $key));
+    $this->assertCount(1, $this->requests);
     $this->assertSame('NOOP', $exports->update((int) $series->id(), $key));
     $this->assertCount(1, $this->requests);
     $series->set('location', 'Updated synthetic room')->save();
     $this->assertSame('STALE', $exports->presentationState((int) $series->id(), $key));
     $this->assertSame('SUCCESS', $exports->update((int) $series->id(), $key));
+    $this->assertSame('https://calendar.google.com/calendar/event?eid=synthetic-2', $exports->providerLink((int) $series->id(), $key));
     $this->assertSame('POST', $this->requests[0][0]);
     $this->assertSame('PATCH', $this->requests[1][0]);
     $this->assertSame('"etag-1"', $this->requests[1][2]['headers']['If-Match']);
@@ -159,6 +162,7 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     $this->assertSame('CONFLICT', $exports->presentationState((int) $series->id(), $key));
     $mapping = $this->container->get('personal_secretary.google_calendar_mapping')->find($series->uuid(), $key);
     $this->assertSame('"etag-2"', $mapping->get('etag')->value);
+    $this->assertSame('https://calendar.google.com/calendar/event?eid=synthetic-2', $mapping->get('provider_link')->value);
     try {
       $exports->update((int) $series->id(), $key);
       $this->fail('Conflict must not offer an overwrite.');
@@ -172,6 +176,41 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     $missingSeries->set('location', 'Changed')->save();
     $this->assertSame('REMOTE_MISSING', $exports->update((int) $missingSeries->id(), $missingKey));
     $this->assertSame('REMOTE_MISSING', $exports->presentationState((int) $missingSeries->id(), $missingKey));
+  }
+
+  public function testMalformedProviderLinkFailsClosedForCreateAndUpdate(): void {
+    [$series, $key] = $this->fixture();
+    $this->grant();
+    $exports = $this->exportsWithResponses([200], ['http://calendar.google.com/unsafe']);
+    try {
+      $exports->create((int) $series->id(), $key);
+      $this->fail('Non-HTTPS provider metadata created a durable mapping.');
+    }
+    catch (\RuntimeException) {
+      $this->assertNull($this->container->get('personal_secretary.google_calendar_mapping')->find($series->uuid(), $key));
+      $this->assertCount(1, $this->requests);
+    }
+
+    [$updateSeries, $updateKey] = $this->fixture();
+    $exports = $this->exportsWithResponses(
+      [200, 200],
+      ['https://calendar.google.com/calendar/event?eid=valid-create', 'javascript:alert(1)'],
+    );
+    $this->assertSame('SUCCESS', $exports->create((int) $updateSeries->id(), $updateKey));
+    $mapping = $this->container->get('personal_secretary.google_calendar_mapping')->find($updateSeries->uuid(), $updateKey);
+    $this->assertSame('https://calendar.google.com/calendar/event?eid=valid-create', $mapping->get('provider_link')->value);
+    $updateSeries->set('location', 'Changed after create')->save();
+    try {
+      $exports->update((int) $updateSeries->id(), $updateKey);
+      $this->fail('Malformed PATCH provider metadata changed the durable mapping.');
+    }
+    catch (\RuntimeException) {
+      $this->container->get('entity_type.manager')->getStorage(GoogleCalendarProjection::ENTITY_TYPE_ID)->resetCache([$mapping->id()]);
+      $mapping = GoogleCalendarProjection::load($mapping->id());
+      $this->assertSame('https://calendar.google.com/calendar/event?eid=valid-create', $mapping->get('provider_link')->value);
+      $this->assertSame('"etag-1"', $mapping->get('etag')->value);
+      $this->assertCount(2, $this->requests);
+    }
   }
 
   public function testDuplicateDoesNotCreateMappingOrRetry(): void {
@@ -347,16 +386,17 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     return new AccessToken(['access_token' => 'synthetic-access', 'expires' => time() + 3600, 'scope' => implode(' ', CalendarAccountConnection::writeScopes())]);
   }
 
-  private function exportsWithResponses(array $statuses): GoogleCalendarExportService {
+  private function exportsWithResponses(array $statuses, ?array $providerLinks = NULL): GoogleCalendarExportService {
     $oauth = $this->createMock(Oauth2ClientServiceInterface::class);
     $oauth->method('getAccessToken')->willReturn($this->token());
     $http = $this->createMock(ClientInterface::class);
     $this->requests = [];
-    $http->expects($this->exactly(count($statuses)))->method('request')->willReturnCallback(function (string $method, string $uri, array $options) use (&$statuses): Response {
+    $providerLinks ??= array_map(static fn (int $index): string => 'https://calendar.google.com/calendar/event?eid=synthetic-' . ($index + 1), array_keys($statuses));
+    $http->expects($this->exactly(count($statuses)))->method('request')->willReturnCallback(function (string $method, string $uri, array $options) use (&$statuses, &$providerLinks): Response {
       $this->requests[] = [$method, $uri, $options];
       $this->assertFalse($options['allow_redirects']);
       $this->assertSame([], array_diff(array_keys($options['json']), ['id', 'summary', 'location', 'start', 'end']));
-      return new Response(array_shift($statuses), [], json_encode(['id' => $options['json']['id'] ?? basename($uri), 'etag' => '"etag-' . count($this->requests) . '"'], JSON_THROW_ON_ERROR));
+      return new Response(array_shift($statuses), [], json_encode(['id' => $options['json']['id'] ?? basename($uri), 'etag' => '"etag-' . count($this->requests) . '"', 'htmlLink' => array_shift($providerLinks)], JSON_THROW_ON_ERROR));
     });
     return new GoogleCalendarExportService(
       $this->container->get('personal_secretary.google_calendar_projection_resolver'),

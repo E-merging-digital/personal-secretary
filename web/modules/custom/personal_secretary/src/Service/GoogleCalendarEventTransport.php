@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Service;
 
 use Drupal\oauth2_client\Service\Oauth2ClientServiceInterface;
+use Drupal\personal_secretary\Entity\GoogleCalendarProjection;
 use Drupal\personal_secretary\Plugin\Oauth2Client\GoogleCalendar;
 use GuzzleHttp\ClientInterface;
 use League\OAuth2\Client\Token\AccessTokenInterface;
@@ -62,11 +63,13 @@ final class GoogleCalendarEventTransport {
     if (($method === 'POST' && $status >= 200 && $status < 300) || ($method === 'PATCH' && $status === 200)) {
       $data = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
       $newEtag = is_array($data) ? ($data['etag'] ?? NULL) : NULL;
+      $providerLink = is_array($data) ? ($data['htmlLink'] ?? NULL) : NULL;
       if (!is_string($newEtag) || $newEtag === '' || $newEtag === '*' || strlen($newEtag) > 255 || preg_match('/[\r\n]/', $newEtag)
+        || !is_string($providerLink) || !GoogleCalendarProjection::isValidProviderLink($providerLink)
         || ($method === 'POST' && ($data['id'] ?? NULL) !== $eventId)) {
         throw new \RuntimeException('Google returned invalid event metadata.');
       }
-      return ['status' => 'SUCCESS', 'event_id' => $eventId, 'etag' => $newEtag];
+      return ['status' => 'SUCCESS', 'event_id' => $eventId, 'etag' => $newEtag, 'provider_link' => $providerLink];
     }
     return ['status' => match (TRUE) {
       $method === 'POST' && $status === 409 => 'DUPLICATE',

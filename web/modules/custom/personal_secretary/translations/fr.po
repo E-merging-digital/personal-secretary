@@ -1052,6 +1052,9 @@ msgstr "Ajouter à Google Agenda"
 msgid "Update Google Calendar"
 msgstr "Mettre à jour Google Agenda"
 
+msgid "Open in Google Calendar"
+msgstr "Ouvrir dans Google Agenda"
+
 msgid "Google Calendar is up to date."
 msgstr "Google Agenda est à jour."
 

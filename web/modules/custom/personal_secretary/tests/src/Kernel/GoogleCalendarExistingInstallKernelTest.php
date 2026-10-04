@@ -142,6 +142,7 @@ final class GoogleCalendarExistingInstallKernelTest extends KernelTestBase {
     $storage = $this->container->get('entity_type.manager')->getStorage(GoogleCalendarProjection::ENTITY_TYPE_ID);
     $this->assertCount(0, $storage->loadMultiple());
     $this->assertTrue(Database::getConnection()->schema()->tableExists('personal_sec_google_projection'));
+    $this->assertNotNull($manager->getFieldStorageDefinition('provider_link', GoogleCalendarProjection::ENTITY_TYPE_ID));
     foreach (GoogleCalendarProjection::baseFieldDefinitions($definition) as $name => $field) {
       $installedField = $manager->getFieldStorageDefinition($name, GoogleCalendarProjection::ENTITY_TYPE_ID);
       $this->assertNotNull($installedField);
@@ -153,6 +154,7 @@ final class GoogleCalendarExistingInstallKernelTest extends KernelTestBase {
       'series_uuid' => 'synthetic-series', 'original_occurrence_key' => '2031-03-01T09:00:00Z',
       'provider_subject_id' => 'synthetic-subject',
       'event_id' => 'ps' . hash('sha256', 'synthetic-event'), 'etag' => '"synthetic-etag"',
+      'provider_link' => 'https://calendar.google.com/calendar/event?eid=synthetic-existing-install',
       'payload_fingerprint' => hash('sha256', 'synthetic-payload'), 'state' => GoogleCalendarProjection::ACTIVE,
     ];
     $first = $storage->create($values);

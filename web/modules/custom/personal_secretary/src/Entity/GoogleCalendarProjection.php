@@ -49,6 +49,7 @@ final class GoogleCalendarProjection extends ContentEntityBase {
       'provider_subject_id' => 255,
       'event_id' => 66,
       'etag' => 255,
+      'provider_link' => 2048,
       'payload_fingerprint' => 64,
       'state' => 16,
     ] as $name => $length) {
@@ -63,6 +64,17 @@ final class GoogleCalendarProjection extends ContentEntityBase {
 
   public static function identityHash(int $owner, string $seriesUuid, string $key): string {
     return hash('sha256', json_encode([$owner, 'google', $seriesUuid, $key], JSON_THROW_ON_ERROR));
+  }
+
+  public static function isValidProviderLink(string $link): bool {
+    if ($link === '' || strlen($link) > 2048 || preg_match('/[\r\n]/', $link)) {
+      return FALSE;
+    }
+    $parts = parse_url($link);
+    return is_array($parts)
+      && strtolower((string) ($parts['scheme'] ?? '')) === 'https'
+      && trim((string) ($parts['host'] ?? '')) !== ''
+      && filter_var($link, FILTER_VALIDATE_URL) !== FALSE;
   }
 
   public function preSave(EntityStorageInterface $storage): void {
@@ -83,7 +95,9 @@ final class GoogleCalendarProjection extends ContentEntityBase {
       }
     }
     $etag = (string) $this->get('etag')->value;
+    $providerLink = (string) $this->get('provider_link')->value;
     if ($etag === '' || $etag === '*' || strlen($etag) > 255 || preg_match('/[\r\n]/', $etag)
+      || !self::isValidProviderLink($providerLink)
       || !preg_match('/^ps[0-9a-f]{64}$/D', (string) $this->get('event_id')->value)
       || trim((string) $this->get('provider_subject_id')->value) === ''
       || strlen((string) $this->get('provider_subject_id')->value) > 255) {

@@ -32,12 +32,12 @@ final class GoogleCalendarProjectionRepository {
     return $mapping instanceof GoogleCalendarProjection ? $mapping : NULL;
   }
 
-  public function create(string $uuid, string $key, string $subject, string $eventId, string $etag, string $fingerprint): GoogleCalendarProjection {
+  public function create(string $uuid, string $key, string $subject, string $eventId, string $etag, string $providerLink, string $fingerprint): GoogleCalendarProjection {
     $mapping = $this->entityTypeManager->getStorage(GoogleCalendarProjection::ENTITY_TYPE_ID)->create([
       'owner_user' => $this->uid(), 'provider' => 'google', 'target' => 'primary',
       'series_uuid' => $uuid, 'original_occurrence_key' => $key,
       'provider_subject_id' => $subject, 'event_id' => $eventId, 'etag' => $etag,
-      'payload_fingerprint' => $fingerprint, 'state' => GoogleCalendarProjection::ACTIVE,
+      'provider_link' => $providerLink, 'payload_fingerprint' => $fingerprint, 'state' => GoogleCalendarProjection::ACTIVE,
     ]);
     $mapping->save();
     return $mapping;
@@ -50,9 +50,9 @@ final class GoogleCalendarProjectionRepository {
     }
   }
 
-  public function updated(GoogleCalendarProjection $mapping, string $subject, string $etag, string $fingerprint): void {
+  public function updated(GoogleCalendarProjection $mapping, string $subject, string $etag, string $providerLink, string $fingerprint): void {
     $this->requireSubject($mapping, $subject);
-    $mapping->set('etag', $etag)->set('payload_fingerprint', $fingerprint)
+    $mapping->set('etag', $etag)->set('provider_link', $providerLink)->set('payload_fingerprint', $fingerprint)
       ->set('state', GoogleCalendarProjection::ACTIVE)->save();
   }
 

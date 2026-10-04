@@ -57,6 +57,20 @@ final class GoogleCalendarExportForm extends FormBase {
         default => $this->t('This occurrence has not been added to Google Calendar.'),
       }];
     }
+    $providerLink = in_array($state, ['CURRENT', 'STALE'], TRUE)
+      ? $this->exports->providerLink($seriesId, $key)
+      : NULL;
+    if ($providerLink !== NULL) {
+      $form['provider_link'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Open in Google Calendar'),
+        '#url' => Url::fromUri($providerLink),
+        '#attributes' => [
+          'target' => '_blank',
+          'rel' => ['noopener', 'noreferrer'],
+        ],
+      ];
+    }
     $label = match ($state) {
       'NO_WRITE_GRANT' => $this->t('Authorize and add to Google Calendar'),
       'NOT_EXPORTED' => $this->t('Add to Google Calendar'),

@@ -48,6 +48,26 @@ final class GoogleCalendarExportService {
     return hash_equals((string) $mapping->get('payload_fingerprint')->value, $this->payloads->fingerprint($this->payloads->build($resolved))) ? 'CURRENT' : 'STALE';
   }
 
+  public function providerLink(int $seriesId, string $key): ?string {
+    $resolved = $this->resolver->resolve($seriesId, $key);
+    $connection = $this->connections->currentConnection();
+    if ($connection === NULL || $connection->get('status')->value !== CalendarAccountConnection::STATUS_CONNECTED) {
+      return NULL;
+    }
+    $mapping = $this->mappings->find($resolved['series']->uuid(), $key);
+    if ($mapping === NULL || $mapping->get('state')->value !== GoogleCalendarProjection::ACTIVE) {
+      return NULL;
+    }
+    try {
+      $this->mappings->requireSubject($mapping, (string) $connection->get('provider_subject_id')->value);
+    }
+    catch (\InvalidArgumentException) {
+      return NULL;
+    }
+    $link = (string) $mapping->get('provider_link')->value;
+    return GoogleCalendarProjection::isValidProviderLink($link) ? $link : NULL;
+  }
+
   public function create(int $seriesId, string $key): string {
     [$resolved, $subject] = $this->authorized($seriesId, $key);
     $uuid = $resolved['series']->uuid();
@@ -57,7 +77,7 @@ final class GoogleCalendarExportService {
     $payload = $this->payloads->build($resolved);
     $result = $this->transport->insert($this->payloads->eventId($uuid, $key), $payload);
     if ($result['status'] === 'SUCCESS') {
-      $this->mappings->create($uuid, $key, $subject, $result['event_id'], $result['etag'], $this->payloads->fingerprint($payload));
+      $this->mappings->create($uuid, $key, $subject, $result['event_id'], $result['etag'], $result['provider_link'], $this->payloads->fingerprint($payload));
     }
     return $result['status'];
   }
@@ -76,7 +96,7 @@ final class GoogleCalendarExportService {
     }
     $result = $this->transport->update((string) $mapping->get('event_id')->value, (string) $mapping->get('etag')->value, $payload);
     if ($result['status'] === 'SUCCESS') {
-      $this->mappings->updated($mapping, $subject, $result['etag'], $fingerprint);
+      $this->mappings->updated($mapping, $subject, $result['etag'], $result['provider_link'], $fingerprint);
     }
     elseif (in_array($result['status'], [GoogleCalendarProjection::CONFLICT, GoogleCalendarProjection::REMOTE_MISSING], TRUE)) {
       $this->mappings->mark($mapping, $subject, $result['status']);
