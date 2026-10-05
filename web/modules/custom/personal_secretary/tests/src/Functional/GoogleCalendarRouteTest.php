@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\personal_secretary\Functional;
 
+use Drupal\personal_secretary\Entity\CalendarAccountConnection;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\UserInterface;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -18,6 +19,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 final class GoogleCalendarRouteTest extends BrowserTestBase {
 
   protected static $modules = [
+    'dynamic_page_cache',
     'personal_secretary',
   ];
 
@@ -54,6 +56,11 @@ final class GoogleCalendarRouteTest extends BrowserTestBase {
     $router = $this->container->get('router');
 
     $route = $provider->getRouteByName($routeName);
+
+    $this->assertTrue(
+      $route->getOption('no_cache'),
+      'Mutable Google Calendar status must bypass Dynamic Page Cache.',
+    );
 
     $this->assertSame(
       'use personal secretary',
@@ -160,6 +167,46 @@ final class GoogleCalendarRouteTest extends BrowserTestBase {
       $match['_route'] ?? NULL,
       'Authorized User must resolve the Google Calendar status route.',
     );
+  }
+
+  /**
+   * Proves connected state cannot replay a stale NOT_CONNECTED response.
+   */
+  public function testGoogleCalendarStatusCannotReplayNotConnectedAfterSave(): void {
+    $account = $this->drupalCreateUser([
+      'use personal secretary',
+    ]);
+    $this->assertInstanceOf(UserInterface::class, $account);
+    $this->drupalLogin($account);
+
+    $path = '/personal-secretary/calendar/google';
+
+    $this->drupalGet($path);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains(
+      'Google Calendar status: NOT_CONNECTED',
+    );
+    $this->assertSession()->linkExists('Connect Google Calendar');
+
+    $connection = CalendarAccountConnection::create([
+      'owner_user' => $account->id(),
+      'provider_subject_id' => 'synthetic-cacheability-subject',
+      'scopes' => CalendarAccountConnection::connectionScopes(),
+      'status' => CalendarAccountConnection::STATUS_CONNECTED,
+      'connected_at' => time(),
+    ]);
+    $connection->save();
+
+    $this->drupalGet($path);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains(
+      'Google Calendar status: CONNECTED',
+    );
+    $this->assertSession()->pageTextNotContains(
+      'Google Calendar status: NOT_CONNECTED',
+    );
+    $this->assertSession()->linkNotExists('Connect Google Calendar');
+    $this->assertSession()->linkExists('Disconnect Google Calendar');
   }
 
 }
