@@ -216,6 +216,254 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
   }
 
   /**
+   * Proves dead time-commitment affordances stay hidden without widening scope.
+   */
+  public function testAffordanceRequiresSupportedFutureOccurrence(): void {
+    $this->installUserPersonFieldViaEntityApi();
+
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    /** @var \Drupal\personal_secretary\Service\AddActivityService $addActivity */
+    $addActivity = $this->container->get('personal_secretary.add_activity');
+    /** @var \Drupal\personal_secretary\Service\EditTimeCommitmentService $editor */
+    $editor = $this->container->get('personal_secretary.edit_time_commitment');
+    /** @var \Drupal\personal_secretary\Service\UpcomingActivityService $upcoming */
+    $upcoming = $this->container->get('personal_secretary.upcoming_activity');
+
+    $timezone = $this->timezoneWithCurrentDayRoom();
+    $nowLocal = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone($timezone);
+    $todayStart = $nowLocal->setTime(0, 0);
+    $timedStart = $nowLocal->modify('+1 hour');
+    $this->assertSame($todayStart->format('Y-m-d'), $timedStart->format('Y-m-d'));
+    $futureStart = $todayStart->modify('+1 day')->setTime(9, 0);
+    $recurringStart = $todayStart->modify('+1 day')->setTime(11, 0);
+
+    $person = $domain->createPerson('Time Commitment Affordance Person');
+    $household = $domain->createHousehold(
+      'Time Commitment Affordance Household',
+      [(int) $person->id()],
+    );
+
+    $currentAllDay = $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'Current-day one-off all-day',
+      $todayStart,
+      $todayStart->modify('+1 day'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $currentTimed = $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'Current-day one-off timed',
+      $timedStart,
+      $timedStart->modify('+1 hour'),
+    );
+    $futureOneOff = $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'Future one-off timed',
+      $futureStart,
+      $futureStart->modify('+1 hour'),
+    );
+    $recurring = $addActivity->addWeeklyActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'Recurring future timed',
+      $recurringStart,
+      $recurringStart->modify('+1 hour'),
+    );
+
+    $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
+    $authorized->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
+    $authorized->set('timezone', $timezone->getName());
+    $authorized->save();
+    $this->drupalLogin($authorized);
+
+    $allDayEditUrl = $this->timeCommitmentEditUrl($currentAllDay);
+    $timedEditUrl = $this->timeCommitmentEditUrl($currentTimed);
+    $futureEditUrl = $this->timeCommitmentEditUrl($futureOneOff);
+    $recurringEditUrl = $this->timeCommitmentEditUrl($recurring);
+
+    $this->assertFalse($editor->canEdit((int) $currentAllDay->id()));
+    $this->assertFalse($editor->canEdit((int) $currentTimed->id()));
+    $this->assertTrue($editor->canEdit((int) $futureOneOff->id()));
+    $this->assertTrue($editor->canEdit((int) $recurring->id()));
+
+    $baselineCounts = $this->allDomainCounts();
+    $baselineRevisions = $this->seriesRevisions([
+      $currentAllDay,
+      $currentTimed,
+      $futureOneOff,
+      $recurring,
+    ]);
+
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Current-day one-off all-day');
+    $this->assertSession()->pageTextContains('Current-day one-off timed');
+    $this->assertSession()->pageTextContains('Future one-off timed');
+    $this->assertSession()->pageTextContains('Recurring future timed');
+    $this->assertSession()->linkByHrefNotExists($allDayEditUrl);
+    $this->assertSession()->linkByHrefNotExists($timedEditUrl);
+    $this->assertSession()->linkByHrefExists($futureEditUrl);
+    $this->assertSession()->linkByHrefExists($recurringEditUrl);
+
+    $this->drupalGet('/personal-secretary/upcoming/mine');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Current-day one-off all-day');
+    $this->assertSession()->pageTextContains('Current-day one-off timed');
+    $this->assertSession()->linkByHrefNotExists($allDayEditUrl);
+    $this->assertSession()->linkByHrefNotExists($timedEditUrl);
+    $this->assertSession()->linkByHrefExists($futureEditUrl);
+    $this->assertSession()->linkByHrefExists($recurringEditUrl);
+
+    $personalized = $upcoming->upcomingForPersonInHouseholds(
+      $person,
+      [(int) $household->id()],
+    );
+    $allDayDetailUrl = $this->detailUrlForLabel($personalized, 'Current-day one-off all-day');
+    $timedDetailUrl = $this->detailUrlForLabel($personalized, 'Current-day one-off timed');
+
+    $this->drupalGet($allDayDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Current-day one-off all-day');
+    $this->assertSession()->linkByHrefNotExists($allDayEditUrl);
+
+    $this->drupalGet($timedDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Current-day one-off timed');
+    $this->assertSession()->linkByHrefNotExists($timedEditUrl);
+
+    $this->drupalGet($allDayEditUrl);
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($timedEditUrl);
+    $this->assertSession()->statusCodeEquals(404);
+
+    $this->drupalGet($futureEditUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldExists('effective_from_date');
+    $this->assertSession()->fieldExists('mode');
+
+    $this->drupalGet($recurringEditUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldExists('effective_from_date');
+    $this->assertSession()->fieldExists('mode');
+
+    $this->assertSame($baselineCounts, $this->allDomainCounts());
+    $this->assertSame($baselineRevisions, $this->seriesRevisions([
+      $currentAllDay,
+      $currentTimed,
+      $futureOneOff,
+      $recurring,
+    ]));
+  }
+
+  /**
+   * Selects a timezone with enough room for a current-day timed occurrence.
+   */
+  private function timezoneWithCurrentDayRoom(): DateTimeZone {
+    $timestamp = $this->container->get('datetime.time')->getCurrentTime();
+    foreach ([
+      'Pacific/Pago_Pago',
+      'Pacific/Honolulu',
+      'America/Los_Angeles',
+      'America/Denver',
+      'America/Chicago',
+      'America/New_York',
+      'UTC',
+      'Europe/Brussels',
+      'Asia/Dubai',
+      'Asia/Kolkata',
+      'Asia/Tokyo',
+      'Australia/Sydney',
+      'Pacific/Auckland',
+    ] as $timezoneId) {
+      $timezone = new DateTimeZone($timezoneId);
+      $hour = (int) (new DateTimeImmutable('@' . $timestamp))
+        ->setTimezone($timezone)
+        ->format('G');
+      if ($hour >= 4 && $hour <= 18) {
+        return $timezone;
+      }
+    }
+
+    throw new \RuntimeException('Unable to select a stable current-day test timezone.');
+  }
+
+  /**
+   * Builds the time-commitment editor URL for one persisted series.
+   */
+  private function timeCommitmentEditUrl(ActivitySeries $series): string {
+    return Url::fromRoute(
+      'personal_secretary.edit_time_commitment',
+      ['series' => (int) $series->id()],
+    )->toString();
+  }
+
+  /**
+   * Builds an occurrence-detail URL for one exact presentation item.
+   *
+   * @param array<int, array<string, mixed>> $items
+   *   Personalized occurrence presentation items.
+   * @param string $label
+   *   Exact activity label to resolve.
+   *
+   * @return string
+   *   Route URL for the matching occurrence detail.
+   */
+  private function detailUrlForLabel(array $items, string $label): string {
+    $matches = array_values(array_filter(
+      $items,
+      static fn(array $item): bool => ($item['activity_label'] ?? '') === $label,
+    ));
+    $this->assertCount(1, $matches);
+    $target = $matches[0]['responsibility_target'];
+
+    return Url::fromRoute(
+      'personal_secretary.occurrence_detail',
+      [
+        'series' => (int) $target['series_id'],
+        'original_occurrence_key' => (string) $target['original_occurrence_key'],
+      ],
+    )->toString();
+  }
+
+  /**
+   * Captures persisted revision IDs without mutating the supplied series.
+   *
+   * @param \Drupal\personal_secretary\Entity\ActivitySeries[] $series
+   *   Activity series whose revision IDs must remain stable across GETs.
+   *
+   * @return array<int, string>
+   *   Revision IDs keyed by series ID.
+   */
+  private function seriesRevisions(array $series): array {
+    $storage = $this->container
+      ->get('entity_type.manager')
+      ->getStorage('personal_sec_activity_series');
+    $ids = array_map(
+      static fn(ActivitySeries $activity): int => (int) $activity->id(),
+      $series,
+    );
+    $storage->resetCache($ids);
+
+    $revisions = [];
+    foreach ($ids as $id) {
+      $reloaded = $storage->load($id);
+      $this->assertInstanceOf(ActivitySeries::class, $reloaded);
+      $revisions[$id] = (string) $reloaded->getRevisionId();
+    }
+    ksort($revisions);
+    return $revisions;
+  }
+
+  /**
    * @param array<string, mixed> $baseline
    */
   private function assertPreservedBaseline(

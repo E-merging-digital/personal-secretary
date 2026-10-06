@@ -33,6 +33,19 @@ final class EditTimeCommitmentService {
   ) {}
 
   /**
+   * Returns whether the existing future-only editor has a supported context.
+   */
+  public function canEdit(int $seriesId): bool {
+    try {
+      $this->context($seriesId);
+      return TRUE;
+    }
+    catch (InvalidArgumentException | RuntimeException) {
+      return FALSE;
+    }
+  }
+
+  /**
    * @return array{
    *   series: \Drupal\personal_secretary\Entity\ActivitySeries,
    *   source_timezone: string,
