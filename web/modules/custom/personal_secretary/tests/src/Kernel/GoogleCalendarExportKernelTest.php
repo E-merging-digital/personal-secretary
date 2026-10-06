@@ -142,7 +142,7 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
 
   public function testCreateNoopConditionalUpdateAndTerminalStates(): void {
     [$series, $key] = $this->fixture();
-    $exports = $this->exportsWithResponses([200, 200, 412]);
+    $exports = $this->exportsWithResponses([200, 200, 412, 200]);
     $this->assertSame('NOT_CONNECTED', $exports->presentationState((int) $series->id(), $key));
     $this->grant();
     $this->assertSame('NOT_EXPORTED', $exports->presentationState((int) $series->id(), $key));
@@ -163,10 +163,15 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     $this->assertSame('application/json', $this->requests[1][2]['headers']['Accept']);
     $this->assertArrayNotHasKey('id', $this->requests[1][2]['json']);
     $this->assertSame($this->requests[0][1] . '/' . $this->requests[0][2]['json']['id'], $this->requests[1][1]);
+    $this->assertCount(2, $this->requests);
+    $this->assertSame(['POST', 'PATCH'], array_column($this->requests, 0));
     $series->set('location', '')->save();
     $this->assertSame('CONFLICT', $exports->update((int) $series->id(), $key));
     $this->assertSame('"etag-2"', $this->requests[2][2]['headers']['If-Match']);
     $this->assertNull($this->requests[2][2]['json']['location']);
+    $this->assertSame('GET', $this->requests[3][0]);
+    $this->assertSame($this->requests[2][1], $this->requests[3][1]);
+    $this->assertSame(['fields' => 'id,status,etag'], $this->requests[3][2]['query']);
     $this->assertSame('CONFLICT', $exports->presentationState((int) $series->id(), $key));
     $mapping = $this->container->get('personal_secretary.google_calendar_mapping')->find($series->uuid(), $key);
     $this->assertSame('"etag-2"', $mapping->get('etag')->value);
@@ -176,7 +181,7 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
       $this->fail('Conflict must not offer an overwrite.');
     }
     catch (\InvalidArgumentException) {
-      $this->assertCount(3, $this->requests);
+      $this->assertCount(4, $this->requests);
     }
     [$missingSeries, $missingKey] = $this->fixture();
     $exports = $this->exportsWithResponses([200, 404]);
@@ -184,6 +189,66 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     $missingSeries->set('location', 'Changed')->save();
     $this->assertSame('REMOTE_MISSING', $exports->update((int) $missingSeries->id(), $missingKey));
     $this->assertSame('REMOTE_MISSING', $exports->presentationState((int) $missingSeries->id(), $missingKey));
+    $this->assertCount(2, $this->requests);
+    $this->assertSame(['POST', 'PATCH'], array_column($this->requests, 0));
+  }
+
+  public function testPatch412UsesOneExactGetForRemoteDeleteClassification(): void {
+    $cases = [
+      'cancelled' => [200, ['status' => 'cancelled'], GoogleCalendarProjection::REMOTE_MISSING],
+      'active confirmed' => [200, ['status' => 'confirmed'], GoogleCalendarProjection::CONFLICT],
+      'active tentative' => [200, ['status' => 'tentative'], GoogleCalendarProjection::CONFLICT],
+      'not found' => [404, NULL, GoogleCalendarProjection::REMOTE_MISSING],
+      'unauthorized' => [401, NULL, GoogleCalendarProjection::CONFLICT],
+      'forbidden' => [403, NULL, GoogleCalendarProjection::CONFLICT],
+      'gone' => [410, NULL, GoogleCalendarProjection::CONFLICT],
+      'server error' => [503, NULL, GoogleCalendarProjection::CONFLICT],
+      'transport failure' => [new \RuntimeException('synthetic transport failure'), NULL, GoogleCalendarProjection::CONFLICT],
+      'malformed body' => [200, '{', GoogleCalendarProjection::CONFLICT],
+      'invalid status' => [200, ['status' => 'unsupported'], GoogleCalendarProjection::CONFLICT],
+    ];
+
+    foreach ($cases as $label => [$getResponse, $getBody, $expected]) {
+      [$series, $key] = $this->fixture();
+      $this->grant();
+      $exports = $this->exportsWithResponses(
+        [200, 412, $getResponse],
+        getBodies: $getBody === NULL ? [] : [$getBody],
+      );
+      $this->assertSame('SUCCESS', $exports->create((int) $series->id(), $key), $label);
+      $series->set('location', 'Changed ' . $label)->save();
+      $this->assertSame($expected, $exports->update((int) $series->id(), $key), $label);
+      $this->assertCount(3, $this->requests, $label);
+      $this->assertSame(['POST', 'PATCH', 'GET'], array_column($this->requests, 0), $label);
+
+      $eventId = (string) $this->requests[0][2]['json']['id'];
+      $this->assertSame($this->requests[0][1] . '/' . $eventId, $this->requests[1][1], $label);
+      $this->assertSame($this->requests[1][1], $this->requests[2][1], $label);
+      $this->assertSame(['fields' => 'id,status,etag'], $this->requests[2][2]['query'], $label);
+      $this->assertSame('Bearer synthetic-access', $this->requests[2][2]['headers']['Authorization'], $label);
+      $this->assertSame('application/json', $this->requests[2][2]['headers']['Accept'], $label);
+      $this->assertArrayNotHasKey('If-Match', $this->requests[2][2]['headers'], $label);
+      $this->assertArrayNotHasKey('json', $this->requests[2][2], $label);
+      $this->assertFalse($this->requests[2][2]['allow_redirects'], $label);
+      $this->assertSame(10, $this->requests[2][2]['timeout'], $label);
+      $this->assertSame($expected, $exports->presentationState((int) $series->id(), $key), $label);
+
+      $requestCount = count($this->requests);
+      try {
+        $exports->update((int) $series->id(), $key);
+        $this->fail('Terminal classification offered another overwrite: ' . $label);
+      }
+      catch (\InvalidArgumentException) {
+        $this->assertCount($requestCount, $this->requests, $label);
+      }
+      try {
+        $exports->create((int) $series->id(), $key);
+        $this->fail('Terminal classification offered blind recreation: ' . $label);
+      }
+      catch (\InvalidArgumentException) {
+        $this->assertCount($requestCount, $this->requests, $label);
+      }
+    }
   }
 
   public function testMalformedProviderLinkFailsClosedForCreateAndUpdate(): void {
@@ -394,17 +459,47 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
     return new AccessToken(['access_token' => 'synthetic-access', 'expires' => time() + 3600, 'scope' => implode(' ', CalendarAccountConnection::writeScopes())]);
   }
 
-  private function exportsWithResponses(array $statuses, ?array $providerLinks = NULL): GoogleCalendarExportService {
+  private function exportsWithResponses(array $responses, ?array $providerLinks = NULL, array $getBodies = []): GoogleCalendarExportService {
     $oauth = $this->createMock(Oauth2ClientServiceInterface::class);
     $oauth->method('getAccessToken')->willReturn($this->token());
     $http = $this->createMock(ClientInterface::class);
     $this->requests = [];
-    $providerLinks ??= array_map(static fn (int $index): string => 'https://calendar.google.com/calendar/event?eid=synthetic-' . ($index + 1), array_keys($statuses));
-    $http->expects($this->exactly(count($statuses)))->method('request')->willReturnCallback(function (string $method, string $uri, array $options) use (&$statuses, &$providerLinks): Response {
+    $providerIndex = 0;
+    $http->expects($this->exactly(count($responses)))->method('request')->willReturnCallback(function (string $method, string $uri, array $options) use (&$responses, &$providerLinks, &$getBodies, &$providerIndex): Response {
       $this->requests[] = [$method, $uri, $options];
       $this->assertFalse($options['allow_redirects']);
+      $next = array_shift($responses);
+      if ($next instanceof \Throwable) {
+        throw $next;
+      }
+      $status = (int) $next;
+
+      if ($method === 'GET') {
+        $this->assertArrayNotHasKey('json', $options);
+        $this->assertSame(['fields' => 'id,status,etag'], $options['query']);
+        $body = array_shift($getBodies);
+        if (is_string($body)) {
+          return new Response($status, [], $body);
+        }
+        $data = is_array($body) ? $body : [];
+        $data += [
+          'id' => basename($uri),
+          'status' => 'confirmed',
+          'etag' => '"get-etag"',
+        ];
+        return new Response($status, [], json_encode($data, JSON_THROW_ON_ERROR));
+      }
+
       $this->assertSame([], array_diff(array_keys($options['json']), ['id', 'summary', 'location', 'start', 'end']));
-      return new Response(array_shift($statuses), [], json_encode(['id' => $options['json']['id'] ?? basename($uri), 'etag' => '"etag-' . count($this->requests) . '"', 'htmlLink' => array_shift($providerLinks)], JSON_THROW_ON_ERROR));
+      $providerIndex++;
+      $providerLink = $providerLinks !== NULL
+        ? array_shift($providerLinks)
+        : 'https://calendar.google.com/calendar/event?eid=synthetic-' . $providerIndex;
+      return new Response($status, [], json_encode([
+        'id' => $options['json']['id'] ?? basename($uri),
+        'etag' => '"etag-' . $providerIndex . '"',
+        'htmlLink' => $providerLink,
+      ], JSON_THROW_ON_ERROR));
     });
     return new GoogleCalendarExportService(
       $this->container->get('personal_secretary.google_calendar_projection_resolver'),

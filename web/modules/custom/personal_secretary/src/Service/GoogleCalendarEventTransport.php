@@ -11,7 +11,7 @@ use GuzzleHttp\ClientInterface;
 use League\OAuth2\Client\Token\AccessTokenInterface;
 
 /**
- * One bounded Events request, with no retries or redirected credentials.
+ * Bounded Events requests, with no retries or redirected credentials.
  */
 final class GoogleCalendarEventTransport {
 
@@ -71,12 +71,65 @@ final class GoogleCalendarEventTransport {
       }
       return ['status' => 'SUCCESS', 'event_id' => $eventId, 'etag' => $newEtag, 'provider_link' => $providerLink];
     }
+    if ($method === 'PATCH' && $status === 412) {
+      return ['status' => $this->classifyPatchConflict($eventId, $headers['Authorization'])];
+    }
     return ['status' => match (TRUE) {
       $method === 'POST' && $status === 409 => 'DUPLICATE',
-      $method === 'PATCH' && $status === 412 => 'CONFLICT',
       $method === 'PATCH' && $status === 404 => 'REMOTE_MISSING',
       default => 'FAILED',
     }];
+  }
+
+  private function classifyPatchConflict(string $eventId, string $authorization): string {
+    try {
+      $response = $this->httpClient->request('GET', self::EVENTS_URI . '/' . rawurlencode($eventId), [
+        'headers' => [
+          'Authorization' => $authorization,
+          'Accept' => 'application/json',
+        ],
+        'query' => ['fields' => 'id,status,etag'],
+        'http_errors' => FALSE,
+        'allow_redirects' => FALSE,
+        'timeout' => 10,
+      ]);
+    }
+    catch (\Throwable) {
+      return GoogleCalendarProjection::CONFLICT;
+    }
+
+    $statusCode = $response->getStatusCode();
+    if ($statusCode === 404) {
+      return GoogleCalendarProjection::REMOTE_MISSING;
+    }
+    if ($statusCode !== 200) {
+      return GoogleCalendarProjection::CONFLICT;
+    }
+
+    try {
+      $data = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
+    }
+    catch (\Throwable) {
+      return GoogleCalendarProjection::CONFLICT;
+    }
+
+    $providerEventId = is_array($data) ? ($data['id'] ?? NULL) : NULL;
+    $providerStatus = is_array($data) ? ($data['status'] ?? NULL) : NULL;
+    $providerEtag = is_array($data) ? ($data['etag'] ?? NULL) : NULL;
+    if ($providerEventId !== $eventId
+      || !is_string($providerStatus)
+      || !in_array($providerStatus, ['confirmed', 'tentative', 'cancelled'], TRUE)
+      || !is_string($providerEtag)
+      || $providerEtag === ''
+      || $providerEtag === '*'
+      || strlen($providerEtag) > 255
+      || preg_match('/[\r\n]/', $providerEtag)) {
+      return GoogleCalendarProjection::CONFLICT;
+    }
+
+    return $providerStatus === 'cancelled'
+      ? GoogleCalendarProjection::REMOTE_MISSING
+      : GoogleCalendarProjection::CONFLICT;
   }
 
 }
