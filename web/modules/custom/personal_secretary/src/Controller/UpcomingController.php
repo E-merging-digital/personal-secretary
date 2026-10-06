@@ -9,6 +9,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Form\GoogleCalendarExportForm;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
+use Drupal\personal_secretary\Service\EditTimeCommitmentService;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\PauseRecurringActivityService;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
@@ -26,6 +27,7 @@ final class UpcomingController extends ControllerBase {
     private readonly EntityTypeManagerInterface $domainEntityTypeManager,
     private readonly CurrentPersonResolver $currentPersonResolver,
     private readonly HouseholdAuthorizationService $householdAuthorization,
+    private readonly EditTimeCommitmentService $timeCommitmentEditor,
     private readonly PauseRecurringActivityService $pauseRecurringActivity,
   ) {}
 
@@ -35,6 +37,7 @@ final class UpcomingController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('personal_secretary.current_person'),
       $container->get('personal_secretary.household_authorization'),
+      $container->get('personal_secretary.edit_time_commitment'),
       $container->get('personal_secretary.pause_recurring_activity'),
     );
   }
@@ -270,12 +273,14 @@ final class UpcomingController extends ControllerBase {
         '#url' => Url::fromRoute('personal_secretary.edit_recurring_responsibility', ['series' => $scheduleTarget['series_id']]),
         '#attributes' => ['class' => ['ps-action-link']],
       ];
-      $seriesActions['time_commitment'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Change time commitment'),
-        '#url' => Url::fromRoute('personal_secretary.edit_time_commitment', ['series' => $scheduleTarget['series_id']]),
-        '#attributes' => ['class' => ['ps-action-link']],
-      ];
+      if ($this->timeCommitmentEditor->canEdit((int) $scheduleTarget['series_id'])) {
+        $seriesActions['time_commitment'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Change time commitment'),
+          '#url' => Url::fromRoute('personal_secretary.edit_time_commitment', ['series' => $scheduleTarget['series_id']]),
+          '#attributes' => ['class' => ['ps-action-link']],
+        ];
+      }
       if ($this->pauseRecurringActivity->canPause((int) $scheduleTarget['series_id'])) {
         $seriesActions['pause'] = [
           '#type' => 'link',
