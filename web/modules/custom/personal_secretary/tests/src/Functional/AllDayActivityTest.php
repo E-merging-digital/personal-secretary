@@ -190,6 +190,148 @@ final class AllDayActivityTest extends BrowserTestBase {
     }
   }
 
+  /**
+   * Proves ALL_DAY overlap visibility without widening TIMED semantics.
+   */
+  public function testUpcomingAllDayOverlapPreservesTimedWindow(): void {
+    $this->installUserPersonFieldViaEntityApi();
+
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $addActivity = $this->container->get('personal_secretary.add_activity');
+    $upcoming = $this->container->get('personal_secretary.upcoming_activity');
+
+    $utc = new DateTimeZone('UTC');
+    $brussels = new DateTimeZone('Europe/Brussels');
+    $nowUtc = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone($utc);
+    $nowLocal = $nowUtc->setTimezone($brussels);
+    $todayStart = $nowLocal->setTime(0, 0);
+
+    $currentPerson = $domain->createPerson('Synthetic overlap current person');
+    $household = $domain->createHousehold(
+      'Synthetic overlap household',
+      [(int) $currentPerson->id()],
+    );
+
+    $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->assertInstanceOf(UserInterface::class, $authorized);
+    $authorized->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $currentPerson->id()]);
+    $authorized->set('timezone', 'Europe/Brussels');
+    $authorized->save();
+    $this->drupalLogin($authorized);
+
+    $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $currentPerson->id(),
+      'Synthetic current-day all-day',
+      $todayStart,
+      $todayStart->modify('+1 day'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $currentPerson->id(),
+      'Synthetic past all-day',
+      $todayStart->modify('-2 days'),
+      $todayStart->modify('-1 day'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $currentPerson->id(),
+      'Synthetic future all-day',
+      $todayStart->modify('+2 days'),
+      $todayStart->modify('+3 days'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $currentPerson->id(),
+      'Synthetic multi-day current overlap',
+      $todayStart->modify('-1 day'),
+      $todayStart->modify('+2 days'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+
+    $endedTimedStart = $nowLocal->modify('-2 hours');
+    $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $currentPerson->id(),
+      'Synthetic ended timed',
+      $endedTimedStart,
+      $nowLocal->modify('-1 hour'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_TIMED,
+    );
+
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Synthetic current-day all-day');
+    $this->assertSession()->pageTextContains('Synthetic future all-day');
+    $this->assertSession()->pageTextContains('Synthetic multi-day current overlap');
+    $this->assertSession()->pageTextNotContains('Synthetic past all-day');
+    $this->assertSession()->pageTextNotContains('Synthetic ended timed');
+    $this->assertUpcomingArticleCount('Synthetic current-day all-day', 1);
+
+    $this->drupalGet('/personal-secretary/upcoming/mine');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Synthetic current-day all-day');
+    $this->assertSession()->pageTextContains('Synthetic future all-day');
+    $this->assertSession()->pageTextContains('Synthetic multi-day current overlap');
+    $this->assertSession()->pageTextNotContains('Synthetic past all-day');
+    $this->assertSession()->pageTextNotContains('Synthetic ended timed');
+    $this->assertUpcomingArticleCount('Synthetic current-day all-day', 1);
+
+    $springStart = new DateTimeImmutable('2026-03-29 00:00:00', $brussels);
+    $domain->createActivitySeries(
+      'Synthetic spring DST overlap',
+      (int) $household->id(),
+      $springStart,
+      $springStart->modify('+1 day'),
+      'FREQ=DAILY;COUNT=1',
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $springItems = array_values(array_filter(
+      $upcoming->aggregate(
+        $springStart->modify('+12 hours')->setTimezone($utc),
+        $springStart->modify('+36 hours')->setTimezone($utc),
+      ),
+      static fn(array $item): bool => $item['activity_label'] === 'Synthetic spring DST overlap',
+    ));
+    $this->assertCount(1, $springItems);
+    $this->assertTrue($springItems[0]['all_day']);
+    $this->assertSame('2026-03-29', $springItems[0]['all_day_start_date']);
+    $this->assertSame('2026-03-29', $springItems[0]['all_day_end_date']);
+    $this->assertSame(
+      23 * 3600,
+      $this->elapsedSeconds(
+        $springItems[0]['effective_start_iso'],
+        $springItems[0]['effective_end_iso'],
+      ),
+    );
+  }
+
   public function testAllDayDstRecurrenceCompositionAndFilters(): void {
     $this->installUserPersonFieldViaEntityApi();
 
@@ -427,6 +569,20 @@ final class AllDayActivityTest extends BrowserTestBase {
 
   private function elapsedSeconds(string $start, string $end): int {
     return (new DateTimeImmutable($end))->getTimestamp() - (new DateTimeImmutable($start))->getTimestamp();
+  }
+
+  /**
+   * Asserts one exact Upcoming activity article count by heading label.
+   */
+  private function assertUpcomingArticleCount(string $activityLabel, int $expectedCount): void {
+    $count = 0;
+    foreach ($this->getSession()->getPage()->findAll('css', 'article.personal-secretary-upcoming-activity') as $article) {
+      $heading = $article->find('css', 'h2');
+      if ($heading !== NULL && trim($heading->getText()) === $activityLabel) {
+        $count++;
+      }
+    }
+    $this->assertSame($expectedCount, $count);
   }
 
   private function assertUpcomingArticleContains(string $activityLabel, array $needles): void {

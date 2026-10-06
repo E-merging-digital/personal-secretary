@@ -303,7 +303,11 @@ final class UpcomingActivityService {
       $concernedPersonLabels = $this->concernedPersonLabels($series);
       $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
-      foreach ($this->effectiveOccurrences->project($series, $windowStart, $windowEnd) as $occurrence) {
+      $occurrences = $allDay
+        ? $this->effectiveOccurrences->projectOverlapping($series, $windowStart, $windowEnd)
+        : $this->effectiveOccurrences->project($series, $windowStart, $windowEnd);
+
+      foreach ($occurrences as $occurrence) {
         $displayTimezoneId = $viewerLocalized
           ? $this->currentUserTimezone->effectiveTimezone()
           : $occurrence->sourceTimezone;
