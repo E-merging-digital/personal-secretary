@@ -314,22 +314,34 @@ final class BilingualUiTest extends BrowserTestBase {
       'household' => count($this->container->get('entity_type.manager')->getStorage('personal_secretary_household')->loadMultiple()),
     ];
 
-    $sourceId = $this->container->get('database')->select('locales_source', 's')
-      ->fields('s', ['lid'])
-      ->condition('source', 'Today')
-      ->execute()
-      ->fetchField();
-    $this->assertNotFalse($sourceId);
-    $this->container->get('database')->delete('locales_target')
-      ->condition('lid', $sourceId)
-      ->condition('language', 'fr')
-      ->execute();
-    $this->assertFalse($this->frenchTranslation('Today'));
+    $new231Translations = [
+      'Read-only external event' => 'Événement externe en lecture seule',
+      'Refresh now' => 'Actualiser maintenant',
+      'Planning sync: @state' => 'Synchronisation du planning : @state',
+    ];
+    foreach ($new231Translations as $source => $expected) {
+      $sourceId = $this->container->get('database')->select('locales_source', 's')
+        ->fields('s', ['lid'])
+        ->condition('source', $source)
+        ->execute()
+        ->fetchField();
+      $this->assertNotFalse($sourceId);
+      $this->container->get('database')->delete('locales_target')
+        ->condition('lid', $sourceId)
+        ->condition('language', 'fr')
+        ->execute();
+      $this->assertFalse($this->frenchTranslation($source));
+    }
 
     require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
-    $message = personal_secretary_update_11008();
-    $this->assertStringContainsString('imported the project French catalog', $message);
-    $this->assertSame('Aujourd’hui', $this->frenchTranslation('Today'));
+    $message = personal_secretary_update_11013();
+    $this->assertStringContainsString(
+      'Re-imported the project French catalog for existing installations',
+      $message,
+    );
+    foreach ($new231Translations as $source => $expected) {
+      $this->assertSame($expected, $this->frenchTranslation($source));
+    }
 
     $userReloaded = User::load($user->id());
     $this->assertSame('Asia/Tokyo', (string) $userReloaded?->getTimezone());
