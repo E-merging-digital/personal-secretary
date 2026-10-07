@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityStorageException;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
@@ -19,6 +20,7 @@ final class GoogleCalendarConnectionService {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly Connection $database,
     private readonly AccountProxyInterface $currentUser,
     private readonly TimeInterface $time,
   ) {}
@@ -187,9 +189,33 @@ final class GoogleCalendarConnectionService {
    */
   public function disconnectLocal(): void {
     $connection = $this->currentConnection();
-    if ($connection !== NULL) {
-      $connection->delete();
+    if ($connection === NULL) {
+      return;
     }
+
+    foreach ([
+      'personal_sec_ext_event_shadow',
+      'personal_sec_calendar_sync_state',
+    ] as $entityTypeId) {
+      if (!$this->entityTypeManager->hasDefinition($entityTypeId)) {
+        continue;
+      }
+      $definition = $this->entityTypeManager->getDefinition($entityTypeId);
+      $baseTable = $definition->getBaseTable();
+      if ($baseTable === NULL || !$this->database->schema()->tableExists($baseTable)) {
+        continue;
+      }
+      $storage = $this->entityTypeManager->getStorage($entityTypeId);
+      $ids = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('account_connection', (int) $connection->id())
+        ->execute();
+      if ($ids !== []) {
+        $storage->delete($storage->loadMultiple($ids));
+      }
+    }
+
+    $connection->delete();
   }
 
   /**

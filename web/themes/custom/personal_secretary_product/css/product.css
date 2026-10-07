@@ -57,19 +57,26 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
 .ps-today-section > h2 { display:inline-block; margin:0 0 .8rem; font-size:1.25rem; }
 .ps-today-section > a { float:right; min-height:44px; padding:.45rem .25rem; }
 .ps-today-stack { clear:both; display:grid; gap:.75rem; }
-.ps-card,.personal-secretary-today-activity,.personal-secretary-preparation-item {
-  border:1px solid var(--ps-line); border-radius:.85rem; background:#fff; padding:.9rem;
+.ps-card,.personal-secretary-today-activity,.personal-secretary-preparation-item,.personal-secretary-external-event {
+  min-width:0; border:1px solid var(--ps-line); border-radius:.85rem; background:#fff; padding:.9rem;
 }
-.ps-card h3,.personal-secretary-today-activity h3,.personal-secretary-preparation-item h3 { margin:0 0 .45rem; font-size:1.05rem; }
+.ps-card h3,.personal-secretary-today-activity h3,.personal-secretary-preparation-item h3,.personal-secretary-external-event h3 { margin:0 0 .45rem; font-size:1.05rem; }
 .ps-card a { display:inline-flex; align-items:center; min-height:40px; margin-right:.45rem; }
 .ps-task-card__due { display:block; margin-block:.35rem; color:var(--ps-muted); }
 .ps-empty-state { clear:both; margin:0; border:1px dashed #b9c7d2; border-radius:.8rem; background:#f8fafb; padding:1rem; color:var(--ps-muted); }
-.personal-secretary-today-activity dl,.personal-secretary-preparation-item dl { margin:0; }
-.personal-secretary-today-activity dl > div,.personal-secretary-preparation-item dl > div {
-  display:grid; grid-template-columns:minmax(5rem,auto) 1fr; gap:.6rem; margin-top:.35rem;
+.personal-secretary-today-activity dl,.personal-secretary-preparation-item dl,.personal-secretary-external-event dl { margin:0; }
+.personal-secretary-today-activity dl > div,.personal-secretary-preparation-item dl > div,.personal-secretary-external-event dl > div {
+  display:grid; grid-template-columns:minmax(5rem,auto) minmax(0,1fr); gap:.6rem; margin-top:.35rem;
 }
-.personal-secretary-today-activity dt,.personal-secretary-preparation-item dt { color:var(--ps-muted); font-weight:650; }
-.personal-secretary-today-activity dd,.personal-secretary-preparation-item dd { margin:0; }
+.personal-secretary-today-activity dt,.personal-secretary-preparation-item dt,.personal-secretary-external-event dt { color:var(--ps-muted); font-weight:650; }
+.personal-secretary-today-activity dd,.personal-secretary-preparation-item dd,.personal-secretary-external-event dd { min-width:0; margin:0; overflow-wrap:anywhere; }
+.personal-secretary-external-event__header { display:flex; min-width:0; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:.5rem; }
+.personal-secretary-external-event__header h3 { min-width:0; overflow-wrap:anywhere; }
+.personal-secretary-external-event__source { display:inline-flex; align-items:center; border:1px solid var(--ps-line); border-radius:999px; padding:.2rem .55rem; color:var(--ps-muted); font-size:.82rem; }
+.personal-secretary-external-event__readonly { margin:.7rem 0 0; color:var(--ps-muted); font-size:.88rem; }
+.ps-calendar-sync { margin-block:1rem; border:1px solid var(--ps-line); border-radius:.85rem; background:var(--ps-surface); padding:.9rem; }
+.ps-calendar-sync > p:first-child { margin-top:0; font-weight:650; }
+.ps-calendar-sync form { margin-bottom:0; }
 @media (min-width:58rem) {
   .ps-product-header { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:1rem; }
   .ps-product-header__nav,.ps-product-header__utilities { margin-top:0; }

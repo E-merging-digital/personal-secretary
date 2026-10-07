@@ -19,6 +19,7 @@ use Drupal\oauth2_client\Service\Oauth2ClientServiceInterface;
 use Drupal\personal_secretary\Entity\CalendarAccountConnection;
 use Drupal\personal_secretary\Plugin\Oauth2Client\GoogleCalendar;
 use Drupal\personal_secretary\Service\GoogleCalendarConnectionService;
+use Drupal\personal_secretary\Service\ExternalPlanningQueryService;
 use Drupal\personal_secretary\Service\GoogleCalendarExportService;
 use Drupal\personal_secretary\Service\GoogleCalendarProjectionResolver;
 use GuzzleHttp\ClientInterface;
@@ -55,6 +56,7 @@ final class GoogleCalendarController extends ControllerBase {
     protected MessengerInterface $messengerService,
     protected GoogleCalendarProjectionResolver $projectionResolver,
     protected GoogleCalendarExportService $exportService,
+    protected ExternalPlanningQueryService $externalPlanning,
   ) {}
 
   /**
@@ -74,6 +76,7 @@ final class GoogleCalendarController extends ControllerBase {
       $container->get('messenger'),
       $container->get('personal_secretary.google_calendar_projection_resolver'),
       $container->get('personal_secretary.google_calendar_export'),
+      $container->get('personal_secretary.external_planning_query'),
     );
   }
 
@@ -96,6 +99,54 @@ final class GoogleCalendarController extends ControllerBase {
         '#items' => [],
       ],
     ];
+
+    $sync = $this->externalPlanning->syncStatus();
+    $syncLabels = [
+      'NOT_SYNCED' => $this->t('Not synced'),
+      'SYNCING' => $this->t('Syncing'),
+      'CURRENT' => $this->t('Current'),
+      'STALE' => $this->t('Stale'),
+      'ERROR' => $this->t('Sync error'),
+      'TOKEN_INVALID' => $this->t('Sync token invalid'),
+      'REBASE_REQUIRED' => $this->t('Full refresh required'),
+    ];
+    $syncState = (string) $sync['status'];
+    $build['planning_sync'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-calendar-sync']],
+      'label' => [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t('Planning sync: @state', [
+          '@state' => (string) ($syncLabels[$syncState] ?? $syncState),
+        ]),
+      ],
+    ];
+    $lastSuccess = (int) $sync['last_success_at'];
+    $build['planning_sync']['last_success'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => $lastSuccess > 0
+        ? $this->t('Last successful sync: @time', [
+          '@time' => gmdate('Y-m-d H:i:s \U\T\C', $lastSuccess),
+        ])
+        : $this->t('Last successful sync: never'),
+    ];
+
+    if ((bool) $sync['existing_grant']) {
+      $build['planning_sync']['refresh'] = $this->formBuilder()->getForm(
+        \Drupal\personal_secretary\Form\GoogleCalendarRefreshForm::class,
+      );
+    }
+    elseif ($state === CalendarAccountConnection::STATUS_CONNECTED) {
+      $build['planning_sync']['grant_note'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t(
+          'External planning remains unavailable until the existing Google event access grant is present.',
+        ),
+      ];
+    }
 
     if (
       $state === GoogleCalendarConnectionService::STATE_NOT_CONNECTED

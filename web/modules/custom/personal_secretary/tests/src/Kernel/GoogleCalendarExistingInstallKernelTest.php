@@ -7,6 +7,8 @@ namespace Drupal\Tests\personal_secretary\Kernel;
 use Drupal\Core\Database\Database;
 use Drupal\KernelTests\KernelTestBase;
 use Drupal\personal_secretary\Entity\CalendarAccountConnection;
+use Drupal\personal_secretary\Entity\CalendarSyncState;
+use Drupal\personal_secretary\Entity\ExternalEventShadow;
 use Drupal\personal_secretary\Entity\GoogleCalendarProjection;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
@@ -173,5 +175,58 @@ final class GoogleCalendarExistingInstallKernelTest extends KernelTestBase {
     }
     $this->assertSame('The Google Calendar projection entity type is already installed.', personal_secretary_update_11011());
   }
+
+
+  public function testUpdate11012InstallsExternalPlanningWithZeroBackfill(): void {
+    $manager = $this->container->get('entity.definition_update_manager');
+
+    foreach ([
+      ExternalEventShadow::ENTITY_TYPE_ID,
+      CalendarSyncState::ENTITY_TYPE_ID,
+    ] as $entityTypeId) {
+      $installed = $manager->getEntityType($entityTypeId);
+      if ($installed !== NULL) {
+        $manager->uninstallEntityType($installed);
+      }
+      $this->assertNull($manager->getEntityType($entityTypeId));
+    }
+
+    $this->container->get('module_handler')->loadInclude(
+      'personal_secretary',
+      'install',
+    );
+
+    $this->assertSame(
+      'Installed external planning shadows and calendar sync state with zero backfill.',
+      personal_secretary_update_11012(),
+    );
+
+    $this->container->get('entity_type.manager')->clearCachedDefinitions();
+
+    foreach ([
+      ExternalEventShadow::ENTITY_TYPE_ID => 'personal_sec_ext_event_shadow',
+      CalendarSyncState::ENTITY_TYPE_ID => 'personal_sec_calendar_sync_state',
+    ] as $entityTypeId => $table) {
+      $definition = $manager->getEntityType($entityTypeId);
+      $this->assertNotNull($definition);
+      $storage = $this->container->get('entity_type.manager')->getStorage($entityTypeId);
+      $this->assertCount(0, $storage->loadMultiple());
+      $this->assertTrue(Database::getConnection()->schema()->tableExists($table));
+
+      $class = $definition->getClass();
+      foreach ($class::baseFieldDefinitions($definition) as $name => $field) {
+        $installedField = $manager->getFieldStorageDefinition($name, $entityTypeId);
+        $this->assertNotNull($installedField, $entityTypeId . ':' . $name);
+        $this->assertSame($field->getType(), $installedField->getType());
+        $this->assertEquals($field->getSettings(), $installedField->getSettings());
+      }
+    }
+
+    $this->assertSame(
+      'External planning persistence is already installed.',
+      personal_secretary_update_11012(),
+    );
+  }
+
 
 }

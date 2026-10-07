@@ -1,0 +1,46 @@
+<article class="personal-secretary-external-event" data-planning-source="external">
+  <header class="personal-secretary-external-event__header">
+    <h3>{{ title ?: 'Untitled calendar event'|t }}</h3>
+    <span class="personal-secretary-external-event__source">{{ source_label|t }}</span>
+  </header>
+  <dl>
+    <div>
+      <dt>{{ 'When'|t }}</dt>
+      <dd>
+        {% if all_day %}
+          {{ 'All day'|t }} —
+          {% if all_day_start_date == all_day_end_date %}
+            <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
+          {% else %}
+            {{ 'from'|t }} <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
+            {{ 'to'|t }} <time datetime="{{ all_day_end_date }}">{{ all_day_end_date }}</time>
+          {% endif %}
+        {% else %}
+          <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
+          –
+          <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
+          ({{ display_timezone }})
+        {% endif %}
+      </dd>
+    </div>
+    {% if location %}
+      <div>
+        <dt>{{ 'Location'|t }}</dt>
+        <dd>{{ location }}</dd>
+      </div>
+    {% endif %}
+    <div>
+      <dt>{{ 'Planning impact'|t }}</dt>
+      <dd>
+        {% if busy_impact == 'INFORMATIONAL' %}
+          {{ 'Informational'|t }}
+        {% elseif busy_impact == 'TENTATIVE_BUSY' %}
+          {{ 'Tentative'|t }}
+        {% else %}
+          {{ 'Busy'|t }}
+        {% endif %}
+      </dd>
+    </div>
+  </dl>
+  <p class="personal-secretary-external-event__readonly">{{ 'Read-only external event'|t }}</p>
+</article>

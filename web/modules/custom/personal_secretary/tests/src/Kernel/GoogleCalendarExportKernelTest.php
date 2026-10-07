@@ -12,6 +12,8 @@ use Drupal\oauth2_client\Service\Oauth2ClientServiceInterface;
 use Drupal\personal_secretary\Controller\GoogleCalendarController;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\CalendarAccountConnection;
+use Drupal\personal_secretary\Entity\CalendarSyncState;
+use Drupal\personal_secretary\Entity\ExternalEventShadow;
 use Drupal\personal_secretary\Entity\GoogleCalendarProjection;
 use Drupal\personal_secretary\OAuth2\GoogleCalendarProvider;
 use Drupal\personal_secretary\Plugin\Oauth2Client\GoogleCalendar;
@@ -41,7 +43,7 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
 
   protected function setUp(): void {
     parent::setUp();
-    foreach (['user', 'personal_secretary_person', 'personal_secretary_household', 'personal_sec_activity_series', 'personal_sec_activity_exception', 'personal_sec_resp_rule', 'personal_sec_resp_override', 'personal_sec_time_commit', CalendarAccountConnection::ENTITY_TYPE_ID, GoogleCalendarProjection::ENTITY_TYPE_ID] as $type) {
+    foreach (['user', 'personal_secretary_person', 'personal_secretary_household', 'personal_sec_activity_series', 'personal_sec_activity_exception', 'personal_sec_resp_rule', 'personal_sec_resp_override', 'personal_sec_time_commit', CalendarAccountConnection::ENTITY_TYPE_ID, GoogleCalendarProjection::ENTITY_TYPE_ID, ExternalEventShadow::ENTITY_TYPE_ID, CalendarSyncState::ENTITY_TYPE_ID] as $type) {
       $this->installEntitySchema($type);
     }
     $this->installConfig(['system', 'user']);
@@ -524,6 +526,7 @@ final class GoogleCalendarExportKernelTest extends KernelTestBase {
       $this->container->get('tempstore.private'), $this->container->get('current_user'), $http,
       $this->container->get('request_stack'), $this->container->get('messenger'),
       $this->container->get('personal_secretary.google_calendar_projection_resolver'), $exports,
+      $this->container->get('personal_secretary.external_planning_query'),
     );
   }
 

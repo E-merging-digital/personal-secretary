@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\personal_secretary\FunctionalJavascript;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Drupal\block\Entity\Block;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\FunctionalJavascriptTests\WebDriverTestBase;
+use Drupal\personal_secretary\Entity\CalendarAccountConnection;
+use Drupal\personal_secretary\Entity\ExternalEventShadow;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -166,6 +170,82 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     );
     $brand->click();
     $assert->addressMatches('#/personal-secretary/today$#');
+  }
+
+  public function testExternalPlanningCardIsResponsiveAndReadOnly(): void {
+    $user = $this->createProductUser();
+
+    $connection = CalendarAccountConnection::create([
+      'owner_user' => (int) $user->id(),
+      'provider_key' => CalendarAccountConnection::PROVIDER_GOOGLE,
+      'provider_subject_id' => 'responsive-external-subject',
+      'scopes' => array_map(
+        static fn(string $scope): array => ['value' => $scope],
+        CalendarAccountConnection::writeScopes(),
+      ),
+      'status' => CalendarAccountConnection::STATUS_CONNECTED,
+      'connected_at' => $this->container->get('datetime.time')->getCurrentTime(),
+    ]);
+    $connection->save();
+
+    $local = (new DateTimeImmutable(
+      '@' . $this->container->get('datetime.time')->getCurrentTime(),
+    ))->setTimezone(new DateTimeZone('Europe/Brussels'));
+    $start = $local->setTime(12, 0)->setTimezone(new DateTimeZone('UTC'));
+    $end = $start->modify('+1 hour');
+
+    $this->container->get('entity_type.manager')
+      ->getStorage(ExternalEventShadow::ENTITY_TYPE_ID)
+      ->create([
+        'owner_user' => (int) $user->id(),
+        'account_connection' => (int) $connection->id(),
+        'provider' => 'google',
+        'calendar_id' => 'primary',
+        'provider_event_id' => 'responsive-external-event',
+        'etag' => '"responsive-etag"',
+        'provider_status' => 'confirmed',
+        'title' => 'Responsive external planning event',
+        'time_mode' => ExternalEventShadow::TIME_MODE_TIMED,
+        'source_timezone' => 'Europe/Brussels',
+        'location' => 'Responsive room',
+        'transparency' => 'opaque',
+        'timed_start' => $start->format('Y-m-d\TH:i:s'),
+        'timed_end' => $end->format('Y-m-d\TH:i:s'),
+        'provider_updated' => $start->format('Y-m-d\TH:i:s'),
+        'active' => TRUE,
+        'last_seen_at' => $this->container->get('datetime.time')->getCurrentTime(),
+      ])
+      ->save();
+
+    $this->drupalLogin($user);
+
+    foreach ([[390, 844], [1280, 900]] as [$width, $height]) {
+      $this->getSession()->resizeWindow($width, $height);
+      $this->drupalGet('/personal-secretary/today');
+
+      $card = $this->assertSession()->elementExists(
+        'css',
+        '.personal-secretary-external-event',
+      );
+      $this->assertTrue($card->isVisible());
+      $this->assertSame(
+        'Responsive external planning event',
+        trim($this->assertSession()
+          ->elementExists('css', '.personal-secretary-external-event h3')
+          ->getText()),
+      );
+      $this->assertSession()->elementExists(
+        'css',
+        '.personal-secretary-external-event dl',
+      );
+      $this->assertSame(
+        [],
+        $card->findAll('css', 'a, button, input, select, textarea'),
+      );
+      $this->assertTrue((bool) $this->getSession()->evaluateScript(
+        "(() => { const r = document.querySelector('.personal-secretary-external-event').getBoundingClientRect(); return r.left >= 0 && r.right <= window.innerWidth + 1; })()",
+      ));
+    }
   }
 
   public function testPersonalTaskDueFieldVisibility(): void {

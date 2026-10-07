@@ -1,0 +1,58 @@
+$schema: https://git.drupalcode.org/project/drupal/-/raw/11.x/core/assets/schemas/v1/metadata.schema.json
+name: External event shadow
+status: stable
+props:
+  type: object
+  required:
+    - title
+    - all_day
+    - all_day_start_date
+    - all_day_end_date
+    - effective_start
+    - effective_end
+    - effective_start_iso
+    - effective_end_iso
+    - display_timezone
+    - source_timezone
+    - source_label
+    - busy_impact
+  properties:
+    title:
+      type: string
+      title: Provider event title
+    location:
+      type: string
+      title: Optional provider event location
+    all_day:
+      type: boolean
+      title: Whether the event uses civil-date all-day semantics
+    all_day_start_date:
+      type: string
+      title: Provider civil all-day start date
+    all_day_end_date:
+      type: string
+      title: Provider inclusive all-day display end date
+    effective_start:
+      type: string
+      title: Viewer-local timed start display
+    effective_end:
+      type: string
+      title: Viewer-local timed end display
+    effective_start_iso:
+      type: string
+      title: Viewer-local timed start ISO datetime
+    effective_end_iso:
+      type: string
+      title: Viewer-local timed end ISO datetime
+    display_timezone:
+      type: string
+      title: Current User display timezone
+    source_timezone:
+      type: string
+      title: Provider source timezone when supplied
+    source_label:
+      type: string
+      title: Provider source label
+    busy_impact:
+      type: string
+      title: Derived planning impact

@@ -173,13 +173,13 @@ final class TodayController extends ControllerBase {
       }
     }
 
-    $build['activities'] = [
+    $build['planning'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-today-section', 'ps-today-section--activities']],
       'heading' => [
         '#type' => 'html_tag',
         '#tag' => 'h2',
-        '#value' => $this->t('Activities'),
+        '#value' => $this->t('Planning'),
       ],
       'all' => [
         '#type' => 'link',
@@ -188,20 +188,44 @@ final class TodayController extends ControllerBase {
       ],
     ];
 
-    if ($today['activities'] === []) {
-      $build['activities']['empty'] = [
+    if ($today['planning'] === []) {
+      $build['planning']['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('No activities concern you today.'),
+        '#value' => $this->t('No planning items concern you today.'),
       ];
     }
     else {
-      $build['activities']['items'] = [
+      $build['planning']['items'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-today-stack']],
       ];
-      foreach ($today['activities'] as $delta => $item) {
-        $build['activities']['items'][$delta] = [
+      foreach ($today['planning'] as $delta => $planningItem) {
+        $item = $planningItem['item'];
+        if ($planningItem['kind'] === 'external_event') {
+          $build['planning']['items'][$delta] = [
+            '#type' => 'component',
+            '#component' => 'personal_secretary:external-event-shadow',
+            '#props' => [
+              'title' => $item['title'],
+              'location' => $item['location'],
+              'all_day' => $item['all_day'],
+              'all_day_start_date' => $item['all_day_start_date'],
+              'all_day_end_date' => $item['all_day_end_date'],
+              'effective_start' => $item['effective_start'],
+              'effective_end' => $item['effective_end'],
+              'effective_start_iso' => $item['effective_start_iso'],
+              'effective_end_iso' => $item['effective_end_iso'],
+              'display_timezone' => $item['display_timezone'],
+              'source_timezone' => $item['source_timezone'],
+              'source_label' => $item['source_label'],
+              'busy_impact' => $item['busy_impact'],
+            ],
+          ];
+          continue;
+        }
+
+        $build['planning']['items'][$delta] = [
           '#type' => 'component',
           '#component' => 'personal_secretary:today-activity',
           '#props' => [

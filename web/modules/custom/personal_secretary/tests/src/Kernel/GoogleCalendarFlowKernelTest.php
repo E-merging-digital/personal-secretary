@@ -12,6 +12,8 @@ use Drupal\oauth2_client\Entity\Oauth2Client;
 use Drupal\oauth2_client\Service\Oauth2ClientServiceInterface;
 use Drupal\personal_secretary\Controller\GoogleCalendarController;
 use Drupal\personal_secretary\Entity\CalendarAccountConnection;
+use Drupal\personal_secretary\Entity\CalendarSyncState;
+use Drupal\personal_secretary\Entity\ExternalEventShadow;
 use Drupal\personal_secretary\Form\GoogleCalendarDisconnectForm;
 use Drupal\personal_secretary\Plugin\Oauth2Client\GoogleCalendar;
 use Drupal\personal_secretary\Service\GoogleCalendarConnectionService;
@@ -48,6 +50,8 @@ final class GoogleCalendarFlowKernelTest extends KernelTestBase {
     $this->installEntitySchema(
       CalendarAccountConnection::ENTITY_TYPE_ID,
     );
+    $this->installEntitySchema(ExternalEventShadow::ENTITY_TYPE_ID);
+    $this->installEntitySchema(CalendarSyncState::ENTITY_TYPE_ID);
 
     // Controller and provider redirects use named routes. Rebuild only the
     // synthetic Kernel routing table; no external request is performed.
@@ -572,6 +576,7 @@ final class GoogleCalendarFlowKernelTest extends KernelTestBase {
       $this->container->get('messenger'),
       $this->container->get('personal_secretary.google_calendar_projection_resolver'),
       $this->container->get('personal_secretary.google_calendar_export'),
+      $this->container->get('personal_secretary.external_planning_query'),
     );
   }
 
