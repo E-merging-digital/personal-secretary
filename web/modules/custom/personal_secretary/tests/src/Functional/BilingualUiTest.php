@@ -12,6 +12,8 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Entity\CalendarAccountConnection;
+use Drupal\personal_secretary\Entity\ExternalEventShadow;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -164,6 +166,41 @@ final class BilingualUiTest extends BrowserTestBase {
         'utc_end' => $target->utcEnd,
         'series_count' => count($this->container->get('entity_type.manager')->getStorage('personal_sec_activity_series')->loadMultiple()),
       ];
+
+      $connection = CalendarAccountConnection::create([
+        'owner_user' => (int) $user->id(),
+        'provider_key' => CalendarAccountConnection::PROVIDER_GOOGLE,
+        'provider_subject_id' => 'bilingual-google-subject',
+        'scopes' => array_map(
+          static fn(string $scope): array => ['value' => $scope],
+          CalendarAccountConnection::writeScopes(),
+        ),
+        'status' => CalendarAccountConnection::STATUS_CONNECTED,
+        'connected_at' => $nowUtc->getTimestamp(),
+      ]);
+      $connection->save();
+      $this->container->get('entity_type.manager')
+        ->getStorage(ExternalEventShadow::ENTITY_TYPE_ID)
+        ->create([
+          'owner_user' => (int) $user->id(),
+          'account_connection' => (int) $connection->id(),
+          'provider' => 'google',
+          'calendar_id' => 'primary',
+          'provider_event_id' => 'bilingual-external-event',
+          'etag' => '"bilingual-etag"',
+          'provider_status' => 'tentative',
+          'title' => 'Réunion externe – ne pas traduire',
+          'time_mode' => ExternalEventShadow::TIME_MODE_TIMED,
+          'source_timezone' => 'Europe/Brussels',
+          'location' => '',
+          'transparency' => 'opaque',
+          'timed_start' => $window['utc_start']->modify('+3 hours')->format('Y-m-d\TH:i:s'),
+          'timed_end' => $window['utc_start']->modify('+4 hours')->format('Y-m-d\TH:i:s'),
+          'provider_updated' => $nowUtc->format('Y-m-d\TH:i:s'),
+          'active' => TRUE,
+          'last_seen_at' => $nowUtc->getTimestamp(),
+        ])
+        ->save();
     }
     finally {
       $switcher->switchBack();
@@ -188,15 +225,15 @@ final class BilingualUiTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Tâches');
     $this->assertSession()->pageTextContains('Préparatifs');
-    $this->assertSession()->pageTextContains('Activités');
+    $this->assertSession()->pageTextContains('Planning');
     $this->assertSession()->pageTextContains('Activité Aujourd’hui – inchangée');
     $this->assertSession()->pageTextContains('Acheter du pain – ne pas traduire');
     $this->assertSession()->linkExists('English');
 
     $this->assertSurfacePair(
       '/personal-secretary/today',
-      ['Tâches', 'Préparatifs', 'Activités', 'Activité Aujourd’hui – inchangée'],
-      ['Tasks', 'Preparations', 'Activities', 'Activité Aujourd’hui – inchangée'],
+      ['Tâches', 'Préparatifs', 'Planning', 'Activité Aujourd’hui – inchangée', 'Google Agenda', 'Événement externe en lecture seule', 'Réunion externe – ne pas traduire'],
+      ['Tasks', 'Preparations', 'Planning', 'Activité Aujourd’hui – inchangée', 'Google Calendar', 'Read-only external event', 'Réunion externe – ne pas traduire'],
     );
     $this->assertSurfacePair(
       '/personal-secretary/upcoming/mine',

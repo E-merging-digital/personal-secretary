@@ -32,6 +32,7 @@ final class TodayService {
     private readonly CurrentUserPreparationService $currentUserPreparations,
     private readonly EffectiveOccurrenceProjectionService $effectiveOccurrences,
     private readonly EffectiveResponsibilityService $effectiveResponsibility,
+    private readonly ExternalPlanningQueryService $externalPlanning,
     private readonly TimeInterface $time,
     private readonly ConfigFactoryInterface $configFactory,
   ) {}
@@ -46,7 +47,9 @@ final class TodayService {
    *   utc_end:string,
    *   tasks:array<int, array<string, mixed>>,
    *   preparations:array<int, array<string, mixed>>,
-   *   activities:array<int, array<string, mixed>>
+   *   activities:array<int, array<string, mixed>>,
+   *   external_events:array<int, array<string, mixed>>,
+   *   planning:array<int, array<string, mixed>>
    * }
    */
   public function today(): array {
@@ -83,6 +86,12 @@ final class TodayService {
       $window['utc_end'],
       $window['timezone'],
     );
+    $externalEvents = $this->externalPlanning->today(
+      $window['utc_start'],
+      $window['utc_end'],
+      $window['local_date'],
+      $window['timezone'],
+    );
 
     return [
       'timezone' => $window['timezone'],
@@ -94,7 +103,53 @@ final class TodayService {
       'tasks' => $tasks,
       'preparations' => $preparations,
       'activities' => $activities,
+      'external_events' => $externalEvents,
+      'planning' => $this->planning($activities, $externalEvents),
     ];
+  }
+
+  /**
+   * @param array<int, array<string, mixed>> $activities
+   * @param array<int, array<string, mixed>> $externalEvents
+   *
+   * @return array<int, array{kind:string,item:array<string,mixed>}>
+   */
+  private function planning(array $activities, array $externalEvents): array {
+    $planning = [];
+    foreach ($activities as $activity) {
+      $planning[] = [
+        'kind' => 'native_activity',
+        'sort_start' => $activity['all_day']
+          ? (string) $activity['all_day_start_date'] . 'T00:00:00'
+          : (string) $activity['effective_start_iso'],
+        'item' => $activity,
+      ];
+    }
+    foreach ($externalEvents as $event) {
+      $planning[] = [
+        'kind' => 'external_event',
+        'sort_start' => $event['all_day']
+          ? (string) $event['all_day_start_date'] . 'T00:00:00'
+          : (string) $event['effective_start_iso'],
+        'item' => $event,
+      ];
+    }
+
+    usort(
+      $planning,
+      static fn(array $left, array $right): int =>
+        [$left['sort_start'], $left['kind']]
+        <=>
+        [$right['sort_start'], $right['kind']],
+    );
+
+    return array_map(
+      static function (array $item): array {
+        unset($item['sort_start']);
+        return $item;
+      },
+      $planning,
+    );
   }
 
   /**

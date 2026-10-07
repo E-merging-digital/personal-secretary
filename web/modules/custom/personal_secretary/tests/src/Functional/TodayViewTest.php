@@ -9,6 +9,8 @@ use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Entity\CalendarAccountConnection;
+use Drupal\personal_secretary\Entity\ExternalEventShadow;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -123,6 +125,60 @@ final class TodayViewTest extends BrowserTestBase {
 
       $dueToday = $taskMutations->createTask('Today route task', (int) $h1->id(), PersonalTask::DUE_DATE, $window['local_date']);
 
+      $connection = CalendarAccountConnection::create([
+        'owner_user' => (int) $authorized->id(),
+        'provider_key' => CalendarAccountConnection::PROVIDER_GOOGLE,
+        'provider_subject_id' => 'today-external-google-subject',
+        'scopes' => array_map(
+          static fn(string $scope): array => ['value' => $scope],
+          CalendarAccountConnection::writeScopes(),
+        ),
+        'status' => CalendarAccountConnection::STATUS_CONNECTED,
+        'connected_at' => $nowUtc->getTimestamp(),
+      ]);
+      $connection->save();
+
+      $externalStorage = $this->container->get('entity_type.manager')
+        ->getStorage(ExternalEventShadow::ENTITY_TYPE_ID);
+      $externalStorage->create([
+        'owner_user' => (int) $authorized->id(),
+        'account_connection' => (int) $connection->id(),
+        'provider' => 'google',
+        'calendar_id' => 'primary',
+        'provider_event_id' => 'today-external-timed',
+        'etag' => '"today-timed-etag"',
+        'provider_status' => 'confirmed',
+        'title' => 'External Today appointment',
+        'time_mode' => ExternalEventShadow::TIME_MODE_TIMED,
+        'source_timezone' => 'Europe/Brussels',
+        'location' => 'External room',
+        'transparency' => 'opaque',
+        'timed_start' => $window['utc_start']->modify('+6 hours')->format('Y-m-d\TH:i:s'),
+        'timed_end' => $window['utc_start']->modify('+7 hours')->format('Y-m-d\TH:i:s'),
+        'provider_updated' => $nowUtc->format('Y-m-d\TH:i:s'),
+        'active' => TRUE,
+        'last_seen_at' => $nowUtc->getTimestamp(),
+      ])->save();
+      $externalStorage->create([
+        'owner_user' => (int) $authorized->id(),
+        'account_connection' => (int) $connection->id(),
+        'provider' => 'google',
+        'calendar_id' => 'primary',
+        'provider_event_id' => 'today-external-all-day',
+        'etag' => '"today-all-day-etag"',
+        'provider_status' => 'confirmed',
+        'title' => 'External Today all day',
+        'time_mode' => ExternalEventShadow::TIME_MODE_ALL_DAY,
+        'source_timezone' => '',
+        'location' => '',
+        'transparency' => 'transparent',
+        'all_day_start' => $window['local_date'],
+        'all_day_end' => $window['local_end']->format('Y-m-d'),
+        'provider_updated' => $nowUtc->format('Y-m-d\TH:i:s'),
+        'active' => TRUE,
+        'last_seen_at' => $nowUtc->getTimestamp(),
+      ])->save();
+
       $model = $today->today();
       $activities = $this->activitiesByLabel($model['activities']);
       $this->assertArrayHasKey('Today authorized UTC activity', $activities);
@@ -158,7 +214,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Tasks');
     $this->assertSession()->pageTextContains('Preparations');
-    $this->assertSession()->pageTextContains('Activities');
+    $this->assertSession()->pageTextContains('Planning');
     $this->assertSession()->linkExists('My preparations');
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $this->assertSession()->pageTextContains('Today route task');
@@ -174,10 +230,22 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Today started preparation excluded');
     $this->assertSession()->pageTextNotContains('Today unauthorized H2 preparation');
     $this->assertSession()->pageTextContains('Europe/Brussels');
+    $this->assertSession()->pageTextContains('External Today appointment');
+    $this->assertSession()->pageTextContains('External Today all day');
+    $this->assertSession()->pageTextContains('Google Calendar');
+    $this->assertSession()->pageTextContains('Read-only external event');
+    $externalCards = $this->getSession()->getPage()->findAll(
+      'css',
+      '.personal-secretary-external-event',
+    );
+    $this->assertCount(2, $externalCards);
+    foreach ($externalCards as $externalCard) {
+      $this->assertSame([], $externalCard->findAll('css', 'a, button, input[type="submit"]'));
+    }
 
     $headings = array_map(static fn($heading): string => trim($heading->getText()), $this->getSession()->getPage()->findAll('css', 'h2'));
-    $headings = array_values(array_filter($headings, static fn(string $heading): bool => in_array($heading, ['Tasks', 'Preparations', 'Activities'], TRUE)));
-    $this->assertSame(['Tasks', 'Preparations', 'Activities'], $headings);
+    $headings = array_values(array_filter($headings, static fn(string $heading): bool => in_array($heading, ['Tasks', 'Preparations', 'Planning'], TRUE)));
+    $this->assertSame(['Tasks', 'Preparations', 'Planning'], $headings);
     $this->assertSame($countsBefore, $this->domainCounts());
 
     $accountSwitcher->switchTo($authorized);

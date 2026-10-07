@@ -1066,3 +1066,79 @@ msgstr "Occurrence ajoutée à Google Agenda."
 
 msgid "Google Calendar export failed. The connection is still available."
 msgstr "L’export vers Google Agenda a échoué. La connexion reste disponible."
+
+# External Google planning shadows.
+msgid "Planning"
+msgstr "Planning"
+
+msgid "No planning items concern you today."
+msgstr "Aucun élément de planning ne vous concerne aujourd’hui."
+
+msgid "Untitled calendar event"
+msgstr "Événement d’agenda sans titre"
+
+msgid "Google Calendar"
+msgstr "Google Agenda"
+
+msgid "Planning impact"
+msgstr "Impact sur le planning"
+
+msgid "Informational"
+msgstr "Informatif"
+
+msgid "Tentative"
+msgstr "Provisoire"
+
+msgid "Busy"
+msgstr "Occupé"
+
+msgid "Read-only external event"
+msgstr "Événement externe en lecture seule"
+
+msgid "Refresh Google Calendar planning"
+msgstr "Actualiser le planning Google Agenda"
+
+msgid "Refresh the read-only Google Calendar planning view. Personal Secretary activities are not changed."
+msgstr "Actualisez la vue en lecture seule du planning Google Agenda. Les activités Personal Secretary ne sont pas modifiées."
+
+msgid "Refresh now"
+msgstr "Actualiser maintenant"
+
+msgid "Google Calendar planning was refreshed."
+msgstr "Le planning Google Agenda a été actualisé."
+
+msgid "Google Calendar planning could not be refreshed. The last known planning data was kept."
+msgstr "Le planning Google Agenda n’a pas pu être actualisé. Les dernières données de planning connues ont été conservées."
+
+msgid "Planning sync: @state"
+msgstr "Synchronisation du planning : @state"
+
+msgid "Not synced"
+msgstr "Non synchronisé"
+
+msgid "Syncing"
+msgstr "Synchronisation en cours"
+
+msgid "Current"
+msgstr "À jour"
+
+msgid "Stale"
+msgstr "À actualiser"
+
+msgid "Sync error"
+msgstr "Erreur de synchronisation"
+
+msgid "Sync token invalid"
+msgstr "Jeton de synchronisation invalide"
+
+msgid "Full refresh required"
+msgstr "Actualisation complète requise"
+
+msgid "External planning remains unavailable until the existing Google event access grant is present."
+msgstr "Le planning externe reste indisponible tant que l’autorisation Google existante d’accès aux événements n’est pas présente."
+
+msgid "Last successful sync: @time"
+msgstr "Dernière synchronisation réussie : @time"
+
+msgid "Last successful sync: never"
+msgstr "Dernière synchronisation réussie : jamais"
