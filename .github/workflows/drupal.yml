@@ -45,22 +45,45 @@ jobs:
           ddev exec ./scripts/bootstrap development
           ddev exec ./scripts/verify development
 
-      - name: Verify private DEV Host admission with synthetic DDEV only
+      - name: Verify private DEV direct web Host contract (synthetic DDEV)
         shell: bash
         run: |
           set -euo pipefail
+          ddev exec php -l scripts/verify-dev-private-host.php
           ddev exec php scripts/verify-dev-private-host.php
-          target='http://127.0.0.1/fr/personal-secretary/calendar/google'
-          for item in             'personal-secretary.ddev.site:403'             'ps-dev.internal.emergingdigital.be:403'             'unrelated.invalid:404'; do
-            host="${item%:*}"
-            expected="${item##*:}"
-            actual="$(curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' -H "Host: ${host}" "${target}")"
+          route='/fr/personal-secretary/calendar/google'
+          # Web port 80 is INTERNAL to this CI project's own DDEV web container.
+          # Never assume the canonical DEV host loopback port 33180 exists in CI.
+          for pair in 'personal-secretary.ddev.site:403' 'ps-dev.internal.emergingdigital.be:403' 'unrelated.invalid:400'; do
+            host="${pair%:*}"
+            expected="${pair##*:}"
+            actual="$(ddev exec curl --noproxy 127.0.0.1 --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' --header "Host: ${host}" --header 'Cookie:' --header 'Authorization:' "http://127.0.0.1:80${route}")"
+            if [[ ! "${actual}" =~ ^[0-9]{3}$ ]]; then
+              printf 'PRIVATE_DEV_DIRECT_WEB=STOP Host=%s invalid HTTP response (redacted)\n' "${host}" >&2
+              exit 1
+            fi
             if [[ "${actual}" != "${expected}" ]]; then
-              printf 'PRIVATE_DEV_HOST_ROUTER=STOP Host=%s expected=%s actual=%s\n' "${host}" "${expected}" "${actual}" >&2
+              printf 'PRIVATE_DEV_DIRECT_WEB=STOP Host=%s expected=%s actual=%s\n' "${host}" "${expected}" "${actual}" >&2
               exit 1
             fi
           done
-          echo 'PRIVATE_DEV_HOST_ROUTER=PASS'
+          echo 'PRIVATE_DEV_DIRECT_WEB=PASS_403_403_400'
+          # The SHARED router must remain unaware of the private FQDN.
+          router_target="http://127.0.0.1${route}"
+          for pair in 'personal-secretary.ddev.site:403' 'ps-dev.internal.emergingdigital.be:404' 'unrelated.invalid:404'; do
+            host="${pair%:*}"
+            expected="${pair##*:}"
+            actual="$(curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' --header "Host: ${host}" --header 'Cookie:' --header 'Authorization:' "${router_target}")"
+            if [[ ! "${actual}" =~ ^[0-9]{3}$ ]]; then
+              printf 'PRIVATE_DEV_ROUTER_NEGATIVE=STOP Host=%s invalid HTTP response (redacted)\n' "${host}" >&2
+              exit 1
+            fi
+            if [[ "${actual}" != "${expected}" ]]; then
+              printf 'PRIVATE_DEV_ROUTER_NEGATIVE=STOP Host=%s expected=%s actual=%s\n' "${host}" "${expected}" "${actual}" >&2
+              exit 1
+            fi
+          done
+          echo 'PRIVATE_DEV_ROUTER_NEGATIVE=PASS_403_404_404'
 
       - name: Run Personal Secretary domain and browser tests
         run: |

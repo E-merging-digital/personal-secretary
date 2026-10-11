@@ -1,29 +1,56 @@
-# Private DEV FQDN admission — #235
+# Private DEV HTTP Host contract — #235 / R8 static candidate
 
-**R1 is a static candidate only.** No real DDEV settings propagation, browser session, DNS/NetBird policy, TLS CA trust, cache rebuild, production changes or Google refresh.
+**Scope:** Product-owned, DRAFT PR only. This is a proposed static contract; it is **not** real private HTTPS, a browser acceptance, a DDEV runtime reload, or Google authorization.
 
-## Intended DEV-only host
+## Chosen architecture — direct canonical DEV web upstream
 
-`ps-dev.internal.emergingdigital.be` is added as one exact `additional_fqdns` entry in `.ddev/config.yaml`. DDEV v1.25.4 supports `additional_fqdns`, distinct from `additional_hostnames` (the latter automatically appends `.ddev.site`). This does not establish private DNS or TLS trust. DDEV can update its operator's `/etc/hosts` during a later `ddev start`; the future canonical DEV propagation and any host-file effects require a separate Project Lead/operator approval. Existing `personal-secretary.ddev.site` and `localhost` must remain accessible.
+Future independently authorized route:
 
-The Drupal trusted-host expression `^ps-dev\\.internal\\.emergingdigital\\.be$` belongs **only** inside `IS_DDEV_PROJECT=true`. Outside DDEV the settings do not gain a new trusted-host pattern, proxy IP, cookie domain or route.
+```text
+Browser / authorized NetBird peer
+  -> https://ps-dev.internal.emergingdigital.be:8443
+  -> DEV-only host-user Caddy bound to 100.74.44.220:8443
+  -> http://127.0.0.1:33180 (WSL host network namespace)
+  -> DDEV personal-secretary WEB container, port 80
+  -> Drupal DEV
+```
 
-## Synthetic CI acceptance
+The WSL host's `127.0.0.1:33180` port was verified read-only under R7 to belong exclusively to the canonical rootless `ddev-personal-secretary-web` container, bound to WSL loopback (Docker `127.0.0.1:33180 -> 80/tcp`). The web container mounts the canonical Personal Secretary DEV checkout. These are **observed DEV port settings**, not portable CI port numbers or evidence of Windows port-forwarding isolation. A future operator must independently check the Windows/LAN/NetBird exposure boundary. Host-user Caddy must operate in the **same WSL host network namespace**; container-local `localhost` is not the host's `localhost`.
 
-Existing GitHub Actions `Drupal` workflow already provisions DDEV 1.25.4 on ephemeral GitHub runners. Immediately after the synthetic development bootstrap, it executes `scripts/verify-dev-private-host.php` to assert the exact DDEV allowlist, original host acceptance, spoofed/unrelated Host denial, and no DEV-only trusted-host leakage into non-DDEV settings. Then it checks the DDEV router with anonymous HTTP only: canonical `.ddev.site` returns 403, new FQDN returns 403, and unrelated Host returns 404 for the existing protected Google status path. No Google API, login, ULI, OAuth, credentials or real user data are involved. A GitHub-runner synthetic success does not imply canonical DEV runtime propagation.
+`.ddev/config.yaml` intentionally does **not** register `ps-dev.internal.emergingdigital.be` as `additional_fqdns` or a shared DDEV-router alias. This avoids later accidental Windows `hosts` overrides for the FQDN that should resolve **privately to NetBird 100.74.44.220**, not to Windows localhost. `personal-secretary.ddev.site` continues to use the existing DDEV router. No Windows `hosts` mapping, DNS/NetBird/TLS/Caddy service, firewall rule or public listener is provisioned here.
 
-## Infrastructure dependency and real HTTPS
+`web/sites/default/settings.php` is **unchanged**: inside `IS_DDEV_PROJECT=true` the exact Drupal trusted hosts remain `^.+\\.ddev\\.site$`, `^localhost$` and `^ps-dev\\.internal\\.emergingdigital\\.be$`. Outside DDEV no private trusted-host pattern or broad proxy trust is added. An unrecognized Host must be rejected by Drupal.
 
-Infrastructure [#287 / draft PR #289](https://github.com/E-merging-digital/infrastructure/pull/289) has exact **old Product main pins**: HEAD `b855098dd08159eb14c7c302bf7694aa5b170268`, tree `62c3db148383463cef71f9244f0e5639e20de4ff` in its contract, shell preflight, validator and runbook. On a separately approved future **Product merge**, Infrastructure must re-pin **every occurrence** to the *new merged Product main HEAD/tree* and rerun exact-head natural CI; never loosen guards or silently deploy against an unapproved revision.
+## Actual R7 read-only HTTP evidence
 
-The proposed private origin is `https://ps-dev.internal.emergingdigital.be:8443`. DDEV's router needs to accept its exact Host before the DEV-owned Caddy ingress can be started, with private DNS/NetBird TCP8443, exact SAN, approved CA trust and systemd sandbox covered by later Infrastructure authority. Drupal already configures `DRUPAL_REVERSE_PROXY_HOST` opt-in to trust **X-Forwarded-Proto only** from explicitly resolved proxy IPv4 addresses. This R1 does not guess any new proxy address or broaden X-Forwarded-Host/Port trust. The Infrastructure proxy must forward the real Host, maintain the external :8443 origin semantics and prove correct redirects, scheme, port and host-only cookie scope with a future authorized human browser test. A mismatched generated URL or trust boundary is an R5 STOP, not grounds for implicit broadening.
+On the **canonical** DEV WSL host, using anonymous GET `/fr/personal-secretary/calendar/google`, explicit Host header, no cookies/auth and no redirect follow:
 
-## Future canonical DEV handoff and rollback (NOT executed)
+| Host | Direct WEB 127.0.0.1:33180 | Shared router 127.0.0.1:33380 |
+| --- | --- | --- |
+| `personal-secretary.ddev.site` | **403** | **403** |
+| `ps-dev.internal.emergingdigital.be` | **403** | **404** |
+| `unrelated.invalid` | **400** | **404** |
 
-1. New explicit Product Project Lead authority after PR review and human merge decision; record original canonical DEV git HEAD/tree, tracked worktree, exact DDEV config and protected-route behavior before materializing.
-2. Confirm only the approved new FQDN is admitted and DDEV's local hosts-file side effects and router restart are understood; preserve old `.ddev.site` paths. Avoid DNS/hosts/NetBird/TLS mutation without its owner authority.
-3. Confirm anonymous new Host status is exactly 403 and original DDEV Host still 403; unrelated Host 404. Fail closed on unexpected external redirects, incorrect backend, or PROD access.
-4. If failed, restore only the authorized new DEV FQDN/settings additions to pre-change state through separately approved operator commands, check that DDEV's generated hostname mapping is restored and verify pre-existing Host remains available. No PROD rollback actions.
-5. Revalidate Product main HEAD/tree and update Infra PR #289 pinned dependency separately before any authorized HTTPS runtime activation. Personal Secretary #231 remains STOP; old dated Google test authorization is expired.
+The direct web's **400** is Drupal trusted-host rejection; **404** is the separate shared-router negative control. A direct-web 403 means the protected Drupal route is present and denies an anonymous user, not that Google OAuth, login or HTTPS works. R7 had one Google connection CONNECTED, zero sync states and zero external shadows; **no provider call** was made.
 
-**R1:** Branch + DRAFT PR only, no merge, no canonical DEV propagation, no infrastructure HTTPS start, no Google action.
+## Synthetic GitHub Actions contract
+
+The existing `Drupal` workflow boots isolated DDEV on its ephemeral Linux runner. After its synthetic Drupal bootstrap, it runs `scripts/verify-dev-private-host.php` to prove exact DEV-only/non-DEV trusted-host separation and no shared-router FQDN alias in tracked `.ddev/config.yaml`. For actual direct web requests, CI uses `ddev exec curl ... http://127.0.0.1:80/fr/personal-secretary/calendar/google`: **port 80 inside the running CI project's web container**, not the canonical host's port 33180. It requires anonymous Host **403/403/400**. The runner's DDEV shared router is separately tested for Host **403/404/404** as negative evidence that the private hostname was not registered. The test does not authenticate, send cookies, follow redirects, execute Google APIs, or assert real Windows file state.
+
+Other Drupal, Composer, production trajectory, Git clean-tree and `Governance` checks stay in force. Exact-head natural CI on the R8 branch is needed before independent Project Lead review.
+
+## Infrastructure dependency, trust boundaries and future activation
+
+Infrastructure [#287, PR #289 DRAFT](https://github.com/E-merging-digital/infrastructure/pull/289) **still** pins Product HEAD `b855098dd08159eb14c7c302bf7694aa5b170268`, tree `62c3db148383463cef71f9244f0e5639e20de4ff`, and Caddy upstream `http://127.0.0.1:33380`. Product R7 used merged main HEAD `e3d22e6eab1000872fe4f292b93b28dce6d33f0f`, tree `dcbf6da4d98e740a4d4c5cd8a6643577e6d828b9`. **Only after** a separately authorized R8 merge must the Infrastructure Project Lead independently repin **all** Product SHA/tree references to the **new merged Product main**, switch the reverse-proxy upstream, validator, shell preflight, tests and runbook consistently to `http://127.0.0.1:33180`, and run new exact-head CI. No Infrastructure edit or HTTPS activation is authorized here.
+
+A later HTTPS gate must prove exact NetBird/private DNS/peer access, listener bound only `100.74.44.220:8443`, signed/version-pinned Caddy binary, SAN and browser CA trust, server identity independent of PROD `:443`, and no unintended Windows localhost forwarding or public/LAN exposure. Caddy must preserve intended Host/SNI and external `https` origin with **:8443**. Drupal currently trusts `X-Forwarded-Proto` **only** if `DRUPAL_REVERSE_PROXY_HOST` resolves to explicitly approved proxy IPv4 peers; there is no present proof of correct reverse-proxy peer trust. Do not guess a Docker bridge IP or broadly trust `X-Forwarded-Host`, `X-Forwarded-Port` or arbitrary request IPs. Prove redirects, absolute links, secure host-only `Secure` / `HttpOnly` / `SameSite` cookies, no `Domain=.emergingdigital.be`, no shared PROD keys or sessions, before any human browser login. No original DEV UID1 ULI reuse: the previous DEV/PROD login boundary remains `REVIEW_REQUIRED`.
+
+## Product canonical DEV propagation and rollback — NOT AUTHORIZED
+
+The removal of the **tracked** `additional_fqdns` declaration does **not** prove that the currently running DDEV project has reloaded its routing config. R7 already proved the **direct WEB** Host 403 without DDEV restart. Later approved Product merge/DEV propagation may require a bounded DDEV config reload to retire the old in-memory alias; its actual side effects, host-file owner consent and rollback must be separately reviewed. Never restart the shared router merely for a test, write Windows/WSL hosts or run cron/Google to make the proxy work.
+
+Before a future owner-authorized ingress, capture canonical HEAD/tree, eight original untracked-file digests, scoped ports/web container identity, Google 1 CONNECTED/0 sync/0 shadows and old/new/unknown HTTP evidence. On failed ingress, revert **only** separately approved DEV-only new Caddy user service, private route/DNS/cert and exactly any owner-authorized mapping; preserve PROD, unrelated DDEV services and Google data. Do not roll back approved Product code or run global DDEV cleanup implicitly.
+
+Product [#231](https://github.com/E-merging-digital/personal-secretary/issues/231) remains **STOP**: no OAuth, login, ULI, actualiser/refresh, Google API, cron, queue or fixture mutation before new date-aware Product authority.
+
+**R8 gate:** isolated Product branch + DRAFT PR only; no merge, canonical DEV propagation or Infrastructure action.
