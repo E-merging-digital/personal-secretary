@@ -57,7 +57,11 @@ jobs:
           for pair in 'personal-secretary.ddev.site:403' 'ps-dev.internal.emergingdigital.be:403' 'unrelated.invalid:400'; do
             host="${pair%:*}"
             expected="${pair##*:}"
-            actual="$(ddev exec curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' --header "Host: ${host}" --header 'Cookie:' --header 'Authorization:' "http://127.0.0.1:80${route}")"
+            actual="$(ddev exec curl --noproxy 127.0.0.1 --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' --header "Host: ${host}" --header 'Cookie:' --header 'Authorization:' "http://127.0.0.1:80${route}")"
+            if [[ ! "${actual}" =~ ^[0-9]{3}$ ]]; then
+              printf 'PRIVATE_DEV_DIRECT_WEB=STOP Host=%s invalid HTTP response (redacted)\n' "${host}" >&2
+              exit 1
+            fi
             if [[ "${actual}" != "${expected}" ]]; then
               printf 'PRIVATE_DEV_DIRECT_WEB=STOP Host=%s expected=%s actual=%s\n' "${host}" "${expected}" "${actual}" >&2
               exit 1
@@ -70,6 +74,10 @@ jobs:
             host="${pair%:*}"
             expected="${pair##*:}"
             actual="$(curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' --header "Host: ${host}" --header 'Cookie:' --header 'Authorization:' "${router_target}")"
+            if [[ ! "${actual}" =~ ^[0-9]{3}$ ]]; then
+              printf 'PRIVATE_DEV_ROUTER_NEGATIVE=STOP Host=%s invalid HTTP response (redacted)\n' "${host}" >&2
+              exit 1
+            fi
             if [[ "${actual}" != "${expected}" ]]; then
               printf 'PRIVATE_DEV_ROUTER_NEGATIVE=STOP Host=%s expected=%s actual=%s\n' "${host}" "${expected}" "${actual}" >&2
               exit 1
