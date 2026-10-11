@@ -8,6 +8,11 @@ database:
   version: "11.8"
 ddev_version_constraint: ">= 1.25.4"
 disable_settings_management: true
+# Exact private DEV origin; never register on PROD.
+# NOTE: DDEV activation may update the operator's local /etc/hosts.
+# Runtime propagation and DNS/NetBird/TLS actions require separate authority.
+additional_fqdns:
+  - ps-dev.internal.emergingdigital.be
 web_environment:
   - PERSONAL_SECRETARY_ENV=development
 use_dns_when_possible: true

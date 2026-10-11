@@ -45,6 +45,23 @@ jobs:
           ddev exec ./scripts/bootstrap development
           ddev exec ./scripts/verify development
 
+      - name: Verify private DEV Host admission with synthetic DDEV only
+        shell: bash
+        run: |
+          set -euo pipefail
+          ddev exec php scripts/verify-dev-private-host.php
+          target='http://127.0.0.1/fr/personal-secretary/calendar/google'
+          for item in             'personal-secretary.ddev.site:403'             'ps-dev.internal.emergingdigital.be:403'             'unrelated.invalid:404'; do
+            host="${item%:*}"
+            expected="${item##*:}"
+            actual="$(curl --noproxy '*' --silent --show-error --max-time 15 --output /dev/null --write-out '%{http_code}' -H "Host: ${host}" "${target}")"
+            if [[ "${actual}" != "${expected}" ]]; then
+              printf 'PRIVATE_DEV_HOST_ROUTER=STOP Host=%s expected=%s actual=%s\n' "${host}" "${expected}" "${actual}" >&2
+              exit 1
+            fi
+          done
+          echo 'PRIVATE_DEV_HOST_ROUTER=PASS'
+
       - name: Run Personal Secretary domain and browser tests
         run: |
           ddev exec env SIMPLETEST_DB=mysql://db:db@db/db SIMPLETEST_BASE_URL=http://web vendor/bin/phpunit -c web/core/phpunit.xml.dist web/modules/custom/personal_secretary/tests/src
