@@ -85,13 +85,25 @@ final class SyntheticRoutinePreviewService {
         }
       }
 
+      $suppressedKeys = $context['suppressed_virtual_keys'] ?? [];
+      if (!is_array($suppressedKeys)) {
+        throw new InvalidArgumentException('Synthetic suppression keys must be an array.');
+      }
+      foreach ($suppressedKeys as $key) {
+        if (!is_string($key) || preg_match('/^[a-f0-9]{64}$/D', $key) !== 1) {
+          throw new InvalidArgumentException('Invalid synthetic virtual action identity.');
+        }
+      }
+
       $why = [];
       $morning = self::NOT_APPLICABLE;
       $afternoon = self::NOT_APPLICABLE;
       $actions = [];
-      $add = function (string $kind, string $detail) use (&$actions, $proposal, $day): void {
+      $add = function (string $kind, string $detail) use (&$actions, $proposal, $day, $suppressedKeys): void {
         $key = hash('sha256', implode('|', [$proposal->key, $proposal->version, $day, $kind, $detail]));
-        $actions[$key] = ['key' => $key, 'kind' => $kind, 'detail' => $detail, 'effect' => 'VIRTUAL_ONLY'];
+        if (!in_array($key, $suppressedKeys, TRUE)) {
+          $actions[$key] = ['key' => $key, 'kind' => $kind, 'detail' => $detail, 'effect' => 'VIRTUAL_ONLY'];
+        }
       };
 
       if ($phase === 'UNKNOWN') {
@@ -105,8 +117,10 @@ final class SyntheticRoutinePreviewService {
         // Transitions differ from simple event/calendar boundary timestamps.
         $morningPresence = $phase === 'START' ? FALSE : $presentAm;
         $afternoonPresence = $phase === 'END' ? FALSE : $presentPm;
-        $morning = $this->schoolRoutineState($morningPresence, $schoolDay, $schools);
-        $afternoon = $this->schoolRoutineState($afternoonPresence, $schoolDay, $schools);
+        $morning = $phase === 'START'
+          ? self::NOT_APPLICABLE : $this->schoolRoutineState($morningPresence, $schoolDay, $schools, $proposal);
+        $afternoon = $phase === 'END'
+          ? self::NOT_APPLICABLE : $this->schoolRoutineState($afternoonPresence, $schoolDay, $schools, $proposal);
         if ($phase === 'START') {
           $why[] = 'Début de période : pas de présence le matin.';
         }
@@ -117,14 +131,18 @@ final class SyntheticRoutinePreviewService {
           $why[] = 'Pas de trajet scolaire pendant fermeture ou congé.';
         }
         if ($morning === self::APPLICABLE) {
-          $add('PREPARATION_SUGGESTION', 'Préparer le kit fictif');
-          foreach ($schools as $school => $state) {
-            if ($state === 'OPEN') {
-              $add('TRAVEL_STOP_SUGGESTION', $school . ' (horaire de départ non estimé)');
+          if ($proposal->suggestPreparation) {
+            $add('PREPARATION_SUGGESTION', 'Préparer le kit fictif');
+          }
+          if ($proposal->suggestMorningStops && $schoolDay === TRUE) {
+            foreach ($schools as $school => $state) {
+              if ($state === 'OPEN') {
+                $add('TRAVEL_STOP_SUGGESTION', $school . ' (horaire de départ non estimé)');
+              }
             }
           }
         }
-        if ($afternoon === self::APPLICABLE) {
+        if ($afternoon === self::APPLICABLE && $proposal->suggestAfternoonCollection && $schoolDay === TRUE) {
           foreach ($schools as $school => $state) {
             if ($state === 'OPEN') {
               $add('COLLECTION_STOP_SUGGESTION', $school . ' (horaire non estimé)');
@@ -206,14 +224,30 @@ final class SyntheticRoutinePreviewService {
   }
 
   /** @param array<string, string> $schools */
-  private function schoolRoutineState(?bool $present, ?bool $schoolDay, array $schools): string {
-    if ($present === FALSE || $schoolDay === FALSE) {
+  private function schoolRoutineState(
+    ?bool $present,
+    ?bool $schoolDay,
+    array $schools,
+    SyntheticRoutineProposal $proposal,
+  ): string {
+    if ($proposal->requirePhysicalPresence && $present === FALSE) {
       return self::NOT_APPLICABLE;
     }
-    if ($present === NULL || $schoolDay === NULL || in_array('UNKNOWN', $schools, TRUE)) {
+    if ($proposal->requireSchoolDay && $schoolDay === FALSE) {
+      return self::NOT_APPLICABLE;
+    }
+    if (($proposal->requirePhysicalPresence && $present === NULL)
+      || ($proposal->requireSchoolDay && $schoolDay === NULL)) {
       return self::NEEDS_CONFIRMATION;
     }
-    return in_array('OPEN', $schools, TRUE) ? self::APPLICABLE : self::NOT_APPLICABLE;
+    // Unknown school closure must never become a positive travel suggestion.
+    if ($proposal->requireSchoolDay && in_array('UNKNOWN', $schools, TRUE)) {
+      return self::NEEDS_CONFIRMATION;
+    }
+    if ($proposal->requireSchoolDay && !in_array('OPEN', $schools, TRUE)) {
+      return self::NOT_APPLICABLE;
+    }
+    return self::APPLICABLE;
   }
 
   private function validClock(mixed $clock): bool {

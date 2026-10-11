@@ -19,11 +19,16 @@ final readonly class SyntheticRoutineProposal {
     public string $fictionalSentence,
     public string $householdKey,
     public string $startDate,
+    public bool $requireSchoolDay,
+    public bool $requirePhysicalPresence,
+    public bool $suggestPreparation,
+    public bool $suggestMorningStops,
+    public bool $suggestAfternoonCollection,
     public string $timezone = 'Europe/Brussels',
   ) {
     if (!preg_match('/^SYNTHETIC_[A-Z0-9_]+$/D', $key)
       || !preg_match('/^SYNTHETIC_[A-Z0-9_]+$/D', $householdKey)
-      || $version < 1 || trim($fictionalSentence) === '') {
+      || $version < 1 || trim($fictionalSentence) === '' || !$requirePhysicalPresence) {
       throw new InvalidArgumentException('Synthetic preview identity and input are required.');
     }
     try {

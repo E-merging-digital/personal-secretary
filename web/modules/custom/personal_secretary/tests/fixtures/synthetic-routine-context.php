@@ -13,6 +13,11 @@ return static function (): array {
     fictionalSentence: 'Durant la période fictive et si les centres sont ouverts, suggérer le kit et les étapes.',
     householdKey: 'SYNTHETIC_HOUSEHOLD_A',
     startDate: '2027-03-22',
+    requireSchoolDay: TRUE,
+    requirePhysicalPresence: TRUE,
+    suggestPreparation: TRUE,
+    suggestMorningStops: TRUE,
+    suggestAfternoonCollection: TRUE,
   );
   $dates = [];
   $start = new \DateTimeImmutable($proposal->startDate, new \DateTimeZone($proposal->timezone));
@@ -23,10 +28,9 @@ return static function (): array {
       'phase' => $phase,
       'present_am' => $i !== 0 && $i < 8,
       'present_pm' => $i < 7,
-      'school_day' => $i < 8 && !in_array($i, [5, 6, 7], TRUE),
+      'school_day' => $i < 8 && !in_array($i, [5, 6], TRUE),
       'schools' => ['FICTIVE_CENTRE_ALPHA' => 'OPEN', 'FICTIVE_CENTRE_BETA' => 'OPEN'],
       'external' => ['freshness' => 'CURRENT', 'events' => []],
-      'task_postponed' => FALSE,
     ];
   }
   $dates['2027-03-23']['external']['events'][] = ['visibility' => 'OPAQUE'];
@@ -34,7 +38,6 @@ return static function (): array {
   $dates['2027-03-25']['schools']['FICTIVE_CENTRE_ALPHA'] = 'CLOSED';
   $dates['2027-03-26']['schools']['FICTIVE_CENTRE_BETA'] = 'UNKNOWN';
   $dates['2027-03-26']['external']['freshness'] = 'STALE';
-  $dates['2027-03-26']['task_postponed'] = TRUE;
   $dates['2027-03-28']['exchange'] = ['window' => ['10:40', '12:20'], 'exact' => NULL];
   $dates['2027-03-29']['exchange'] = ['window' => ['10:40', '12:20'], 'exact' => NULL];
   return [$proposal, $dates];
