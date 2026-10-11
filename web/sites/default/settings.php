@@ -65,6 +65,7 @@ if (getenv('IS_DDEV_PROJECT') === 'true') {
   $settings['trusted_host_patterns'] = [
     '^.+\\.ddev\\.site$',
     '^localhost$',
+    '^ps-dev\\.internal\\.emergingdigital\\.be$',
   ];
 }
 else {
