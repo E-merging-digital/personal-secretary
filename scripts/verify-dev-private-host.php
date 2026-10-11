@@ -3,7 +3,7 @@
 
 /**
  * @file
- * Tests exact DDEV-only host admission without network or provider actions.
+ * Verifies exact DEV trusted hosts and absence of private DDEV router registration.
  */
 
 declare(strict_types=1);
@@ -26,6 +26,15 @@ $load = static function (bool $ddev) use ($root): array {
   include $root . '/web/sites/default/settings.php';
   return $settings;
 };
+
+$ddevConfig = file_get_contents($root . '/.ddev/config.yaml');
+if ($ddevConfig === FALSE) {
+  $fail('Cannot read the committed DDEV configuration.');
+}
+if (preg_match('/^additional_fqdns[ \\t]*:/m', $ddevConfig) === 1
+  || str_contains($ddevConfig, 'ps-dev.internal.emergingdigital.be')) {
+  $fail('Private DEV FQDN must not be registered with the shared DDEV router.');
+}
 
 $dev = $load(TRUE);
 $patterns = $dev['trusted_host_patterns'] ?? NULL;
