@@ -182,7 +182,10 @@ final class AddActivityForm extends FormBase {
     $form['start_local_time'] = [
       '#type' => 'date',
       '#title' => $this->t('Start time'),
-      '#attributes' => ['type' => 'time'],
+      '#attributes' => [
+        'type' => 'time',
+        'data-ps-activity-start' => '',
+      ],
       '#required' => FALSE,
       '#states' => [
         'visible' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_TIMED]],
@@ -192,7 +195,10 @@ final class AddActivityForm extends FormBase {
     $form['end_local_time'] = [
       '#type' => 'date',
       '#title' => $this->t('End time'),
-      '#attributes' => ['type' => 'time'],
+      '#attributes' => [
+        'type' => 'time',
+        'data-ps-activity-end' => '',
+      ],
       '#required' => FALSE,
       '#states' => [
         'visible' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_TIMED]],
@@ -224,6 +230,7 @@ final class AddActivityForm extends FormBase {
       '#min' => 0,
       '#step' => 1,
     ];
+    $form['#attached']['library'][] = 'personal_secretary/activity_default_duration';
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',
