@@ -68,6 +68,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(403);
 
+    $this->drupalLogout();
     $this->drupalLogin($unlinked);
     $this->drupalGet('/personal-secretary/today');
     $this->assertSession()->linkNotExists('Talk to the assistant');
@@ -76,11 +77,13 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic visible Today task');
     $this->assertSession()->elementNotExists('css', 'input[name="op"]');
 
+    $this->drupalLogout();
     $this->drupalLogin($withoutGrant);
     $this->drupalGet($route);
     $this->assertSession()->pageTextContains('Link your account to an authorized Household member');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
 
+    $this->drupalLogout();
     $this->drupalLogin($authorized);
     $this->drupalGet('/personal-secretary/today');
     $this->assertSession()->statusCodeEquals(200);
