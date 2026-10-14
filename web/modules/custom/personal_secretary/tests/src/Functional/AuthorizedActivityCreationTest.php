@@ -167,7 +167,6 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->fieldValueEquals('household_id', (string) $household->id());
     // Ordinary users retain their current Person, not an admin select.
-    $this->assertSession()->fieldValueEquals('responsible_person_id', (string) $current->id());
     // This hidden value is intentionally forged. It is not mutation authority.
     $hiddenResponsible = $this->getSession()
       ->getPage()
@@ -176,6 +175,10 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
         'input[type="hidden"][name="responsible_person_id"]',
       );
     $this->assertNotNull($hiddenResponsible);
+    $this->assertSame(
+      (string) $current->id(),
+      (string) $hiddenResponsible->getValue(),
+    );
     $hiddenResponsible->setValue((string) $concerned->id());
 
     $this->submitForm([
