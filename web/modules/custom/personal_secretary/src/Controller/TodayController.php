@@ -64,6 +64,18 @@ final class TodayController extends ControllerBase {
           '@timezone' => $today['timezone'],
         ]),
       ],
+      'assistant' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-today-assistant']],
+        'entry' => [
+          '#type' => 'link',
+          '#title' => $this->languageManager()->getCurrentLanguage()->getId() === 'fr'
+            ? $this->t('Parler à l’assistant')
+            : $this->t('Talk to the assistant'),
+          '#url' => Url::fromRoute('personal_secretary.guided_assistant'),
+          '#attributes' => ['class' => ['ps-today-assistant__link']],
+        ],
+      ],
       'tasks' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-today-section', 'ps-today-section--tasks']],
