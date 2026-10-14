@@ -42,6 +42,7 @@ final class ThreeIntentReadProposeKernelTest extends KernelTestBase {
       'personal_secretary_household',
       'personal_sec_task',
       'personal_sec_activity_series',
+      'personal_sec_prep_req',
       'personal_sec_calendar_connection',
       'personal_sec_ext_event_shadow',
       'personal_sec_calendar_sync_state',
