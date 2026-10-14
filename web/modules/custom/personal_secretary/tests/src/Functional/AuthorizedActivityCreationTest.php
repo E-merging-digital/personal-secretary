@@ -71,6 +71,8 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Authorized Household H1');
+    // Exactly one scoped Household, despite other globally existing contexts.
+    $this->assertSession()->fieldValueEquals('household_id', (string) $h1->id());
     $this->assertSession()->pageTextNotContains('Unauthorized Household H2');
     $this->assertSession()->pageTextContains('Authorized H1 Member');
     $this->assertSession()->pageTextNotContains('Unauthorized H2 Person');
@@ -163,6 +165,9 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $weeklyDate = $nowLocal->modify('+2 days')->format('Y-m-d');
     $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->fieldValueEquals('household_id', (string) $household->id());
+    // Ordinary users retain their current Person, not an admin select.
+    $this->assertSession()->fieldValueEquals('responsible_person_id', (string) $current->id());
     // This hidden value is intentionally forged. It is not mutation authority.
     $hiddenResponsible = $this->getSession()
       ->getPage()

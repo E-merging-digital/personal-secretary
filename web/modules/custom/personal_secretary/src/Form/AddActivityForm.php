@@ -95,7 +95,7 @@ final class AddActivityForm extends FormBase {
       '#options' => $households,
       '#required' => TRUE,
     ];
-    if (!$isAdministrator && count($households) === 1) {
+    if (count($households) === 1) {
       $form['household_id']['#default_value'] = (string) array_key_first($households);
     }
 
@@ -128,6 +128,9 @@ final class AddActivityForm extends FormBase {
         '#required' => FALSE,
         '#description' => $this->t('Required for weekly activities; optional for one-off activities.'),
       ];
+      if (count($people) === 1) {
+        $form['responsible_person_id']['#default_value'] = (string) array_key_first($people);
+      }
     }
     else {
       $form['responsible_person_id'] = [

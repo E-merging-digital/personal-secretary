@@ -53,6 +53,14 @@ final class OneOffActivityTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Weekly');
     $this->assertSession()->pageTextContains('Activity date');
     $this->assertSession()->fieldNotExists('rrule');
+    // Both sole eligible options are selected on the existing admin form.
+    $this->assertSession()->fieldValueEquals('household_id', (string) $household->id());
+    $this->assertSession()->fieldValueEquals('responsible_person_id', (string) $person->id());
+    $this->assertSession()->elementExists('css', 'select[name="responsible_person_id"] option[value=""]');
+    $this->assertSession()->elementExists(
+      'css',
+      'input[name="concerned_person_ids[' . $person->id() . ']"]:not(:checked)',
+    );
 
     $weeklyStart = $nowLocal->modify('+2 days')->setTime(9, 0);
     $this->submitForm([
@@ -77,6 +85,8 @@ final class OneOffActivityTest extends BrowserTestBase {
 
     $oneOffWithoutResponsibilityStart = $nowLocal->modify('+3 days')->setTime(11, 0);
     $this->drupalGet('/personal-secretary/activities/add');
+    // One-off retains the useful default but may explicitly choose Nobody.
+    $this->assertSession()->fieldValueEquals('responsible_person_id', (string) $person->id());
     $this->submitForm([
       'household_id' => (string) $household->id(),
       'activity_type' => 'one_off',
@@ -157,6 +167,28 @@ final class OneOffActivityTest extends BrowserTestBase {
     $this->assertNotNull($preparation);
     $this->assertSame('Prepare synthetic one-off material', (string) $preparation->label());
     $this->assertSame(1800, (int) $preparation->get('lead_time_seconds')->value);
+
+    // Adding a second eligible option must not choose either arbitrarily.
+    $secondPerson = $domain->createPerson('Other synthetic responsible person');
+    $secondHousehold = $domain->createHousehold(
+      'Other synthetic household',
+      [(int) $secondPerson->id()],
+    );
+    $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->fieldValueEquals('household_id', '');
+    $this->assertSession()->fieldValueEquals('responsible_person_id', '');
+    $this->assertSession()->elementExists(
+      'css',
+      'select[name="household_id"] option[value="' . $secondHousehold->id() . '"]',
+    );
+    $this->assertSession()->elementExists(
+      'css',
+      'select[name="responsible_person_id"] option[value="' . $secondPerson->id() . '"]',
+    );
+    $this->assertSession()->elementExists(
+      'css',
+      'input[name="concerned_person_ids[' . $secondPerson->id() . ']"]:not(:checked)',
+    );
 
     $countsBeforeFailure = [
       'series' => count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple()),
