@@ -131,6 +131,16 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
 }
 
 
+.ps-upcoming-actions { display:flex; justify-content:flex-end; margin-block:.75rem 1rem; }
+.ps-upcoming-actions__add {
+  display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+  min-height:44px; padding:.55rem .8rem; border-radius:.7rem;
+  background:var(--ps-brand-strong); color:#fff; font-weight:700; text-decoration:none;
+}
+.ps-upcoming-actions__add:hover { filter:brightness(.9); color:#fff; }
+.ps-upcoming-actions__add:focus-visible {
+  outline:3px solid var(--ps-ink); outline-offset:3px;
+}
 .ps-upcoming-list { display:grid; gap:1rem; }
 .ps-upcoming-list__item { min-width:0; }
 .ps-upcoming-card {
