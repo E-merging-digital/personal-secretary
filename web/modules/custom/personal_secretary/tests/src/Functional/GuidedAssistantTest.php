@@ -80,7 +80,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->drupalLogout();
     $this->drupalLogin($withoutGrant);
     $this->drupalGet($route);
-    $this->assertSession()->pageTextContains('Link your account to an authorized Household member');
+    $this->assertSession()->statusCodeEquals(403);
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
 
     $this->drupalLogout();
