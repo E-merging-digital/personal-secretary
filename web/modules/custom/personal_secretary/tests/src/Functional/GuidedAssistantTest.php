@@ -116,6 +116,23 @@ final class GuidedAssistantTest extends BrowserTestBase {
 
     $task = ['intent' => 'PROPOSE_TASK', 'task_title' => 'Synthetic guided task', 'task_due_mode' => PersonalTask::DUE_NONE];
     $this->submitForm($task, 'Show preview');
+    // R9: Emit bounded synthetic status/field evidence on the first task preview.
+    $probeText = $this->getSession()->getPage()->getText();
+    $probeStatuses = array_values(array_filter(
+      ['READ_SUCCESS', 'PROPOSAL_READY', 'NEEDS_CLARIFICATION', 'ACCESS_DENIED', 'UNAVAILABLE'],
+      static fn(string $status): bool => str_contains($probeText, 'Status: ' . $status),
+    ));
+    $selected = $this->getSession()->getPage()->find('css', 'input[name="intent"]:checked')?->getAttribute('value');
+    $selected = in_array($selected, ['GET_TODAY', 'PROPOSE_TASK', 'PROPOSE_ACTIVITY'], TRUE) ? $selected : 'MISSING_OR_OTHER';
+    $titleMatches = $this->getSession()->getPage()->findField('task_title')?->getValue() === 'Synthetic guided task';
+    $dueNone = $this->getSession()->getPage()->findField('task_due_mode')?->getValue() === PersonalTask::DUE_NONE;
+    $this->assertSame(['PROPOSAL_READY'], $probeStatuses, sprintf(
+      'R9 synthetic form response: http=%d intent=%s title_matches=%s due_none=%s',
+      $this->getSession()->getStatusCode(),
+      $selected,
+      $titleMatches ? 'YES' : 'NO',
+      $dueNone ? 'YES' : 'NO',
+    ));
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Synthetic guided task');
     $this->assertSession()->pageTextContains('Preview not saved');
