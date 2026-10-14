@@ -91,7 +91,10 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-assistant__link'));
     $this->assertSession()->elementExists('css', '.ps-today-assistant ~ .ps-today-section--tasks');
 
-    $this->drupalGet($route . '?user_id=' . $ordinary->id() . '&household_id=' . $h2->id());
+    $this->drupalGet($route, ['query' => [
+      'user_id' => $ordinary->id(),
+      'household_id' => $h2->id(),
+    ]]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists('/personal-secretary/today');
     $this->assertSession()->pageTextContains('Choose an action');
