@@ -203,6 +203,9 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($myUpcomingUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
+    $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ .ps-upcoming-list');
     $this->assertSession()->pageTextContains('Override to A activity');
     $this->assertSession()->pageTextContains('Prepare included A kit');
     $this->assertSession()->pageTextContains('Prepare included override kit');
@@ -338,6 +341,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     );
     $this->assertSession()->linkExists('Link my account to household member');
     $this->assertSession()->linkByHrefExists('/personal-secretary/account/person');
+    $this->assertSession()->elementNotExists('css', '.ps-upcoming-actions__add');
 
     foreach ([
       'Rule A activity',

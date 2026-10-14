@@ -49,6 +49,10 @@ final class UpcomingController extends ControllerBase {
       (string) $this->t('Showing upcoming activities for the next 7 days.'),
     );
 
+    if ($hasExistingContext) {
+      $build['add_activity'] = $this->addActivityLink();
+    }
+
     if ($items === []) {
       $build['empty'] = [
         '#type' => 'html_tag',
@@ -60,7 +64,6 @@ final class UpcomingController extends ControllerBase {
         $build['add_household_member'] = $this->addHouseholdMemberLink();
         $build['rename_household_member'] = $this->renameHouseholdMemberLink();
         $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
-        $build['add_activity'] = $this->addActivityLink();
       }
       else {
         $build['setup'] = [
@@ -79,7 +82,6 @@ final class UpcomingController extends ControllerBase {
       $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
     }
     $build['items'] = $this->buildItems($items, TRUE, FALSE, FALSE);
-    $build['add_activity'] = $this->addActivityLink();
 
     return $build;
   }
@@ -384,9 +386,14 @@ final class UpcomingController extends ControllerBase {
    */
   private function addActivityLink(): array {
     return [
-      '#type' => 'link',
-      '#title' => $this->t('Add activity'),
-      '#url' => Url::fromRoute('personal_secretary.add_activity'),
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-upcoming-actions']],
+      'add_activity' => [
+        '#type' => 'link',
+        '#title' => $this->t('Add activity'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity'),
+        '#attributes' => ['class' => ['ps-upcoming-actions__add']],
+      ],
     ];
   }
 

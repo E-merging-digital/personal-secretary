@@ -33,6 +33,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('No upcoming activities in the next 7 days.');
     $this->assertSession()->linkExists('Add your first activity');
     $this->assertSession()->linkByHrefExists('/personal-secretary/setup');
+    $this->assertSession()->elementNotExists('css', '.ps-upcoming-actions__add');
 
     /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
     $domain = $this->container->get('personal_secretary.domain_mutation');
@@ -55,6 +56,13 @@ final class UpcomingViewTest extends BrowserTestBase {
 
     $person = $domain->createPerson('Parker Browser');
     $household = $domain->createHousehold('Browser Household', [(int) $person->id()]);
+
+    // Empty existing context still has one primary CTA, before the empty text.
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->pageTextContains('No upcoming activities in the next 7 days.');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
+    $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ p');
 
     $originalStartUtc = $now->modify('+2 days')->setTime(9, 0);
     $originalEndUtc = $originalStartUtc->modify('+1 hour');
@@ -117,6 +125,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextNotContains('No upcoming activities in the next 7 days.');
     $this->assertSession()->pageTextContains('Synthetic upcoming activity');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
+    $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ .ps-upcoming-list');
     $this->assertSession()->pageTextContains('Parker Browser');
     $this->assertSession()->pageTextContains('Pack synthetic equipment');
     $this->assertSession()->pageTextContains($rescheduledLocalDisplay);
