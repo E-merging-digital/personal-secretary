@@ -21,7 +21,7 @@ final class TodayController extends ControllerBase {
 
   public function __construct(
     private readonly TodayService $todayService,
-    private readonly LanguageManagerInterface $languageManager,
+    private readonly LanguageManagerInterface $todayLanguageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -72,7 +72,7 @@ final class TodayController extends ControllerBase {
         '#attributes' => ['class' => ['ps-today-assistant']],
         'entry' => [
           '#type' => 'link',
-          '#title' => $this->languageManager->getCurrentLanguage()->getId() === 'fr'
+          '#title' => $this->todayLanguageManager->getCurrentLanguage()->getId() === 'fr'
             ? $this->t('Parler à l’assistant')
             : $this->t('Talk to the assistant'),
           '#url' => Url::fromRoute('personal_secretary.guided_assistant'),
