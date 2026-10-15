@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 #[RunTestsInSeparateProcesses]
 final class GuidedAssistantTest extends BrowserTestBase {
 
-  protected static $modules = ['block', 'field', 'personal_secretary'];
+  protected static $modules = ['block', 'field', 'dblog', 'personal_secretary'];
   protected $defaultTheme = 'olivero';
 
   protected function setUp(): void {
@@ -116,6 +116,61 @@ final class GuidedAssistantTest extends BrowserTestBase {
 
     $task = ['intent' => 'PROPOSE_TASK', 'task_title' => 'Synthetic guided task', 'task_due_mode' => PersonalTask::DUE_NONE];
     $this->submitForm($task, 'Show preview');
+    // R10: Classify only synthetic server errors, never expose log payloads.
+    $exceptionClass = 'NOT_CAPTURED';
+    $sourceBasename = 'NOT_CAPTURED';
+    $sourceLine = 'UNKNOWN';
+    $serverLogPresent = 'NO';
+    if ($this->getSession()->getStatusCode() === 500) {
+      try {
+        $database = $this->container->get('database');
+        if ($database->schema()->tableExists('watchdog')) {
+          $events = $database->select('watchdog', 'w')
+            ->fields('w', ['type', 'variables'])
+            ->condition('severity', 3, '<=')
+            ->orderBy('wid', 'DESC')
+            ->range(0, 5)
+            ->execute()
+            ->fetchAll();
+          $serverLogPresent = $events === [] ? 'NO' : 'YES';
+          foreach ($events as $event) {
+            if ($event->type !== 'php' || !is_string($event->variables)) {
+              continue;
+            }
+            $values = @unserialize($event->variables, ['allowed_classes' => FALSE]);
+            if (!is_array($values) || !is_string($values['%type'] ?? NULL)) {
+              continue;
+            }
+            $type = ltrim($values['%type'], '\\');
+            $exceptionClass = in_array($type, [
+              'TypeError', 'Error', 'ArgumentCountError',
+              'InvalidArgumentException', 'RuntimeException', 'LogicException',
+            ], TRUE) ? $type : 'OTHER';
+            $file = $values['%file'] ?? NULL;
+            if (is_string($file)) {
+              $basename = basename(str_replace('\\', '/', $file));
+              $sourceBasename = in_array($basename, [
+                'GuidedAssistantForm.php', 'ThreeIntentReadProposeService.php',
+                'TodayService.php', 'FormBuilder.php', 'FormValidator.php',
+              ], TRUE) ? $basename : 'OTHER';
+            }
+            $line = $values['%line'] ?? NULL;
+            if ((is_int($line) && $line > 0)
+              || (is_string($line) && ctype_digit($line) && (int) $line > 0)) {
+              $sourceLine = (string) (int) $line;
+            }
+            break;
+          }
+        }
+      }
+      catch (\Throwable) {
+        // An unavailable diagnostic must not replace the original assertion.
+        $exceptionClass = 'NOT_CAPTURED';
+        $sourceBasename = 'NOT_CAPTURED';
+        $sourceLine = 'UNKNOWN';
+        $serverLogPresent = 'NO';
+      }
+    }
     // R9: Emit bounded synthetic status/field evidence on the first task preview.
     $probeText = $this->getSession()->getPage()->getText();
     $probeStatuses = array_values(array_filter(
@@ -127,11 +182,15 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $titleMatches = $this->getSession()->getPage()->findField('task_title')?->getValue() === 'Synthetic guided task';
     $dueNone = $this->getSession()->getPage()->findField('task_due_mode')?->getValue() === PersonalTask::DUE_NONE;
     $this->assertSame(['PROPOSAL_READY'], $probeStatuses, sprintf(
-      'R9 synthetic form response: http=%d intent=%s title_matches=%s due_none=%s',
+      'R9 synthetic form response: http=%d intent=%s title_matches=%s due_none=%s exception_class=%s source_basename=%s source_line=%s server_log_present=%s',
       $this->getSession()->getStatusCode(),
       $selected,
       $titleMatches ? 'YES' : 'NO',
       $dueNone ? 'YES' : 'NO',
+      $exceptionClass,
+      $sourceBasename,
+      $sourceLine,
+      $serverLogPresent,
     ));
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Synthetic guided task');
