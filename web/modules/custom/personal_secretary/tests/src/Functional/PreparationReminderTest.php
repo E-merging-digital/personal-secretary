@@ -9,6 +9,7 @@ use DateTimeZone;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\PreparationReminderDelivery;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -54,8 +55,13 @@ final class PreparationReminderTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/reminders');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->checkboxNotChecked('preparation_reminders');
+    $this->assertSession()->pageTextContains('Preparations that need your attention remain visible in Today and My preparations, according to their due dates and your responsibilities, whether email reminders are enabled or not.');
+    $this->assertSession()->pageTextContains('Email reminders are optional and apply only when a preparation becomes due, not to ordinary tasks. Email delivery depends on the configured mail service.');
+    $this->assertSession()->pageTextContains('Push notifications and proactive in-app notifications are not available.');
+    $this->assertSession()->pageTextContains('Also email me when a preparation becomes due');
     $this->submitForm(['preparation_reminders' => TRUE], 'Save reminder settings');
     $this->assertSession()->checkboxChecked('preparation_reminders');
+    $this->assertSession()->pageTextContains('Also email me when a preparation becomes due');
 
     $user = $this->reloadUser((int) $user->id());
     $candidates = $candidateService->dueForUser($user, $now);
@@ -134,6 +140,44 @@ final class PreparationReminderTest extends BrowserTestBase {
     $delivery->delete();
     $deliveryService->processPayload($payload);
     $this->assertCount(0, $this->container->get('entity_type.manager')->getStorage(PreparationReminderDelivery::ENTITY_TYPE_ID)->loadMultiple());
+    $this->assertCount(2, $this->container->get('state')->get('system.test_mail_collector', []));
+
+    // Render both locales using the existing project catalog; no real mail.
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
+    $this->config('system.site')->set('default_langcode', 'fr')->save();
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+
+    $this->drupalGet('/fr/personal-secretary/reminders');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Les préparatifs qui vous concernent restent visibles dans Aujourd’hui et Mes préparatifs selon leur échéance et vos responsabilités, que les rappels par e-mail soient activés ou non.');
+    $this->assertSession()->pageTextContains('Les rappels par e-mail sont facultatifs et concernent uniquement les préparatifs arrivant à échéance, pas les tâches ordinaires. Leur envoi dépend du service de messagerie configuré.');
+    $this->assertSession()->pageTextContains('Les notifications push et les notifications proactives dans l’application ne sont pas disponibles actuellement.');
+    $this->assertSession()->pageTextContains('Recevoir aussi un e-mail lorsqu’un préparatif arrive à échéance');
+    $this->assertSession()->checkboxNotChecked('preparation_reminders');
+
+    $this->drupalGet('/en/personal-secretary/reminders');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Preparations that need your attention remain visible in Today and My preparations, according to their due dates and your responsibilities, whether email reminders are enabled or not.');
+    $this->assertSession()->pageTextContains('Email reminders are optional and apply only when a preparation becomes due, not to ordinary tasks. Email delivery depends on the configured mail service.');
+    $this->assertSession()->pageTextContains('Push notifications and proactive in-app notifications are not available.');
+    $this->assertSession()->pageTextContains('Also email me when a preparation becomes due');
+    $this->assertSession()->checkboxNotChecked('preparation_reminders');
     $this->assertCount(2, $this->container->get('state')->get('system.test_mail_collector', []));
   }
 

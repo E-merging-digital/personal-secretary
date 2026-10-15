@@ -135,6 +135,18 @@ msgstr "Date et heure effectives"
 msgid "Email me when a preparation becomes due"
 msgstr "M’envoyer un e-mail lorsqu’un préparatif arrive à échéance"
 
+msgid "Also email me when a preparation becomes due"
+msgstr "Recevoir aussi un e-mail lorsqu’un préparatif arrive à échéance"
+
+msgid "Preparations that need your attention remain visible in Today and My preparations, according to their due dates and your responsibilities, whether email reminders are enabled or not."
+msgstr "Les préparatifs qui vous concernent restent visibles dans Aujourd’hui et Mes préparatifs selon leur échéance et vos responsabilités, que les rappels par e-mail soient activés ou non."
+
+msgid "Email reminders are optional and apply only when a preparation becomes due, not to ordinary tasks. Email delivery depends on the configured mail service."
+msgstr "Les rappels par e-mail sont facultatifs et concernent uniquement les préparatifs arrivant à échéance, pas les tâches ordinaires. Leur envoi dépend du service de messagerie configuré."
+
+msgid "Push notifications and proactive in-app notifications are not available."
+msgstr "Les notifications push et les notifications proactives dans l’application ne sont pas disponibles actuellement."
+
 msgid "End date (inclusive)"
 msgstr "Date de fin (incluse)"
 
