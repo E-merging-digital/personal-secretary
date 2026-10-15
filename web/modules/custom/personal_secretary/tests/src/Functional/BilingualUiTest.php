@@ -251,6 +251,29 @@ final class BilingualUiTest extends BrowserTestBase {
       ['My preparations', 'Préparer le cahier bleu – ne pas traduire', 'Not prepared'],
     );
 
+    // Copy-only Add Activity help is translated without changing field behavior.
+    $this->assertSurfacePair(
+      '/personal-secretary/activities/add',
+      [
+        'Préparation à prévoir',
+        'Facultatif. Indiquez une chose à préparer avant cette activité, par exemple rassembler des documents pour un rendez-vous.',
+        'Combien de minutes avant l’activité ?',
+        '60 signifie une heure avant le début de l’activité ; 0 correspond au début. Utilisé uniquement si une préparation est indiquée.',
+      ],
+      [
+        'Preparation to plan',
+        'Optional. Add something to do before this activity, for example prepare documents for an appointment.',
+        'How many minutes before the activity?',
+        '60 means one hour before the activity starts; 0 means at the start. Used only if a preparation is entered.',
+      ],
+    );
+    $this->assertSession()->fieldExists('preparation_instruction');
+    $this->assertSession()->fieldValueEquals('preparation_lead_minutes', '0');
+    $this->assertSession()->elementExists(
+      'css',
+      'input[name="preparation_lead_minutes"][type="number"][min="0"][step="1"]',
+    );
+
     $this->drupalGet('/fr/personal-secretary/preparations/mine');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->buttonExists('Marquer comme prêt');

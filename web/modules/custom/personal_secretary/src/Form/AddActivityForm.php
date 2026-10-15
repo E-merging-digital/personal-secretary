@@ -221,14 +221,14 @@ final class AddActivityForm extends FormBase {
     }
     $form['preparation_instruction'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('Preparation instruction'),
-      '#description' => $this->t('Optional.'),
+      '#title' => $this->t('Preparation to plan'),
+      '#description' => $this->t('Optional. Add something to do before this activity, for example prepare documents for an appointment.'),
       '#maxlength' => 255,
     ];
     $form['preparation_lead_minutes'] = [
       '#type' => 'number',
-      '#title' => $this->t('Preparation lead time in minutes'),
-      '#description' => $this->t('Used only when a preparation instruction is provided.'),
+      '#title' => $this->t('How many minutes before the activity?'),
+      '#description' => $this->t('60 means one hour before the activity starts; 0 means at the start. Used only if a preparation is entered.'),
       '#default_value' => 0,
       '#min' => 0,
       '#step' => 1,

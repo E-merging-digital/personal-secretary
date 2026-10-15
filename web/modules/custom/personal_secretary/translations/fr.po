@@ -321,6 +321,18 @@ msgstr "Nom de la personne"
 msgid "Preparation instruction"
 msgstr "Instruction de préparation"
 
+msgid "Preparation to plan"
+msgstr "Préparation à prévoir"
+
+msgid "Optional. Add something to do before this activity, for example prepare documents for an appointment."
+msgstr "Facultatif. Indiquez une chose à préparer avant cette activité, par exemple rassembler des documents pour un rendez-vous."
+
+msgid "How many minutes before the activity?"
+msgstr "Combien de minutes avant l’activité ?"
+
+msgid "60 means one hour before the activity starts; 0 means at the start. Used only if a preparation is entered."
+msgstr "60 signifie une heure avant le début de l’activité ; 0 correspond au début. Utilisé uniquement si une préparation est indiquée."
+
 msgid "Preparation lead time in minutes"
 msgstr "Délai de préparation en minutes"
 
