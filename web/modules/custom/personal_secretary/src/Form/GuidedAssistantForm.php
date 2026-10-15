@@ -27,17 +27,12 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class GuidedAssistantForm extends FormBase {
 
-  private readonly ThreeIntentReadProposeService $capabilities;
-
   public function __construct(
-    private readonly TodayService $today,
-    private readonly CurrentUserActivityCreationService $activityCreation,
-    ActivityCaptureResolver $captureResolver,
-    private readonly LanguageManagerInterface $interfaceLanguage,
+    protected TodayService $today,
+    protected CurrentUserActivityCreationService $activityCreation,
+    protected ActivityCaptureResolver $captureResolver,
+    protected LanguageManagerInterface $interfaceLanguage,
   ) {
-    $this->capabilities = new ThreeIntentReadProposeService(
-      $today, $activityCreation, $captureResolver,
-    );
   }
 
   public static function create(ContainerInterface $container): static {
@@ -270,7 +265,10 @@ final class GuidedAssistantForm extends FormBase {
         return;
       }
     }
-    $this->show($form_state, $this->capabilities->handle($intent, $input));
+    $capabilities = new ThreeIntentReadProposeService(
+      $this->today, $this->activityCreation, $this->captureResolver,
+    );
+    $this->show($form_state, $capabilities->handle($intent, $input));
   }
 
   /**
