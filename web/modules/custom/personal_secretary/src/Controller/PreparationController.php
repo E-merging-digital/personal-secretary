@@ -98,6 +98,23 @@ final class PreparationController extends ControllerBase {
           ? $this->t('No upcoming preparations are assigned to you in the next 7 days.')
           : $this->t('Nothing currently needs preparation.'),
       ];
+      if ($model['items'] === []) {
+        $build['to_prepare']['explanation'] = [
+          '#type' => 'html_tag',
+          '#tag' => 'p',
+          '#value' => $this->t('Preparations are added through activities. You can include a preparation when adding an activity.'),
+        ];
+        $build['to_prepare']['add_activity'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['ps-upcoming-actions']],
+          'link' => [
+            '#type' => 'link',
+            '#title' => $this->t('Add an activity to prepare'),
+            '#url' => Url::fromRoute('personal_secretary.add_activity'),
+            '#attributes' => ['class' => ['ps-upcoming-actions__add']],
+          ],
+        ];
+      }
     }
     else {
       $build['to_prepare']['items'] = [

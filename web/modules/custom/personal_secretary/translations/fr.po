@@ -27,6 +27,9 @@ msgstr "Type d’activité"
 msgid "Add activity"
 msgstr "Ajouter une activité"
 
+msgid "Add an activity to prepare"
+msgstr "Ajouter une activité à préparer"
+
 msgid "Add household member"
 msgstr "Ajouter un membre du foyer"
 
@@ -344,6 +347,9 @@ msgstr "Le préparatif était déjà marqué comme non prêt."
 
 msgid "Preparations"
 msgstr "Préparatifs"
+
+msgid "Preparations are added through activities. You can include a preparation when adding an activity."
+msgstr "Les préparatifs sont associés aux activités. Vous pouvez ajouter un préparatif lorsque vous créez une activité."
 
 msgid "Prepared"
 msgstr "Prêt"
