@@ -298,6 +298,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('All-day preparation activity');
     $this->assertSession()->pageTextContains('All day');
     $this->assertSession()->pageTextContains($afterItems['Due now preparation']['activity_start']);
+    $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
 
     $allDayRendered = $afterItems['All-day preparation'];
     $allDayArticle = '//article[contains(@class, "personal-secretary-preparation-item")][.//h3[normalize-space()="All-day preparation"]]';
@@ -334,6 +335,11 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 7 days.');
+    $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
+    $this->assertSession()->pageTextContains('Add an activity to prepare');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Viewing the empty state must not create an activity or preparation.');
     $this->assertSession()->elementNotExists(
       'xpath',
       '//article[contains(concat(" ", normalize-space(@class), " "), " personal-secretary-preparation-item ")][.//h3[normalize-space()="Active overdue preparation"]]',
@@ -355,6 +361,36 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalLogin($authorized);
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(403);
+
+    // Reuse Core locale and this module's existing French catalog contract.
+    $this->drupalLogout();
+    if (\Drupal\language\Entity\ConfigurableLanguage::load('fr') === NULL) {
+      \Drupal\language\Entity\ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
+    $this->config('system.site')->set('default_langcode', 'fr')->save();
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+    $this->drupalLogin($emptyGranted);
+    $this->drupalGet('/fr/personal-secretary/preparations/mine');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Les préparatifs sont associés aux activités.');
+    $this->assertSession()->linkExists('Ajouter une activité à préparer');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/activities/add');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
+    $this->assertSame($countsBefore, $this->domainCounts());
   }
 
   private function createSeriesWithRule(string $label, int $householdId, int $responsiblePersonId, DateTimeImmutable $start): ActivitySeries {
@@ -396,6 +432,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
   private function assertRemediationOnly(): void {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Link your account to a valid Household member to see My preparations.');
+    $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
     foreach (['Active overdue preparation', 'Long lead preparation due inside seven days', 'Preparation appears after responsibility override', 'Replacement preparation requirement', 'Unauthorized H2 thirty day lead preparation'] as $leakedText) {
       $this->assertSession()->pageTextNotContains($leakedText);
     }
