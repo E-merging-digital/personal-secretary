@@ -30,9 +30,24 @@ final class PreparationReminderSettingsForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $user = $this->currentUserEntity();
+    $form['visibility_help'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => $this->t('Preparations that need your attention remain visible in Today and My preparations, according to their due dates and your responsibilities, whether email reminders are enabled or not.'),
+    ];
+    $form['email_help'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => $this->t('Email reminders are optional and apply only when a preparation becomes due, not to ordinary tasks. Email delivery depends on the configured mail service.'),
+    ];
+    $form['notification_help'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => $this->t('Push notifications and proactive in-app notifications are not available.'),
+    ];
     $form['preparation_reminders'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Email me when a preparation becomes due'),
+      '#title' => $this->t('Also email me when a preparation becomes due'),
       '#default_value' => (bool) $user->get(PreparationReminderCandidateService::OPT_IN_FIELD)->value,
     ];
     $form['actions'] = ['#type' => 'actions'];
