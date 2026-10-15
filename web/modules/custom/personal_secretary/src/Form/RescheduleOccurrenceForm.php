@@ -96,6 +96,15 @@ final class RescheduleOccurrenceForm extends FormBase {
       '#value' => $this->t('Reschedule occurrence'),
       '#button_type' => 'primary',
     ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
+        'series' => $this->seriesId(),
+        'original_occurrence_key' => $this->originalOccurrenceKey(),
+      ]),
+      '#attributes' => ['class' => ['button']],
+    ];
 
     return $form;
   }
