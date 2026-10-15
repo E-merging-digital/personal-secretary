@@ -54,6 +54,9 @@ msgstr "Retour à Mes tâches"
 msgid "Blocked"
 msgstr "Bloqué"
 
+msgid "Cancel"
+msgstr "Annuler"
+
 msgid "Cancel occurrence"
 msgstr "Annuler l’occurrence"
 

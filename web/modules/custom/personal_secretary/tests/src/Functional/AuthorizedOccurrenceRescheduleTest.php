@@ -194,6 +194,23 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Authorized weekly reschedule');
     $this->assertSession()->pageTextContains('Source timezone');
     $this->assertSession()->pageTextContains('Europe/Brussels');
+    $cancelLinks = $this->getSession()->getPage()->findAll('css', 'form a.button');
+    $this->assertCount(1, $cancelLinks, 'One secondary cancel link on the authorized reschedule form.');
+    $this->assertSame('Cancel', $cancelLinks[0]->getText());
+    $this->assertSame($weeklyDetailUrl, $cancelLinks[0]->getAttribute('href'));
+    $this->assertSession()->linkByHrefExists($weeklyDetailUrl);
+    $this->assertSession()->buttonExists('Reschedule occurrence');
+    $cancelLinks[0]->click();
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->addressEquals($weeklyDetailUrl);
+    $this->assertSession()->pageTextContains('Authorized weekly reschedule');
+    $this->assertSame($readCountsBefore, [
+      'series' => count($entityTypeManager->getStorage('personal_sec_activity_series')->loadMultiple()),
+      'exceptions' => count($entityTypeManager->getStorage('personal_sec_activity_exception')->loadMultiple()),
+      'rules' => count($entityTypeManager->getStorage('personal_sec_resp_rule')->loadMultiple()),
+    ], 'Following Cancel must not change the authorized occurrence domain state.');
+    $this->assertCount(0, $this->activeReschedules(), 'Cancel navigation must not write an ActivityException.');
+
     $this->drupalGet($allDayUrl);
     $this->assertSession()->statusCodeEquals(404);
 
