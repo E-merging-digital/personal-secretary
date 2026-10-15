@@ -47,6 +47,31 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
 .ps-app__main h1 { margin-block:0 .5rem; font-size:clamp(1.8rem,4vw,2.65rem); line-height:1.12; }
 .ps-today { display:flex; flex-direction:column; gap:1rem; }
 .ps-today__date-context { margin:0 0 .4rem; color:var(--ps-muted); order:0; }
+.ps-today-assistant { order:0; display:flex; justify-content:flex-start; min-width:0; }
+.ps-today-assistant__link,.ps-guided-assistant__back {
+  display:inline-flex; align-items:center; justify-content:center; min-height:44px;
+  padding:.55rem .85rem; border:1px solid var(--ps-line);
+  border-radius:.7rem; background:var(--ps-surface); color:var(--ps-brand-strong);
+  font-weight:700; text-decoration:none;
+}
+.ps-today-assistant__link:hover,.ps-guided-assistant__back:hover { background:#eaf5fc; }
+.ps-today-assistant__link:focus-visible,.ps-guided-assistant__back:focus-visible,
+.ps-guided-assistant input:focus-visible,.ps-guided-assistant select:focus-visible,
+.ps-guided-assistant button:focus-visible {
+  outline:3px solid var(--ps-brand-strong); outline-offset:3px;
+}
+.ps-guided-assistant { display:grid; gap:1rem; min-width:0; max-width:54rem; }
+.ps-guided-assistant__intro { margin:0; color:var(--ps-muted); }
+.ps-guided-assistant__fields { min-width:0; padding:1rem; border:1px solid var(--ps-line);
+  border-radius:1rem; background:var(--ps-surface); }
+.ps-guided-assistant input,.ps-guided-assistant select { max-width:100%; box-sizing:border-box; }
+.ps-guided-assistant__result { min-width:0; padding:1rem; border:1px solid var(--ps-line);
+  border-radius:1rem; background:var(--ps-surface); overflow-wrap:anywhere; }
+.ps-guided-assistant__result h2 { margin-top:0; }
+.ps-guided-assistant__result p { margin-block:.45rem; }
+.ps-guided-assistant__actions { display:flex; flex-wrap:wrap; gap:.65rem; }
+.ps-guided-assistant__actions input[type="submit"],.ps-guided-assistant__back { min-height:44px; max-width:100%; cursor:pointer; }
+@media (min-width:58rem) { .ps-today-assistant { grid-column:1/-1; } }
 .ps-today-section--tasks { order:1; }
 .ps-today-section--activities { order:2; }
 .ps-today-section--preparations { order:3; }

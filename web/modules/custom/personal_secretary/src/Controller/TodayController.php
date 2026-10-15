@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -20,11 +21,13 @@ final class TodayController extends ControllerBase {
 
   public function __construct(
     private readonly TodayService $todayService,
+    private readonly LanguageManagerInterface $todayLanguageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.today'),
+      $container->get('language_manager'),
     );
   }
 
@@ -63,6 +66,18 @@ final class TodayController extends ControllerBase {
           '@date' => $today['local_date'],
           '@timezone' => $today['timezone'],
         ]),
+      ],
+      'assistant' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-today-assistant']],
+        'entry' => [
+          '#type' => 'link',
+          '#title' => $this->todayLanguageManager->getCurrentLanguage()->getId() === 'fr'
+            ? $this->t('Parler à l’assistant')
+            : $this->t('Talk to the assistant'),
+          '#url' => Url::fromRoute('personal_secretary.guided_assistant'),
+          '#attributes' => ['class' => ['ps-today-assistant__link']],
+        ],
       ],
       'tasks' => [
         '#type' => 'container',
