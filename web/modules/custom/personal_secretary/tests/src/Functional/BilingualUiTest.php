@@ -255,12 +255,16 @@ final class BilingualUiTest extends BrowserTestBase {
     $this->assertSurfacePair(
       '/personal-secretary/activities/add',
       [
+        'Premier jour de l’activité. Pour une activité sur toute la journée, aucune heure de début ou de fin n’est utilisée.',
+        'Laissez la date de fin vide pour une activité sur une seule journée. Si vous indiquez une date de fin, elle est incluse (par exemple, du 6 au 8 octobre comprend les 6, 7 et 8 octobre).',
         'Préparation à prévoir',
         'Facultatif. Indiquez une chose à préparer avant cette activité, par exemple rassembler des documents pour un rendez-vous.',
         'Combien de minutes avant l’activité ?',
         '60 signifie une heure avant le début de l’activité ; 0 correspond au début. Utilisé uniquement si une préparation est indiquée.',
       ],
       [
+        'First day of the activity. All-day activities have no clock start or end time.',
+        'Leave blank for a single all-day date. If you enter an end date, that date is included (for example, 6–8 October covers 6, 7 and 8 October).',
         'Preparation to plan',
         'Optional. Add something to do before this activity, for example prepare documents for an appointment.',
         'How many minutes before the activity?',
