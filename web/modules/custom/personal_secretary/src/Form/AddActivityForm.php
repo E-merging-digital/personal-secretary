@@ -171,12 +171,13 @@ final class AddActivityForm extends FormBase {
     $form['first_occurrence_date'] = [
       '#type' => 'date',
       '#title' => $this->t('Activity date'),
+      '#description' => $this->t('First day of the activity. All-day activities have no clock start or end time.'),
       '#required' => TRUE,
     ];
     $form['all_day_end_date'] = [
       '#type' => 'date',
       '#title' => $this->t('End date (inclusive)'),
-      '#description' => $this->t('Optional for all-day activities. Leave blank for one day.'),
+      '#description' => $this->t('Leave blank for a single all-day date. If you enter an end date, that date is included (for example, 6–8 October covers 6, 7 and 8 October).'),
       '#required' => FALSE,
       '#states' => [
         'visible' => [':input[name="time_mode"]' => ['value' => ActivitySeries::TIME_MODE_ALL_DAY]],

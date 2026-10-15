@@ -1175,3 +1175,10 @@ msgstr "Dernière synchronisation réussie : @time"
 
 msgid "Last successful sync: never"
 msgstr "Dernière synchronisation réussie : jamais"
+
+# Accessible help for all-day activity dates (#265).
+msgid "First day of the activity. All-day activities have no clock start or end time."
+msgstr "Premier jour de l’activité. Pour une activité sur toute la journée, aucune heure de début ou de fin n’est utilisée."
+
+msgid "Leave blank for a single all-day date. If you enter an end date, that date is included (for example, 6–8 October covers 6, 7 and 8 October)."
+msgstr "Laissez la date de fin vide pour une activité sur une seule journée. Si vous indiquez une date de fin, elle est incluse (par exemple, du 6 au 8 octobre comprend les 6, 7 et 8 octobre)."
