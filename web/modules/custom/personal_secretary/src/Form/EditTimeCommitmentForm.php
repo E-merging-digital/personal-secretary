@@ -7,6 +7,7 @@ namespace Drupal\personal_secretary\Form;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\personal_secretary\Service\EditTimeCommitmentService;
 use InvalidArgumentException;
@@ -50,23 +51,25 @@ final class EditTimeCommitmentForm extends FormBase {
     ];
     $form['current_mode'] = [
       '#type' => 'item',
-      '#title' => $this->t('Time commitment at the next affected occurrence'),
+      '#title' => $this->t('Current setting for next affected occurrence'),
       '#markup' => $context['default_mode'] === EditTimeCommitmentService::MODE_FULL_OCCURRENCE
-        ? $this->t('Full occurrence')
-        : $this->t('None'),
+        ? $this->t('Yes, for the full activity')
+        : $this->t('No'),
     ];
     $form['effective_from_date'] = [
       '#type' => 'date',
       '#title' => $this->t('Effective from date'),
+      '#description' => $this->t('Changes take effect from the first future occurrence on or after this date in the activity\'s timezone. Earlier occurrences stay unchanged.'),
       '#default_value' => $context['default_effective_date'],
       '#required' => TRUE,
     ];
     $form['mode'] = [
       '#type' => 'radios',
-      '#title' => $this->t('Time commitment'),
+      '#title' => $this->t('Does this activity occupy your time?'),
+      '#description' => $this->t('Being responsible for an activity does not necessarily mean it occupies your time. No leaves your time free; Yes, for the full activity marks the entire occurrence as occupied only when you are responsible. This does not send an event to an external calendar.'),
       '#options' => [
-        EditTimeCommitmentService::MODE_NONE => $this->t('None'),
-        EditTimeCommitmentService::MODE_FULL_OCCURRENCE => $this->t('Full occurrence'),
+        EditTimeCommitmentService::MODE_NONE => $this->t('No'),
+        EditTimeCommitmentService::MODE_FULL_OCCURRENCE => $this->t('Yes, for the full activity'),
       ],
       '#default_value' => $context['default_mode'],
       '#required' => TRUE,
@@ -77,6 +80,12 @@ final class EditTimeCommitmentForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Save time commitment'),
       '#button_type' => 'primary',
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
     ];
 
     return $form;

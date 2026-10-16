@@ -156,7 +156,10 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Time Commitment Activity');
     $this->assertSession()->pageTextContains('Europe/Brussels');
-    $this->assertSession()->pageTextContains('Time commitment at the next affected occurrence');
+    $this->assertSession()->pageTextContains('Current setting for next affected occurrence');
+    $this->assertSession()->pageTextContains('Does this activity occupy your time?');
+    $this->assertSession()->pageTextContains('Being responsible for an activity does not necessarily mean it occupies your time. No leaves your time free; Yes, for the full activity marks the entire occurrence as occupied only when you are responsible. This does not send an event to an external calendar.');
+    $this->assertSession()->pageTextContains('Changes take effect from the first future occurrence on or after this date in the activity\'s timezone. Earlier occurrences stay unchanged.');
     $this->assertSession()->fieldExists('effective_from_date');
     $this->assertSession()->fieldExists('mode');
     $this->assertSession()->fieldNotExists('series');
@@ -164,6 +167,17 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
     $this->assertSession()->fieldNotExists('source_timezone');
     $this->assertCount(0, $commitmentStorage->loadMultiple());
     $this->assertPreservedBaseline($baseline, $seriesId, (int) $activityException->id(), (int) $responsibilityRule->id(), (int) $responsibilityOverride->id(), (int) $preparationRequirement->id(), (int) $authorized->id());
+    $this->assertSession()->linkExists('Cancel');
+    $this->assertSession()->elementExists('css', 'form a[href="/personal-secretary/upcoming"]');
+
+    // Cancel is a GET navigation: no time-commitment or related domain changes.
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertCount(0, $commitmentStorage->loadMultiple());
+    $this->assertPreservedBaseline($baseline, $seriesId, (int) $activityException->id(), (int) $responsibilityRule->id(), (int) $responsibilityOverride->id(), (int) $preparationRequirement->id(), (int) $authorized->id());
+    $this->drupalGet($editUrl);
+    $this->assertSession()->statusCodeEquals(200);
 
     // NONE -> FULL: the transition is the first EffectiveOccurrence on/after
     // the requested local date, not local midnight and not a series revision.

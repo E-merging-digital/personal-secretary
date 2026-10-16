@@ -1182,3 +1182,22 @@ msgstr "Premier jour de l’activité. Pour une activité sur toute la journée,
 
 msgid "Leave blank for a single all-day date. If you enter an end date, that date is included (for example, 6–8 October covers 6, 7 and 8 October)."
 msgstr "Laissez la date de fin vide pour une activité sur une seule journée. Si vous indiquez une date de fin, elle est incluse (par exemple, du 6 au 8 octobre comprend les 6, 7 et 8 octobre)."
+
+# Time-commitment explanatory copy and non-mutating navigation (#268).
+msgid "No"
+msgstr "Non"
+
+msgid "Yes, for the full activity"
+msgstr "Oui, pendant toute l’activité"
+
+msgid "Current setting for next affected occurrence"
+msgstr "Réglage actuel pour la prochaine occurrence concernée"
+
+msgid "Does this activity occupy your time?"
+msgstr "Cette activité occupe-t-elle votre temps ?"
+
+msgid "Being responsible for an activity does not necessarily mean it occupies your time. No leaves your time free; Yes, for the full activity marks the entire occurrence as occupied only when you are responsible. This does not send an event to an external calendar."
+msgstr "Être responsable d’une activité ne signifie pas nécessairement qu’elle occupe votre temps. Non laisse votre temps libre ; Oui, pendant toute l’activité indique que l’occurrence entière occupe votre temps uniquement si vous en êtes responsable. Cela n’envoie aucun événement vers un calendrier externe."
+
+msgid "Changes take effect from the first future occurrence on or after this date in the activity's timezone. Earlier occurrences stay unchanged."
+msgstr "La modification s’applique à partir de la première occurrence future à cette date ou après, dans le fuseau horaire de l’activité. Les occurrences précédentes restent inchangées."
