@@ -1205,3 +1205,7 @@ msgstr "La modification s’applique à partir de la première occurrence future
 # Accessible external destination action (#270).
 msgid "Open in Google Calendar (opens in a new tab)"
 msgstr "Ouvrir dans Google Agenda (s’ouvre dans un nouvel onglet)"
+
+# Confirm the single currently eligible member before binding (#274).
+msgid "Confirm linking your account to @person."
+msgstr "Confirmez la liaison de votre compte à @person."

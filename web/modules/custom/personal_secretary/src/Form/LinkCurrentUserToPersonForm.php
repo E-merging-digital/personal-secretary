@@ -41,12 +41,27 @@ final class LinkCurrentUserToPersonForm extends FormBase {
       return $form;
     }
 
-    $form['person_id'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Household member'),
-      '#options' => $people,
-      '#required' => TRUE,
-    ];
+    if (count($people) === 1) {
+      $personId = (string) array_key_first($people);
+      $form['single_member_confirmation'] = [
+        '#type' => 'item',
+        '#markup' => $this->t('Confirm linking your account to @person.', [
+          '@person' => $people[$personId],
+        ]),
+      ];
+      $form['person_id'] = [
+        '#type' => 'hidden',
+        '#default_value' => $personId,
+      ];
+    }
+    else {
+      $form['person_id'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Household member'),
+        '#options' => $people,
+        '#required' => TRUE,
+      ];
+    }
 
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
