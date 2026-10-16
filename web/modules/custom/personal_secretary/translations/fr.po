@@ -1201,3 +1201,7 @@ msgstr "Être responsable d’une activité ne signifie pas nécessairement qu�
 
 msgid "Changes take effect from the first future occurrence on or after this date in the activity's timezone. Earlier occurrences stay unchanged."
 msgstr "La modification s’applique à partir de la première occurrence future à cette date ou après, dans le fuseau horaire de l’activité. Les occurrences précédentes restent inchangées."
+
+# Accessible external destination action (#270).
+msgid "Open in Google Calendar (opens in a new tab)"
+msgstr "Ouvrir dans Google Agenda (s’ouvre dans un nouvel onglet)"

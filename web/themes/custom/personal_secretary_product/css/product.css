@@ -195,6 +195,13 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
 .ps-action-group > h3 { margin:0 0 .45rem; color:var(--ps-muted); font-size:.9rem; }
 .ps-action-group__links { display:flex; flex-wrap:wrap; gap:.4rem .7rem; }
 .ps-action-link { display:inline-flex; align-items:center; min-height:44px; text-decoration:none; }
+.ps-action-link--secondary {
+  justify-content:center; min-height:44px; max-width:100%; margin-top:.65rem; padding:.6rem .9rem;
+  border:1px solid var(--ps-brand-strong); border-radius:.7rem;
+  background:var(--ps-surface); color:var(--ps-brand-strong); font-weight:700; text-align:center;
+}
+.ps-action-link--secondary:hover { background:#eaf5fc; }
+.ps-action-link--secondary:focus-visible { outline:3px solid var(--ps-brand-strong); outline-offset:3px; }
 .ps-action-link--primary { color:var(--ps-brand-strong); font-weight:700; }
 .ps-action-link--danger { color:var(--ps-danger); font-weight:650; }
 .ps-occurrence-detail__back { display:inline-flex; align-items:center; min-height:44px; margin-bottom:.75rem; text-decoration:none; }

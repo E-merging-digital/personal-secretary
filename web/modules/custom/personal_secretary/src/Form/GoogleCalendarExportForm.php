@@ -68,6 +68,8 @@ final class GoogleCalendarExportForm extends FormBase {
         '#attributes' => [
           'target' => '_blank',
           'rel' => ['noopener', 'noreferrer'],
+          'class' => ['ps-action-link', 'ps-action-link--secondary'],
+          'aria-label' => $this->t('Open in Google Calendar (opens in a new tab)'),
         ],
       ];
     }
