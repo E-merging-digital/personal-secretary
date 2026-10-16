@@ -98,11 +98,13 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('This occurrence is up to date in Google Calendar.');
     $this->assertSession()->linkExists('Open in Google Calendar');
     $this->assertSession()->linkByHrefExists('https://calendar.google.com/calendar/event?eid=synthetic-ui');
+    $this->assertSession()->elementExists('css', 'a.ps-action-link.ps-action-link--secondary[href="https://calendar.google.com/calendar/event?eid=synthetic-ui"][target="_blank"][rel~="noopener"][rel~="noreferrer"][aria-label="Open in Google Calendar (opens in a new tab)"]');
     $this->assertSession()->buttonNotExists('Add to Google Calendar');
     $series->set('location', 'Synthetic changed room')->save();
     $this->drupalGet($detail);
     $this->assertSession()->linkExists('Open in Google Calendar');
     $this->assertSession()->linkByHrefExists('https://calendar.google.com/calendar/event?eid=synthetic-ui');
+    $this->assertSession()->elementExists('css', 'a.ps-action-link.ps-action-link--secondary[href="https://calendar.google.com/calendar/event?eid=synthetic-ui"][target="_blank"][rel~="noopener"][rel~="noreferrer"][aria-label="Open in Google Calendar (opens in a new tab)"]');
     $this->assertSession()->buttonExists('Update Google Calendar');
     foreach ([GoogleCalendarProjection::CONFLICT, GoogleCalendarProjection::REMOTE_MISSING] as $state) {
       $mapping->set('state', $state)->save();
@@ -111,6 +113,7 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
       $this->assertSession()->buttonNotExists('Update Google Calendar');
       $this->assertSession()->buttonNotExists('Add to Google Calendar');
       $this->assertSession()->linkNotExists('Open in Google Calendar');
+      $this->assertSession()->elementNotExists('css', 'a.ps-action-link--secondary');
     }
 
     if (ConfigurableLanguage::load('fr') === NULL) {
@@ -140,6 +143,14 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
       'Ouvrir dans Google Agenda',
       (string) $translations->translate(
         'Open in Google Calendar',
+        [],
+        ['langcode' => 'fr'],
+      ),
+    );
+    $this->assertSame(
+      'Ouvrir dans Google Agenda (s’ouvre dans un nouvel onglet)',
+      (string) $translations->translate(
+        'Open in Google Calendar (opens in a new tab)',
         [],
         ['langcode' => 'fr'],
       ),
