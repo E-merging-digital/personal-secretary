@@ -13,6 +13,7 @@ use Drupal\Core\Config\StorageComparer;
 use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\Household;
 use Drupal\personal_secretary\Entity\Person;
@@ -335,6 +336,87 @@ final class UserPersonBindingTest extends BrowserTestBase {
     $this->assertSame($ruleRevision, (string) $persistedRule->getRevisionId());
     $this->assertSame($overrideRevision, (string) $persistedOverride->getRevisionId());
     $this->assertSame($requirementRevision, (string) $persistedRequirement->getRevisionId());
+  }
+
+  public function testSingleEligibleMemberRequiresExplicitConfirmation(): void {
+    $this->installUserPersonFieldViaEntityApi();
+
+    $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->assertInstanceOf(UserInterface::class, $authorized);
+    $this->drupalLogin($authorized);
+    $linkUrl = Url::fromRoute('personal_secretary.link_current_user_to_person')->toString();
+    $this->drupalGet($linkUrl);
+    $this->assertSession()->pageTextContains('No Household member is available to link.');
+    $this->assertSession()->fieldNotExists('person_id');
+    $this->assertSession()->buttonNotExists('Link my account to household member');
+
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $orphan = $domain->createPerson('Synthetic unlinked person');
+    $onlyMember = $domain->createPerson('Synthetic <Member> & Co');
+    $household = $domain->createHousehold(
+      'Synthetic single-member household',
+      [(int) $onlyMember->id()],
+    );
+    $memberId = (int) $onlyMember->id();
+    $userStorage = $this->container->get('entity_type.manager')->getStorage('user');
+    $assertUnlinked = function () use ($userStorage, $authorized): void {
+      $userStorage->resetCache([(int) $authorized->id()]);
+      $persistedUser = $userStorage->load($authorized->id());
+      $this->assertInstanceOf(UserInterface::class, $persistedUser);
+      $this->assertTrue($persistedUser->get(CurrentPersonResolver::FIELD_NAME)->isEmpty());
+    };
+
+    $this->drupalGet($linkUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Confirm linking your account to Synthetic <Member> & Co.');
+    $this->assertSession()->responseContains('Synthetic &lt;Member&gt; &amp; Co');
+    $this->assertSession()->elementNotExists('css', 'select[name="person_id"]');
+    $this->assertSession()->elementExists('css', 'input[type="hidden"][name="person_id"][value="' . $memberId . '"]');
+    $this->assertSession()->buttonExists('Link my account to household member');
+    $assertUnlinked();
+
+    // A forged non-member ID cannot be linked through the hidden field.
+    $hiddenPerson = $this->assertSession()->elementExists(
+      'css',
+      'input[type="hidden"][name="person_id"]',
+    );
+    $hiddenPerson->setValue((string) $orphan->id());
+    $this->submitForm([], 'Link my account to household member');
+    $this->assertSession()->pageTextContains('Select a current Household member that can be linked safely.');
+    $assertUnlinked();
+
+    // Revoke membership after GET: the submit must revalidate persisted data.
+    $this->drupalGet($linkUrl);
+    $household->set('members', [['target_id' => (int) $orphan->id()]])->save();
+    $this->submitForm([], 'Link my account to household member');
+    $this->assertSession()->pageTextContains('Select a current Household member that can be linked safely.');
+    $assertUnlinked();
+
+    // A new GET and an explicit submit of the eligible target may create a link.
+    $household->set('members', [['target_id' => $memberId]])->save();
+    $this->drupalGet($linkUrl);
+    $this->submitForm([], 'Link my account to household member');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $userStorage->resetCache([(int) $authorized->id()]);
+    $persistedUser = $userStorage->load($authorized->id());
+    $this->assertInstanceOf(UserInterface::class, $persistedUser);
+    $this->assertSame($memberId, (int) $persistedUser->get(CurrentPersonResolver::FIELD_NAME)->target_id);
+
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->container->get('module_handler')->loadInclude('personal_secretary', 'install');
+    personal_secretary_import_french_catalog();
+    $translations = $this->container->get('string_translation');
+    $translations->reset();
+    $this->assertSame(
+      'Confirmez la liaison de votre compte à un membre test.',
+      (string) $translations->translate(
+        'Confirm linking your account to @person.',
+        ['@person' => 'un membre test'],
+        ['langcode' => 'fr'],
+      ),
+    );
   }
 
   public function testExistingInstallConfigImportCreatesBindingField(): void {
