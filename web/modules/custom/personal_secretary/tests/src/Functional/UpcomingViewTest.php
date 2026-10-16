@@ -294,6 +294,14 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Existing first weekly activity');
     $this->assertSession()->pageTextContains('Synthetic second weekly activity');
+    // Each activity owns its summary and both existing action sections.
+    $activityItems = $this->getSession()->getPage()->findAll('css', '.ps-upcoming-list > .ps-upcoming-list__item');
+    $this->assertCount(2, $activityItems);
+    foreach ($activityItems as $activityItem) {
+      $this->assertCount(1, $activityItem->findAll('css', 'article.ps-upcoming-card'));
+      $this->assertCount(1, $activityItem->findAll('css', '.ps-action-group--occurrence'));
+      $this->assertCount(1, $activityItem->findAll('css', '.ps-action-group--series'));
+    }
     $this->assertSession()->pageTextContains('Existing Synthetic Person');
     $this->assertSession()->pageTextContains('Prepare synthetic second equipment');
     $this->assertSession()->pageTextContains($dueDisplay);
