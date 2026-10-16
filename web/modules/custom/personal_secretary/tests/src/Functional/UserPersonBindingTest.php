@@ -376,7 +376,12 @@ final class UserPersonBindingTest extends BrowserTestBase {
     $assertUnlinked();
 
     // A forged non-member ID cannot be linked through the hidden field.
-    $this->submitForm(['person_id' => (string) $orphan->id()], 'Link my account to household member');
+    $hiddenPerson = $this->assertSession()->elementExists(
+      'css',
+      'input[type="hidden"][name="person_id"]',
+    );
+    $hiddenPerson->setValue((string) $orphan->id());
+    $this->submitForm([], 'Link my account to household member');
     $this->assertSession()->pageTextContains('Select a current Household member that can be linked safely.');
     $assertUnlinked();
 
