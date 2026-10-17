@@ -9,6 +9,7 @@ use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\OccurrenceResponsibilityService;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use InvalidArgumentException;
@@ -81,11 +82,11 @@ final class OccurrenceResponsibilityForm extends FormBase {
     ];
 
     $options = [
-      OccurrenceResponsibilityService::CHOICE_USE_RECURRING => $this->t('Use recurring responsibility'),
+      OccurrenceResponsibilityService::CHOICE_USE_RECURRING => $this->t("Follow the activity's usual responsibility"),
     ];
     foreach ($members as $personId => $member) {
       $options[OccurrenceResponsibilityService::CHOICE_PERSON_PREFIX . $personId] = $this->t(
-        '@person',
+        '@person — only for this occurrence',
         ['@person' => (string) $member->label()],
       );
     }
@@ -95,6 +96,7 @@ final class OccurrenceResponsibilityForm extends FormBase {
       '#type' => 'radios',
       '#title' => $this->t('Responsibility for this occurrence'),
       '#options' => $options,
+      '#description' => $this->t("Following the usual responsibility also follows later changes to the activity's recurring responsible Person. Choosing a named Person keeps that Person assigned to this occurrence only, even if the usual responsibility changes."),
       '#default_value' => $this->occurrenceResponsibility->suggestedChoice($responsibility),
       '#required' => TRUE,
     ];
@@ -104,6 +106,12 @@ final class OccurrenceResponsibilityForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Save responsibility'),
       '#button_type' => 'primary',
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
     ];
 
     return $form;

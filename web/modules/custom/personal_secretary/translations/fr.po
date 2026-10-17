@@ -1213,3 +1213,13 @@ msgstr "Confirmez la liaison de votre compte à @person."
 # Shared explanation for both recurring pause steps (#278).
 msgid "Previewing does not save changes. If confirmed, this pause cancels eligible occurrences whose effective start falls within the inclusive dates. The recurring activity is not deleted; occurrences outside the range keep their existing schedule. Future changes to the recurring schedule are not automatically paused."
 msgstr "La prévisualisation n’enregistre aucune modification. Après confirmation, cette pause annule les occurrences admissibles dont le début effectif se situe entre les deux dates incluses. L’activité récurrente n’est pas supprimée ; les occurrences hors de cette période conservent leur planning actuel. Les modifications futures de la programmation récurrente ne sont pas automatiquement mises en pause."
+
+# Clarify recurring inheritance versus occurrence-specific assignment (#280).
+msgid "Follow the activity's usual responsibility"
+msgstr "Suivre la responsabilité habituelle de l’activité"
+
+msgid "@person — only for this occurrence"
+msgstr "@person — seulement pour cette occurrence"
+
+msgid "Following the usual responsibility also follows later changes to the activity's recurring responsible Person. Choosing a named Person keeps that Person assigned to this occurrence only, even if the usual responsibility changes."
+msgstr "Suivre la responsabilité habituelle prend aussi en compte ses changements futurs. Choisir une personne nommément l’affecte uniquement à cette occurrence, même si la responsabilité habituelle change par la suite."

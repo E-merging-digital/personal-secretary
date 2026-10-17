@@ -118,6 +118,12 @@ final class OccurrenceResponsibilityTest extends BrowserTestBase {
     $rulePersonId = (int) $rule->get('responsible_person')->target_id;
     $ruleRecurrence = $rule->get('recurrence')->first()?->getValue();
     $this->assertNotNull($ruleRecurrence);
+    $seriesStorage = $entityTypeManager->getStorage('personal_sec_activity_series');
+    $ruleStorage = $entityTypeManager->getStorage('personal_sec_resp_rule');
+    $overrideStorage = $entityTypeManager->getStorage('personal_sec_resp_override');
+    $initialSeriesRevision = (string) $series->getRevisionId();
+    $initialOverrideCount = count($overrideStorage->loadMultiple());
+    $upcomingUrl = Url::fromRoute('personal_secretary.upcoming')->toString();
 
     $this->assertCount(0, $entityTypeManager->getStorage('personal_sec_resp_override')->loadMultiple());
     $this->drupalGet($responsibilityUrl);
@@ -128,13 +134,42 @@ final class OccurrenceResponsibilityTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->pageTextContains('Current responsibility');
     $this->assertSession()->pageTextContains('Avery Recurring');
-    $this->assertSession()->pageTextContains('Use recurring responsibility');
-    $this->assertSession()->pageTextContains('Blair Alternate');
+    $this->assertSession()->pageTextContains("Follow the activity's usual responsibility");
+    $this->assertSession()->pageTextContains('Avery Recurring — only for this occurrence');
+    $this->assertSession()->pageTextContains('Blair Alternate — only for this occurrence');
+    $this->assertSession()->pageTextContains("Following the usual responsibility also follows later changes");
+    $this->assertSession()->pageTextContains('even if the usual responsibility changes');
     $this->assertSession()->pageTextContains('No one for this occurrence');
     $this->assertSession()->pageTextNotContains('Casey Outsider');
     $this->assertSession()->fieldValueEquals('responsibility_choice', 'use_recurring');
     $this->assertSession()->buttonExists('Save responsibility');
-    $this->assertCount(0, $entityTypeManager->getStorage('personal_sec_resp_override')->loadMultiple());
+    $options = $this->getSession()->getPage()->findAll('css', 'input[type="radio"][name="responsibility_choice"]');
+    $values = array_map(static fn($option): string => (string) $option->getAttribute('value'), $options);
+    sort($values);
+    $expectedValues = ['use_recurring', 'person:' . $recurringPerson->id(), 'person:' . $alternatePerson->id(), 'clear'];
+    sort($expectedValues);
+    $this->assertSame($expectedValues, $values);
+    $this->assertCount($initialOverrideCount, $overrideStorage->loadMultiple());
+
+    $cancelLinks = $this->getSession()->getPage()->findAll('css', 'form a[href="' . $upcomingUrl . '"]');
+    $this->assertCount(1, $cancelLinks);
+    $this->assertSame('Cancel', trim($cancelLinks[0]->getText()));
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($upcomingUrl);
+    $this->assertSession()->statusCodeEquals(200);
+
+    $seriesStorage->resetCache([(int) $series->id()]);
+    $ruleStorage->resetCache([(int) $rule->id()]);
+    $this->assertSame($initialSeriesRevision, (string) $seriesStorage->load($series->id())?->getRevisionId());
+    $this->assertSame($seriesCount, count($seriesStorage->loadMultiple()));
+    $this->assertSame($ruleRevisionId, (string) $ruleStorage->load($rule->id())?->getRevisionId());
+    $this->assertSame($ruleCount, count($ruleStorage->loadMultiple()));
+    $this->assertCount($initialOverrideCount, $overrideStorage->loadMultiple());
+
+    // Return to the existing edit flow; the original pin/unpin saves must work.
+    $this->drupalGet($responsibilityUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldValueEquals('responsibility_choice', 'use_recurring');
 
     $this->submitForm([
       'responsibility_choice' => 'person:' . $alternatePerson->id(),
