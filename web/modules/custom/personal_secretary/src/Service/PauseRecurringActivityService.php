@@ -59,12 +59,24 @@ final class PauseRecurringActivityService {
    *   occurrences_to_cancel: int,
    *   already_cancelled: int,
    *   conflict: 'none'|'rescheduled',
-   *   conflict_count: int
+   *   conflict_count: int,
+   *   eligible_occurrences: array<int, array{start: string, end: string, time_mode: string}>
    * }
    */
   public function preview(int $seriesId, string $startDate, string $endDate): array {
     $context = $this->context($seriesId);
     $plan = $this->plan($context['series'], $startDate, $endDate);
+    $eligible = [];
+    foreach ($plan['targets'] as $target) {
+      $eligible[] = [
+        'start' => $target->effectiveSourceLocalStart,
+        'end' => $target->effectiveSourceLocalEnd,
+        'time_mode' => $context['series']->timeMode(),
+      ];
+    }
+    if (count($eligible) !== count($plan['targets'])) {
+      throw new RuntimeException('Pause preview count differs from the planned targets.');
+    }
 
     return [
       'source_timezone' => $plan['source_timezone'],
@@ -72,6 +84,7 @@ final class PauseRecurringActivityService {
       'already_cancelled' => $plan['already_cancelled'],
       'conflict' => $plan['conflict_count'] > 0 ? 'rescheduled' : 'none',
       'conflict_count' => $plan['conflict_count'],
+      'eligible_occurrences' => $eligible,
     ];
   }
 
