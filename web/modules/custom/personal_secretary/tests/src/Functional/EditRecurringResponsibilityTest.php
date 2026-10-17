@@ -170,6 +170,37 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
     $this->assertNotNull($personSelect->find('css', 'option[value="' . $personC->id() . '"]'));
     $this->assertNull($personSelect->find('css', 'option[value="' . $externalPerson->id() . '"]'));
 
+    $cancel = $this->getSession()->getPage()->findLink('Cancel');
+    $this->assertNotNull($cancel);
+    $this->assertSame(Url::fromRoute('personal_secretary.upcoming')->toString(), $cancel->getAttribute('href'));
+    $this->assertSession()->buttonExists('Save recurring responsibility');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+
+    $seriesStorage->resetCache([$seriesId]);
+    $this->assertSame($seriesRevisionBefore, (string) $seriesStorage->load($seriesId)?->getRevisionId());
+    $this->assertSame($seriesRevisionCountBefore, $this->revisionCount($seriesStorage));
+    $this->assertCount($seriesCountBefore, $seriesStorage->loadMultiple());
+    $this->assertCurrentRuleUnchanged(
+      $ruleStorage,
+      $ruleId,
+      $ruleRevisionBefore,
+      $ruleCountBefore,
+      $ruleRevisionCountBefore,
+    );
+    $overrideStorage->resetCache([$overrideId]);
+    $this->assertSame($overrideRevisionBefore, (string) $overrideStorage->load($overrideId)?->getRevisionId());
+    $this->assertCount($overrideCountBefore, $overrideStorage->loadMultiple());
+    $preparationStorage->resetCache([$requirementId]);
+    $this->assertSame($preparationRevisionBefore, (string) $preparationStorage->load($requirementId)?->getRevisionId());
+    $this->assertSame($preparationRevisionCountBefore, $this->revisionCount($preparationStorage));
+    $this->assertCount($preparationCountBefore, $preparationStorage->loadMultiple());
+
+    // Return to the edit form for its existing validation and save cases.
+    $this->drupalGet($editUrl);
+    $this->assertSession()->statusCodeEquals(200);
+
     $this->assertCurrentRuleUnchanged(
       $ruleStorage,
       $ruleId,

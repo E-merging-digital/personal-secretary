@@ -7,6 +7,7 @@ namespace Drupal\personal_secretary\Form;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\personal_secretary\Service\EditRecurringResponsibilityService;
 use InvalidArgumentException;
@@ -88,6 +89,12 @@ final class EditRecurringResponsibilityForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Save recurring responsibility'),
       '#button_type' => 'primary',
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
     ];
 
     return $form;
