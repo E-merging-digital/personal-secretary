@@ -81,6 +81,14 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     );
     $this->assertCount(1, $base);
     $targetKey = $base[0]->originalOccurrenceKey;
+    $secondStart = $recurringStart->modify('+7 days');
+    $secondBase = $timeline->projectBaseWindow(
+      $recurring,
+      $secondStart->setTimezone($utc)->modify('-1 second'),
+      $secondStart->modify('+1 day')->setTimezone($utc),
+    );
+    $this->assertCount(1, $secondBase);
+    $secondTargetKey = $secondBase[0]->originalOccurrenceKey;
 
     $seriesStorage = $entityTypeManager->getStorage('personal_sec_activity_series');
     $exceptionStorage = $entityTypeManager->getStorage('personal_sec_activity_exception');
@@ -141,14 +149,36 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
 
     $pauseDate = $recurringStart->format('Y-m-d');
+    $pauseEndDate = $secondStart->format('Y-m-d');
+    $previewBefore = $this->container->get('personal_secretary.pause_recurring_activity')
+      ->preview($recurringId, $pauseDate, $pauseEndDate);
+    $this->assertSame(2, $previewBefore['occurrences_to_cancel']);
+    $this->assertCount(2, $previewBefore['eligible_occurrences']);
+    $this->assertSame(0, $previewBefore['already_cancelled']);
+    $this->assertSame('none', $previewBefore['conflict']);
+    $this->assertSame($recurringStart->format('Y-m-d H:i'), (new DateTimeImmutable($previewBefore['eligible_occurrences'][0]['start']))->setTimezone($timezone)->format('Y-m-d H:i'));
+    $this->assertSame($secondStart->format('Y-m-d H:i'), (new DateTimeImmutable($previewBefore['eligible_occurrences'][1]['start']))->setTimezone($timezone)->format('Y-m-d H:i'));
+    $this->assertArrayNotHasKey('originalOccurrenceKey', $previewBefore['eligible_occurrences'][0]);
+    $this->assertArrayNotHasKey('seriesRevisionId', $previewBefore['eligible_occurrences'][0]);
+    $assertNoPauseMutation();
     $this->submitForm([
       'pause_start_date' => $pauseDate,
-      'pause_end_date' => $pauseDate,
+      'pause_end_date' => $pauseEndDate,
     ], 'Preview pause');
     $this->assertSession()->pageTextContains('Occurrences to cancel');
     $this->assertSession()->pageTextContains('Already cancelled');
     $this->assertSession()->buttonExists('Confirm pause');
     $this->assertSession()->buttonExists('Change dates');
+    $this->assertSession()->pageTextContains('Preview only: no occurrence has been cancelled.');
+    $this->assertSession()->pageTextContains('Eligible occurrences in the selected range (not yet cancelled)');
+    $this->assertSession()->pageTextContains('Confirmation will recheck the saved activity and targets.');
+    $shown = $this->getSession()->getPage()->findAll('css', 'table[data-ps-pause-targets="eligible"] tbody tr');
+    $this->assertCount(2, $shown);
+    $this->assertSame($previewBefore['occurrences_to_cancel'], count($shown));
+    $this->assertStringContainsString($recurringStart->format('Y-m-d H:i'), $shown[0]->getText());
+    $this->assertStringContainsString($secondStart->format('Y-m-d H:i'), $shown[1]->getText());
+    $this->assertSession()->pageTextNotContains($targetKey);
+    $this->assertSession()->pageTextNotContains($secondTargetKey);
     $assertNoPauseMutation();
 
     $this->assertSession()->pageTextContains('Previewing does not save changes.');
@@ -166,10 +196,12 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->submitForm([
       'pause_start_date' => $pauseDate,
-      'pause_end_date' => $pauseDate,
+      'pause_end_date' => $pauseEndDate,
     ], 'Preview pause');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->buttonExists('Confirm pause');
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', 'table[data-ps-pause-targets="eligible"] tbody tr'));
+    $assertNoPauseMutation();
 
     $this->submitForm([], 'Confirm pause');
 
@@ -188,11 +220,17 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
       'action' => ActivityException::ACTION_CANCEL,
       'status' => ActivityException::STATUS_ACTIVE,
     ]);
-    $this->assertCount(1, $created, $diagnostic);
-    $exception = reset($created);
-    $this->assertInstanceOf(ActivityException::class, $exception);
-    $this->assertSame($targetKey, (string) $exception->get('original_occurrence_key')->value);
-    $this->assertSame((string) $recurring->getRevisionId(), (string) $exception->get('target_revision_id')->value);
+    $this->assertCount(2, $created, $diagnostic);
+    $createdKeys = [];
+    foreach ($created as $exception) {
+      $this->assertInstanceOf(ActivityException::class, $exception);
+      $this->assertSame((string) $recurring->getRevisionId(), (string) $exception->get('target_revision_id')->value);
+      $createdKeys[] = (string) $exception->get('original_occurrence_key')->value;
+    }
+    sort($createdKeys);
+    $expectedKeys = [$targetKey, $secondTargetKey];
+    sort($expectedKeys);
+    $this->assertSame($expectedKeys, $createdKeys);
     $this->assertSame(ActivitySeries::TIME_MODE_TIMED, $recurring->timeMode());
 
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
@@ -204,9 +242,16 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     $remaining = $effective->project(
       $recurring,
       $recurringStart->setTimezone($utc)->modify('-1 second'),
-      $recurringStart->modify('+1 day')->setTimezone($utc),
+      $secondStart->modify('+1 day')->setTimezone($utc),
     );
     $this->assertCount(0, $remaining);
+
+    // After confirmation the eligible list is empty, cancellations are counted separately.
+    $after = $this->container->get('personal_secretary.pause_recurring_activity')
+      ->preview($recurringId, $pauseDate, $pauseEndDate);
+    $this->assertSame(0, $after['occurrences_to_cancel']);
+    $this->assertSame([], $after['eligible_occurrences']);
+    $this->assertSame(2, $after['already_cancelled']);
   }
 
 }

@@ -1262,3 +1262,15 @@ msgstr "Toute la journée du @date"
 
 msgid "All day from @start to @end"
 msgstr "Toute la journée du @start au @end"
+
+msgid "Preview only: no occurrence has been cancelled. Confirmation will recheck the saved activity and targets."
+msgstr "Aperçu uniquement : aucune occurrence n’a encore été annulée. La confirmation vérifiera à nouveau l’activité enregistrée et les occurrences concernées."
+
+msgid "Eligible occurrences in the selected range (not yet cancelled)"
+msgstr "Occurrences admissibles dans la période choisie (pas encore annulées)"
+
+msgid "No eligible occurrences to cancel in this range."
+msgstr "Aucune occurrence admissible à l’annulation dans cette période."
+
+msgid "This conflict blocks every cancellation. Listed dates are informational only; none will be cancelled."
+msgstr "Ce conflit bloque toutes les annulations. Les dates affichées sont seulement informatives ; aucune occurrence ne sera annulée."

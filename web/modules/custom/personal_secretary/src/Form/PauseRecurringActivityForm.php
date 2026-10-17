@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\PauseRecurringActivityService;
 use InvalidArgumentException;
 use RuntimeException;
@@ -169,6 +172,29 @@ final class PauseRecurringActivityForm extends FormBase {
       '#markup' => (string) (int) $preview['already_cancelled'],
     ];
     $form['pause_explanation'] = $this->pauseExplanation();
+    $rows = [];
+    foreach ($preview['eligible_occurrences'] as $target) {
+      $rows[] = [
+        'data' => [
+          ['data' => ['#plain_text' => $this->formatPreviewOccurrence($target, $preview['source_timezone'])]],
+        ],
+      ];
+    }
+    if (count($rows) !== (int) $preview['occurrences_to_cancel']) {
+      throw new RuntimeException('Pause preview row count does not match eligible occurrences.');
+    }
+    $form['preview_notice'] = [
+      '#type' => 'item',
+      '#markup' => $this->t('Preview only: no occurrence has been cancelled. Confirmation will recheck the saved activity and targets.'),
+    ];
+    $form['eligible_occurrences'] = [
+      '#type' => 'table',
+      '#caption' => $this->t('Eligible occurrences in the selected range (not yet cancelled)'),
+      '#header' => [$this->t('Date and time')],
+      '#rows' => $rows,
+      '#empty' => $this->t('No eligible occurrences to cancel in this range.'),
+      '#attributes' => ['data-ps-pause-targets' => 'eligible'],
+    ];
 
     if (($preview['conflict'] ?? '') === 'rescheduled') {
       $form['conflict'] = [
@@ -177,6 +203,10 @@ final class PauseRecurringActivityForm extends FormBase {
         '#markup' => $this->t('@count rescheduled occurrence(s) currently start inside this pause range. The whole pause is blocked.', [
           '@count' => (int) $preview['conflict_count'],
         ]),
+      ];
+      $form['conflict_note'] = [
+        '#type' => 'item',
+        '#markup' => $this->t('This conflict blocks every cancellation. Listed dates are informational only; none will be cancelled.'),
       ];
     }
     else {
@@ -209,6 +239,27 @@ final class PauseRecurringActivityForm extends FormBase {
     ];
 
     return $form;
+  }
+
+  /**
+   * Formats one target from its source-local effective dates, without IDs.
+   *
+   * @param array{start: string, end: string, time_mode: string} $target
+   */
+  private function formatPreviewOccurrence(array $target, string $timezoneName): string {
+    $timezone = new DateTimeZone($timezoneName);
+    $start = (new DateTimeImmutable($target['start']))->setTimezone($timezone);
+    $end = (new DateTimeImmutable($target['end']))->setTimezone($timezone);
+    if ($target['time_mode'] === ActivitySeries::TIME_MODE_ALL_DAY) {
+      $lastDay = $end->modify('-1 day');
+      return $start->format('Y-m-d') === $lastDay->format('Y-m-d')
+        ? (string) $this->t('All day on @date', ['@date' => $start->format('Y-m-d')])
+        : (string) $this->t('All day from @start to @end', [
+          '@start' => $start->format('Y-m-d'),
+          '@end' => $lastDay->format('Y-m-d'),
+        ]);
+    }
+    return $start->format('Y-m-d H:i') . ' – ' . $end->format('Y-m-d H:i');
   }
 
   /**
