@@ -82,11 +82,63 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     $this->assertCount(1, $base);
     $targetKey = $base[0]->originalOccurrenceKey;
 
+    $seriesStorage = $entityTypeManager->getStorage('personal_sec_activity_series');
+    $exceptionStorage = $entityTypeManager->getStorage('personal_sec_activity_exception');
+    $ruleStorage = $entityTypeManager->getStorage('personal_sec_resp_rule');
+    $overrideStorage = $entityTypeManager->getStorage('personal_sec_resp_override');
+    $recurringId = (int) $recurring->id();
+    $oneOffId = (int) $oneOff->id();
+    $initialRecurringRevision = (string) $recurring->getRevisionId();
+    $initialOneOffRevision = (string) $oneOff->getRevisionId();
+    $initialSeriesCount = count($seriesStorage->loadMultiple());
+    $initialExceptionCount = count($exceptionStorage->loadMultiple());
+    $initialRuleCount = count($ruleStorage->loadMultiple());
+    $initialOverrideCount = count($overrideStorage->loadMultiple());
+    $upcomingUrl = Url::fromRoute('personal_secretary.upcoming')->toString();
+
+    $assertNoPauseMutation = function () use (
+      $seriesStorage,
+      $exceptionStorage,
+      $ruleStorage,
+      $overrideStorage,
+      $recurringId,
+      $oneOffId,
+      $initialRecurringRevision,
+      $initialOneOffRevision,
+      $initialSeriesCount,
+      $initialExceptionCount,
+      $initialRuleCount,
+      $initialOverrideCount,
+    ): void {
+      $seriesStorage->resetCache([$recurringId, $oneOffId]);
+      $this->assertSame($initialRecurringRevision, (string) $seriesStorage->load($recurringId)?->getRevisionId());
+      $this->assertSame($initialOneOffRevision, (string) $seriesStorage->load($oneOffId)?->getRevisionId());
+      $this->assertCount($initialSeriesCount, $seriesStorage->loadMultiple());
+      $this->assertCount($initialExceptionCount, $exceptionStorage->loadMultiple());
+      $this->assertCount($initialRuleCount, $ruleStorage->loadMultiple());
+      $this->assertCount($initialOverrideCount, $overrideStorage->loadMultiple());
+    };
+
     $this->drupalGet($recurringPauseUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->fieldExists('pause_start_date');
     $this->assertSession()->fieldExists('pause_end_date');
     $this->assertSession()->pageTextContains('Europe/Brussels');
+    $this->assertSession()->buttonExists('Preview pause');
+
+    $this->assertSession()->pageTextContains('Previewing does not save changes.');
+    $this->assertSession()->pageTextContains('occurrences outside the range keep their existing schedule');
+    $cancelLinks = $this->getSession()->getPage()->findAll('css', 'form a[href="' . $upcomingUrl . '"]');
+    $this->assertCount(1, $cancelLinks);
+    $this->assertSame('Cancel', trim($cancelLinks[0]->getText()));
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($upcomingUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $assertNoPauseMutation();
+
+    // Return to the range step for the existing preview/confirmation flow.
+    $this->drupalGet($recurringPauseUrl);
+    $this->assertSession()->statusCodeEquals(200);
 
     $pauseDate = $recurringStart->format('Y-m-d');
     $this->submitForm([
@@ -95,6 +147,28 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     ], 'Preview pause');
     $this->assertSession()->pageTextContains('Occurrences to cancel');
     $this->assertSession()->pageTextContains('Already cancelled');
+    $this->assertSession()->buttonExists('Confirm pause');
+    $this->assertSession()->buttonExists('Change dates');
+    $assertNoPauseMutation();
+
+    $this->assertSession()->pageTextContains('Previewing does not save changes.');
+    $this->assertSession()->pageTextContains('occurrences outside the range keep their existing schedule');
+    $cancelLinks = $this->getSession()->getPage()->findAll('css', 'form a[href="' . $upcomingUrl . '"]');
+    $this->assertCount(1, $cancelLinks);
+    $this->assertSame('Cancel', trim($cancelLinks[0]->getText()));
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($upcomingUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $assertNoPauseMutation();
+
+    // A fresh preview still permits the original explicit confirmation.
+    $this->drupalGet($recurringPauseUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->submitForm([
+      'pause_start_date' => $pauseDate,
+      'pause_end_date' => $pauseDate,
+    ], 'Preview pause');
+    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->buttonExists('Confirm pause');
 
     $this->submitForm([], 'Confirm pause');
@@ -109,7 +183,6 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
       is_string($errorLog) ? $errorLog : '[not readable]',
     );
 
-    $exceptionStorage = $entityTypeManager->getStorage('personal_sec_activity_exception');
     $created = $exceptionStorage->loadByProperties([
       'series' => $recurring->id(),
       'action' => ActivityException::ACTION_CANCEL,
