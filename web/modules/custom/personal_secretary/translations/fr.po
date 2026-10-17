@@ -1209,3 +1209,7 @@ msgstr "Ouvrir dans Google Agenda (s’ouvre dans un nouvel onglet)"
 # Confirm the single currently eligible member before binding (#274).
 msgid "Confirm linking your account to @person."
 msgstr "Confirmez la liaison de votre compte à @person."
+
+# Shared explanation for both recurring pause steps (#278).
+msgid "Previewing does not save changes. If confirmed, this pause cancels eligible occurrences whose effective start falls within the inclusive dates. The recurring activity is not deleted; occurrences outside the range keep their existing schedule. Future changes to the recurring schedule are not automatically paused."
+msgstr "La prévisualisation n’enregistre aucune modification. Après confirmation, cette pause annule les occurrences admissibles dont le début effectif se situe entre les deux dates incluses. L’activité récurrente n’est pas supprimée ; les occurrences hors de cette période conservent leur planning actuel. Les modifications futures de la programmation récurrente ne sont pas automatiquement mises en pause."

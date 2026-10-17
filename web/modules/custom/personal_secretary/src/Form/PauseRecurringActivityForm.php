@@ -7,6 +7,7 @@ namespace Drupal\personal_secretary\Form;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\personal_secretary\Service\PauseRecurringActivityService;
 use InvalidArgumentException;
@@ -69,6 +70,7 @@ final class PauseRecurringActivityForm extends FormBase {
       '#type' => 'item',
       '#markup' => $this->t('Both dates are inclusive and use the activity source timezone.'),
     ];
+    $form['pause_explanation'] = $this->pauseExplanation();
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['preview'] = [
       '#type' => 'submit',
@@ -76,6 +78,12 @@ final class PauseRecurringActivityForm extends FormBase {
       '#button_type' => 'primary',
       '#validate' => ['::validatePreview'],
       '#submit' => ['::previewSubmit'],
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
     ];
 
     return $form;
@@ -160,6 +168,7 @@ final class PauseRecurringActivityForm extends FormBase {
       '#title' => $this->t('Already cancelled'),
       '#markup' => (string) (int) $preview['already_cancelled'],
     ];
+    $form['pause_explanation'] = $this->pauseExplanation();
 
     if (($preview['conflict'] ?? '') === 'rescheduled') {
       $form['conflict'] = [
@@ -192,8 +201,24 @@ final class PauseRecurringActivityForm extends FormBase {
       '#limit_validation_errors' => [],
       '#submit' => ['::changeDatesSubmit'],
     ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
+    ];
 
     return $form;
+  }
+
+  /**
+   * Explains the bounded, non-persistent pause on both form steps.
+   */
+  private function pauseExplanation(): array {
+    return [
+      '#type' => 'item',
+      '#markup' => $this->t('Previewing does not save changes. If confirmed, this pause cancels eligible occurrences whose effective start falls within the inclusive dates. The recurring activity is not deleted; occurrences outside the range keep their existing schedule. Future changes to the recurring schedule are not automatically paused.'),
+    ];
   }
 
   /**
