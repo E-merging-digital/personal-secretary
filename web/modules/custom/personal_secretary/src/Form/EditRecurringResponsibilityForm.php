@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\EditRecurringResponsibilityService;
+use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -84,6 +88,49 @@ final class EditRecurringResponsibilityForm extends FormBase {
       '#required' => TRUE,
     ];
 
+    $snapshot = $this->responsibilityEditor->currentPreview($this->seriesId());
+    $rows = [];
+    foreach ($snapshot['rows'] as $entry) {
+      $source = match ($entry['source']) {
+        EffectiveResponsibility::SOURCE_OVERRIDE => $entry['state'] === EffectiveResponsibility::STATE_NONE
+          ? $this->t('Occurrence exception: no responsible Person')
+          : $this->t('Occurrence exception: assigned Person'),
+        EffectiveResponsibility::SOURCE_RULE => $this->t('Usual recurring rule'),
+        default => $this->t('No usual responsibility'),
+      };
+      $rows[] = [
+        ['data' => ['#plain_text' => $this->formatPreviewTime($entry)]],
+        ['data' => ['#plain_text' => $entry['person_label'] ?? (string) $this->t('No responsible Person')]],
+        ['data' => ['#plain_text' => (string) $source]],
+      ];
+    }
+    $form['preview_explanation'] = [
+      '#type' => 'item',
+      '#markup' => $this->t('This read-only preview shows up to six future occurrences starting within the next 35 days in the activity timezone. Other occurrences may exist outside this window. It does not reflect your unsaved choices.'),
+    ];
+    $form['preview'] = [
+      '#type' => 'table',
+      '#caption' => $this->t('Upcoming responsibility: current saved state'),
+      '#header' => [
+        $this->t('Date and time'),
+        $this->t('Responsible Person'),
+        $this->t('Responsibility source'),
+      ],
+      '#rows' => $rows,
+      '#empty' => $this->t('No future occurrences start within the next 35 days.'),
+      '#attributes' => ['data-ps-preview' => 'recurring-responsibility'],
+    ];
+    if ($snapshot['has_more']) {
+      $form['preview_more'] = [
+        '#type' => 'item',
+        '#markup' => $this->t('More occurrences exist within this 35-day window; only the first six are shown.'),
+      ];
+    }
+    $form['preview_consequences'] = [
+      '#type' => 'item',
+      '#markup' => $this->t('Changing the usual responsible Person starts at the first eligible recurring occurrence on or after the selected date. Existing occurrence-specific exceptions remain unchanged. This preview shows saved state, not the proposed change.'),
+    ];
+
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',
@@ -132,6 +179,27 @@ final class EditRecurringResponsibilityForm extends FormBase {
     }
 
     $form_state->setRedirect('personal_secretary.upcoming');
+  }
+
+  /**
+   * Displays source-local dates without modifying any occurrence.
+   *
+   * @param array<string, mixed> $entry
+   */
+  private function formatPreviewTime(array $entry): string {
+    $timezone = new DateTimeZone($entry['timezone']);
+    $start = (new DateTimeImmutable($entry['start']))->setTimezone($timezone);
+    $end = (new DateTimeImmutable($entry['end']))->setTimezone($timezone);
+    if ($entry['time_mode'] === ActivitySeries::TIME_MODE_ALL_DAY) {
+      $lastDay = $end->modify('-1 day');
+      return $start->format('Y-m-d') === $lastDay->format('Y-m-d')
+        ? (string) $this->t('All day on @date', ['@date' => $start->format('Y-m-d')])
+        : (string) $this->t('All day from @start to @end', [
+          '@start' => $start->format('Y-m-d'),
+          '@end' => $lastDay->format('Y-m-d'),
+        ]);
+    }
+    return $start->format('Y-m-d H:i') . ' – ' . $end->format('Y-m-d H:i');
   }
 
   /**

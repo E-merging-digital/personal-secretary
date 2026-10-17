@@ -1223,3 +1223,42 @@ msgstr "@person — seulement pour cette occurrence"
 
 msgid "Following the usual responsibility also follows later changes to the activity's recurring responsible Person. Choosing a named Person keeps that Person assigned to this occurrence only, even if the usual responsibility changes."
 msgstr "Suivre la responsabilité habituelle prend aussi en compte ses changements futurs. Choisir une personne nommément l’affecte uniquement à cette occurrence, même si la responsabilité habituelle change par la suite."
+
+msgid "Upcoming responsibility: current saved state"
+msgstr "Responsabilités futures : état actuellement enregistré"
+
+msgid "This read-only preview shows up to six future occurrences starting within the next 35 days in the activity timezone. Other occurrences may exist outside this window. It does not reflect your unsaved choices."
+msgstr "Cet aperçu en lecture seule présente au maximum six occurrences futures commençant dans les 35 prochains jours, dans le fuseau horaire de l’activité. D’autres occurrences peuvent exister hors de cette période. Il ne reflète pas vos choix non enregistrés."
+
+msgid "Responsibility source"
+msgstr "Provenance de la responsabilité"
+
+msgid "No responsible Person"
+msgstr "Aucune personne responsable"
+
+msgid "Usual recurring rule"
+msgstr "Règle habituelle"
+
+msgid "Occurrence exception: assigned Person"
+msgstr "Exception de cette occurrence : personne assignée"
+
+msgid "Occurrence exception: no responsible Person"
+msgstr "Exception de cette occurrence : aucune personne responsable"
+
+msgid "No usual responsibility"
+msgstr "Aucune responsabilité habituelle"
+
+msgid "No future occurrences start within the next 35 days."
+msgstr "Aucune occurrence future ne commence dans les 35 prochains jours."
+
+msgid "More occurrences exist within this 35-day window; only the first six are shown."
+msgstr "D’autres occurrences existent pendant ces 35 jours ; seules les six premières sont affichées."
+
+msgid "Changing the usual responsible Person starts at the first eligible recurring occurrence on or after the selected date. Existing occurrence-specific exceptions remain unchanged. This preview shows saved state, not the proposed change."
+msgstr "Le changement de responsable habituel commence à la première occurrence récurrente admissible à partir de la date choisie. Les exceptions déjà définies pour certaines occurrences ne seront pas modifiées. Cet aperçu montre l’état enregistré, et non la modification proposée."
+
+msgid "All day on @date"
+msgstr "Toute la journée du @date"
+
+msgid "All day from @start to @end"
+msgstr "Toute la journée du @start au @end"
