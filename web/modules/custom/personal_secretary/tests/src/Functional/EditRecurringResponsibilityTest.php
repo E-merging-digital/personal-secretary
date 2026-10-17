@@ -92,8 +92,8 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
       $baseProjection->project($series, $nowUtc, $futureWindowEnd),
       $nowUtc,
     );
-    $this->assertGreaterThanOrEqual(4, count($baseOccurrences));
-    [$preTransitionBase, $firstAffectedBase, $laterBase, $overrideBase] = array_slice($baseOccurrences, 0, 4);
+    $this->assertGreaterThanOrEqual(5, count($baseOccurrences));
+    [$preTransitionBase, $firstAffectedBase, $laterBase, $overrideBase, $clearBase] = array_slice($baseOccurrences, 0, 5);
 
     $preTransitionLocal = (new DateTimeImmutable($preTransitionBase->sourceLocalStart))
       ->setTimezone($sourceTimezone);
@@ -110,10 +110,16 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
       $effectiveBefore[$overrideBase->originalOccurrenceKey],
       (int) $personC->id(),
     );
+    $clearOverride = $responsibilityMutations->createClearOverride(
+      $series,
+      $effectiveBefore[$clearBase->originalOccurrenceKey],
+    );
 
     $seriesId = (int) $series->id();
     $ruleId = (int) $rule->id();
     $overrideId = (int) $override->id();
+    $clearId = (int) $clearOverride->id();
+    $clearRevision = (string) $clearOverride->getRevisionId();
     $requirementId = (int) $requirement->id();
     $seriesStorage = $entityTypeManager->getStorage('personal_sec_activity_series');
     $ruleStorage = $entityTypeManager->getStorage('personal_sec_resp_rule');
@@ -163,6 +169,31 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
     $this->assertSession()->fieldNotExists('source_timezone');
     $this->assertSession()->fieldNotExists('rrule');
 
+    $this->assertSession()->pageTextContains('Upcoming responsibility: current saved state');
+    $this->assertSession()->pageTextContains('up to six future occurrences');
+    $this->assertSession()->pageTextContains('next 35 days');
+    $this->assertSession()->pageTextContains('Existing occurrence-specific exceptions remain unchanged');
+    $this->assertSession()->pageTextContains('not the proposed change');
+    $this->assertSession()->pageTextContains('Usual recurring rule');
+    $this->assertSession()->pageTextContains('Occurrence exception: assigned Person');
+    $this->assertSession()->pageTextContains('Occurrence exception: no responsible Person');
+    $this->assertSession()->pageTextContains('Casey Override');
+    $this->assertSession()->pageTextContains('No responsible Person');
+    $this->assertSession()->pageTextNotContains('Drew Outside Household');
+    $rows = $this->getSession()->getPage()->findAll('css', 'table[data-ps-preview="recurring-responsibility"] tbody tr');
+    $this->assertGreaterThan(0, count($rows));
+    $this->assertLessThanOrEqual(6, count($rows));
+    $snapshot = $editor->currentPreview($seriesId);
+    $this->assertCount(count($rows), $snapshot['rows']);
+    $this->assertFalse($snapshot['has_more']);
+    $this->assertSame(EffectiveResponsibility::SOURCE_OVERRIDE, $snapshot['rows'][3]['source']);
+    $this->assertSame('Casey Override', $snapshot['rows'][3]['person_label']);
+    $this->assertSame(EffectiveResponsibility::SOURCE_OVERRIDE, $snapshot['rows'][4]['source']);
+    $this->assertSame(EffectiveResponsibility::STATE_NONE, $snapshot['rows'][4]['state']);
+    $this->assertNull($snapshot['rows'][4]['person_label']);
+    $this->assertSame($clearRevision, (string) $overrideStorage->load($clearId)?->getRevisionId());
+    $this->assertCount($overrideCountBefore, $overrideStorage->loadMultiple());
+
     $personSelect = $this->getSession()->getPage()->findField('responsible_person_id');
     $this->assertNotNull($personSelect);
     $this->assertNotNull($personSelect->find('css', 'option[value="' . $personA->id() . '"]'));
@@ -189,8 +220,9 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
       $ruleCountBefore,
       $ruleRevisionCountBefore,
     );
-    $overrideStorage->resetCache([$overrideId]);
+    $overrideStorage->resetCache([$overrideId, $clearId]);
     $this->assertSame($overrideRevisionBefore, (string) $overrideStorage->load($overrideId)?->getRevisionId());
+    $this->assertSame($clearRevision, (string) $overrideStorage->load($clearId)?->getRevisionId());
     $this->assertCount($overrideCountBefore, $overrideStorage->loadMultiple());
     $preparationStorage->resetCache([$requirementId]);
     $this->assertSame($preparationRevisionBefore, (string) $preparationStorage->load($requirementId)?->getRevisionId());

@@ -11,6 +11,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\personal_secretary\Entity\Household;
 use Drupal\personal_secretary\Entity\Person;
 use Drupal\personal_secretary\Value\BaseOccurrence;
+use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -22,6 +23,8 @@ final class EditRecurringResponsibilityService {
 
   private const WEEKLY_RRULE = CurrentRecurringResponsibilityResolver::WEEKLY_RRULE;
   private const PROJECTION_WINDOW_DAYS = 8;
+  private const PREVIEW_DAYS = 35;
+  private const PREVIEW_LIMIT = 6;
 
   public function __construct(
     private readonly Connection $database,
@@ -30,6 +33,8 @@ final class EditRecurringResponsibilityService {
     private readonly ResponsibilityContextValidator $responsibilityContext,
     private readonly OccurrenceProjectionService $occurrenceProjection,
     private readonly ResponsibilityMutationService $responsibilityMutations,
+    private readonly EffectiveOccurrenceProjectionService $effectiveOccurrences,
+    private readonly EffectiveResponsibilityService $effectiveResponsibility,
   ) {}
 
   /**
@@ -62,6 +67,51 @@ final class EditRecurringResponsibilityService {
     return $resolved + [
       'member_options' => $memberOptions,
       'default_effective_date' => $todayLocal->modify('+1 day')->format('Y-m-d'),
+    ];
+  }
+
+  /**
+   * Returns only current persisted effective responsibility for one series.
+   *
+   * @return array{rows: array<int, array<string, mixed>>, has_more: bool}
+   */
+  public function currentPreview(int $seriesId): array {
+    $context = $this->context($seriesId);
+    $series = $context['series'];
+    $now = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('UTC'));
+    $end = $now->modify('+' . self::PREVIEW_DAYS . ' days');
+    $rows = [];
+    foreach ($this->effectiveOccurrences->project($series, $now, $end) as $occurrence) {
+      $start = new DateTimeImmutable($occurrence->effectiveUtcStart);
+      if ($start < $now || $start >= $end) {
+        continue;
+      }
+      $responsibility = $this->effectiveResponsibility->resolve($series, $occurrence);
+      $label = NULL;
+      if ($responsibility->state === EffectiveResponsibility::STATE_ASSIGNED) {
+        $id = (string) $responsibility->responsiblePersonId;
+        if (!isset($context['member_options'][$id])) {
+          throw new RuntimeException('Effective responsible Person is not an authorized Household member.');
+        }
+        $label = $context['member_options'][$id];
+      }
+      $rows[] = [
+        'start' => $occurrence->effectiveSourceLocalStart,
+        'end' => $occurrence->effectiveSourceLocalEnd,
+        'timezone' => $occurrence->sourceTimezone,
+        'time_mode' => $series->timeMode(),
+        'person_label' => $label,
+        'source' => $responsibility->source,
+        'state' => $responsibility->state,
+      ];
+      if (count($rows) > self::PREVIEW_LIMIT) {
+        break;
+      }
+    }
+    return [
+      'rows' => array_slice($rows, 0, self::PREVIEW_LIMIT),
+      'has_more' => count($rows) > self::PREVIEW_LIMIT,
     ];
   }
 
