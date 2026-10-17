@@ -109,6 +109,26 @@ final class EditRecurringScheduleTest extends BrowserTestBase {
     $this->assertSession()->fieldNotExists('source_timezone');
     $this->assertSession()->fieldNotExists('rrule');
 
+    $cancel = $this->getSession()->getPage()->findLink('Cancel');
+    $this->assertNotNull($cancel);
+    $this->assertSame(Url::fromRoute('personal_secretary.upcoming')->toString(), $cancel->getAttribute('href'));
+    $this->assertSession()->buttonExists('Save recurring schedule');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+
+    $seriesStorage->resetCache([$seriesId]);
+    $ruleStorage->resetCache([$ruleId]);
+    $this->assertSame($initialSeriesRevision, (string) $seriesStorage->load($seriesId)?->getRevisionId());
+    $this->assertSame($initialRuleRevision, (string) $ruleStorage->load($ruleId)?->getRevisionId());
+    $this->assertCount($initialSeriesCount, $seriesStorage->loadMultiple());
+    $this->assertCount($initialRuleCount, $ruleStorage->loadMultiple());
+    $this->assertCount($initialPreparationCount, $preparationStorage->loadMultiple());
+
+    // Return to the edit form for its existing invalid and valid submit cases.
+    $this->drupalGet($editUrl);
+    $this->assertSession()->statusCodeEquals(200);
+
     $seriesAfterGet = $seriesStorage->load($seriesId);
     $ruleAfterGet = $ruleStorage->load($ruleId);
     $this->assertInstanceOf(ActivitySeries::class, $seriesAfterGet);
