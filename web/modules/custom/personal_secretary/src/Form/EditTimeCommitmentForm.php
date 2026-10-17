@@ -39,6 +39,11 @@ final class EditTimeCommitmentForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $context = $this->resolveContext();
 
+    // Progressive enhancement only: the ordinary server submit stays enabled
+    // when JavaScript is unavailable.
+    $form['#attached']['library'][] = 'personal_secretary/time_commitment_dirty_state';
+    $form['#attributes']['data-ps-time-commitment-editor'] = '';
+
     $form['activity'] = [
       '#type' => 'item',
       '#title' => $this->t('Activity'),
@@ -62,6 +67,7 @@ final class EditTimeCommitmentForm extends FormBase {
       '#description' => $this->t('Changes take effect from the first future occurrence on or after this date in the activity\'s timezone. Earlier occurrences stay unchanged.'),
       '#default_value' => $context['default_effective_date'],
       '#required' => TRUE,
+      '#attributes' => ['data-ps-time-commitment-date' => ''],
     ];
     $form['mode'] = [
       '#type' => 'radios',
@@ -75,11 +81,27 @@ final class EditTimeCommitmentForm extends FormBase {
       '#required' => TRUE,
     ];
 
+    $form['clean_state_help'] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'id' => 'ps-time-commitment-no-changes',
+        'data-ps-time-commitment-clean' => '',
+        'role' => 'status',
+        'aria-live' => 'polite',
+        'hidden' => 'hidden',
+      ],
+      '#markup' => $this->t('No changes to save.'),
+    ];
+
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',
       '#value' => $this->t('Save time commitment'),
       '#button_type' => 'primary',
+      '#attributes' => [
+        'data-ps-time-commitment-save' => '',
+        'aria-describedby' => 'ps-time-commitment-no-changes',
+      ],
     ];
     $form['actions']['cancel'] = [
       '#type' => 'link',

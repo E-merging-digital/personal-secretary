@@ -1274,3 +1274,6 @@ msgstr "Aucune occurrence admissible à l’annulation dans cette période."
 
 msgid "This conflict blocks every cancellation. Listed dates are informational only; none will be cancelled."
 msgstr "Ce conflit bloque toutes les annulations. Les dates affichées sont seulement informatives ; aucune occurrence ne sera annulée."
+
+msgid "No changes to save."
+msgstr "Aucune modification à enregistrer."
