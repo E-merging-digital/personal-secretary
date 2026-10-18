@@ -57,7 +57,6 @@ final class TimeCommitmentDirtyStateJavascriptTest extends WebDriverTestBase {
     $this->drupalLogin($admin);
     $this->getSession()->resizeWindow(390, 844);
     $this->drupalGet($editorUrl);
-    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists('css', 'form[data-ps-time-commitment-editor]');
     $this->assertSession()->elementExists('css', '[data-ps-time-commitment-save]');
     $this->assertSession()->elementExists('css', '[data-ps-time-commitment-clean]');
@@ -109,7 +108,6 @@ final class TimeCommitmentDirtyStateJavascriptTest extends WebDriverTestBase {
     $this->assertSession()->linkByHrefExists($upcomingUrl);
     $this->clickLink('Cancel');
     $this->assertSession()->addressEquals($upcomingUrl);
-    $this->assertSession()->statusCodeEquals(200);
     $this->assertNoMutation($storage, $seriesStorage, $seriesId, $revision);
 
     // A valid changed form still goes through the original server submit.
