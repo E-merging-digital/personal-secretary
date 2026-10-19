@@ -12,6 +12,8 @@ use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
+use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Value\ActivityCaptureProposal;
 use Drupal\personal_secretary\Service\ActivityCaptureResolver;
 use Drupal\personal_secretary\Service\CurrentUserActivityCreationService;
 use Drupal\personal_secretary\Service\ThreeIntentReadProposeService;
@@ -58,8 +60,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. The assistant does not interpret free text; only your explicit task confirmation can save a task.',
-        'Choisissez une action. L’assistant n’interprète pas de texte libre ; seule votre confirmation explicite peut enregistrer une tâche.',
+        'Choose an action. The assistant does not interpret free text; only an explicit confirmation can create a task or activity.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; seule une confirmation explicite peut créer une tâche ou une activité.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -196,12 +198,32 @@ final class GuidedAssistantForm extends FormBase {
           ],
         ];
       }
+      if ($this->activityReviewContextValid($result, $form_state->get('activity_review'), $scope)) {
+        $form['activity_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Create this activity will save one real local one-off activity. Review the details above before confirming.',
+            'Créer cette activité enregistrera une véritable activité ponctuelle locale. Vérifiez les détails ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_create_activity',
+              '#value' => $this->tr('Create this activity', 'Créer cette activité'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
     }
     return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $confirm = ($form_state->getTriggeringElement()['#name'] ?? '') === 'confirm_create_task';
+    $trigger = $form_state->getTriggeringElement()['#name'] ?? '';
+    $confirm = $trigger === 'confirm_create_task';
+    $confirmActivity = $trigger === 'confirm_create_activity';
     try {
       $scope = $this->activityCreation->creationScope();
       $today = $this->today->today();
@@ -211,6 +233,7 @@ final class GuidedAssistantForm extends FormBase {
     }
     catch (InvalidArgumentException|RuntimeException) {
       $form_state->set('task_review', NULL);
+      $form_state->set('activity_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
         'clarifications' => ['authorized_scope_required'], 'saved' => FALSE,
@@ -263,60 +286,91 @@ final class GuidedAssistantForm extends FormBase {
       return;
     }
 
+    if ($confirmActivity) {
+      $review = $form_state->get('activity_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== ThreeIntentReadProposeService::PROPOSE_ACTIVITY
+        || !$this->activityReviewContextValid($previous, $review, $scope)
+        || $review['fields'] !== $this->activityFields($form_state)
+        || $review['timezone'] !== (string) $today['timezone']) {
+        $this->rejectActivityConfirmation($form_state);
+        return;
+      }
+      try {
+        // A new read-only proposal must exactly match the reviewed one.
+        $fresh = $capabilities->handle($intent, $this->activityInput($form_state, (string) $today['timezone']));
+        if ($fresh['status'] !== 'PROPOSAL_READY' || $fresh['saved'] !== FALSE
+          || $fresh['data'] !== $review['proposal']) {
+          $this->rejectActivityConfirmation($form_state);
+          return;
+        }
+        $data = $fresh['data'];
+        $timezone = new DateTimeZone((string) $data['source_timezone']);
+        $date = (string) $data['absolute_date'];
+        if ($data['time_mode'] === ActivitySeries::TIME_MODE_ALL_DAY) {
+          $start = DateTimeImmutable::createFromFormat('!Y-m-d', $date, $timezone);
+          $end = $start instanceof DateTimeImmutable ? $start->modify('+1 day') : FALSE;
+          $expectedStart = $date;
+          $format = 'Y-m-d';
+        }
+        else {
+          $expectedStart = $date . ' ' . (string) $data['local_start_time'];
+          $expectedEnd = $date . ' ' . (string) $data['local_end_time'];
+          $start = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $expectedStart, $timezone);
+          $end = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $expectedEnd, $timezone);
+          $format = 'Y-m-d H:i';
+        }
+        if (!$start instanceof DateTimeImmutable || !$end instanceof DateTimeImmutable
+          || $start->format($format) !== $expectedStart
+          || ($data['time_mode'] === ActivitySeries::TIME_MODE_TIMED && $end->format($format) !== $expectedEnd)
+          || $end <= $start) {
+          throw new InvalidArgumentException('Reviewed local activity date/time is invalid.');
+        }
+        // Consume the Form API review before the sole domain mutation.
+        $form_state->set('activity_review', NULL);
+        $series = $this->activityCreation->addOneOffActivity(
+          (int) $review['person_id'],
+          (int) $data['household_id'],
+          (string) $data['label'],
+          $start,
+          $end,
+          '',
+          0,
+          '',
+          [],
+          (string) $data['time_mode'],
+        );
+        if ($series->id() === NULL) {
+          throw new RuntimeException('A saved ActivitySeries must have an ID.');
+        }
+      }
+      catch (\Exception) {
+        $this->rejectActivityConfirmation($form_state);
+        return;
+      }
+      $this->messenger()->addStatus($this->tr(
+        'Activity created.', 'Activité créée.',
+      ));
+      $form_state->setRedirect('personal_secretary.my_upcoming');
+      return;
+    }
+
     // Preview is always read-only, and supersedes any earlier confirmation.
     $form_state->set('task_review', NULL);
+    $form_state->set('activity_review', NULL);
     $input = [];
     if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK) {
       $input = $this->taskInput($form_state);
     }
     elseif ($intent === ThreeIntentReadProposeService::PROPOSE_ACTIVITY) {
-      $date = trim((string) $form_state->getValue('activity_date'));
-      $parts = explode('-', $date);
-      $validDate = count($parts) === 3
-        && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1
-        && checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0]);
-      $mode = (string) $form_state->getValue('activity_mode');
-      if (!in_array($mode, ['timed', 'all_day'], TRUE)) {
-        $this->show($form_state, [
-          'status' => 'NEEDS_CLARIFICATION', 'data' => NULL,
-          'clarifications' => ['time_mode_conflict'], 'saved' => FALSE,
-        ]);
-        return;
-      }
-      $allDay = $mode === 'all_day';
       try {
-        $extraction = ActivityCaptureExtraction::fromArray([
-          'label_text' => trim((string) $form_state->getValue('activity_label')),
-          'location_text' => NULL,
-          'concerned_person_mentions' => [],
-          'unclassified_person_mentions' => [],
-          'concerned_person_alternative' => FALSE,
-          'responsibility_candidate' => $form_state->getValue('activity_responsible_self')
-            ? ActivityCaptureExtraction::RESPONSIBILITY_SELF : NULL,
-          'date_expression' => $validDate ? NULL : ($date !== '' ? $date : NULL),
-          'date_day' => $validDate ? (int) $parts[2] : NULL,
-          'date_month' => $validDate ? (int) $parts[1] : NULL,
-          'date_year' => $validDate ? (int) $parts[0] : NULL,
-          'relative_day_offset' => NULL,
-          'start_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_start')),
-          'end_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_end')),
-          'recurrence_expression' => NULL,
-          'explicit_all_day_signal' => $allDay,
-          'explicit_timed_signal' => !$allDay,
-        ]);
-        $input = [
-          'context' => new ActivityCaptureInput(
-            'Explicit structured form; no language interpretation',
-            new DateTimeImmutable('now', new DateTimeZone('UTC')),
-            (string) $today['timezone'],
-          ),
-          'extraction' => $extraction,
-        ];
+        $input = $this->activityInput($form_state, (string) $today['timezone']);
       }
-      catch (InvalidArgumentException) {
+      catch (InvalidArgumentException $e) {
         $this->show($form_state, [
+          'intent' => $intent,
           'status' => 'NEEDS_CLARIFICATION', 'data' => NULL,
-          'clarifications' => ['invalid_structured_fields'], 'saved' => FALSE,
+          'clarifications' => [$e->getMessage()], 'saved' => FALSE,
         ]);
         return;
       }
@@ -338,6 +392,28 @@ final class GuidedAssistantForm extends FormBase {
           'household_label' => (string) $household->label(),
           'timezone' => $this->taskMutations->currentUserTimezoneId(),
         ]);
+      }
+    }
+    if ($intent === ThreeIntentReadProposeService::PROPOSE_ACTIVITY
+      && $result['status'] === 'PROPOSAL_READY'
+      && $result['saved'] === FALSE
+      && is_array($result['data'])) {
+      $data = $result['data'];
+      $household = $scope['households'][(int) ($data['household_id'] ?? 0)] ?? NULL;
+      if ($household !== NULL) {
+        $review = [
+          'fields' => $this->activityFields($form_state),
+          'proposal' => $data,
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'household_label' => (string) $household->label(),
+          'timezone' => (string) $today['timezone'],
+          'expires_at' => \Drupal::time()->getCurrentTime() + 600,
+        ];
+        if ($this->activityReviewContextValid($result, $review, $scope)) {
+          $form_state->set('activity_review', $review);
+        }
       }
     }
     $this->show($form_state, $result);
@@ -372,6 +448,45 @@ final class GuidedAssistantForm extends FormBase {
   }
 
   /**
+   * The previous server-side preview, not an agent or POST argument, gates WRITE.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function activityReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    if (!is_array($result) || !is_array($review)
+      || ($result['intent'] ?? NULL) !== ThreeIntentReadProposeService::PROPOSE_ACTIVITY
+      || ($result['status'] ?? NULL) !== 'PROPOSAL_READY'
+      || ($result['saved'] ?? NULL) !== FALSE
+      || ($result['data'] ?? NULL) !== ($review['proposal'] ?? NULL)
+      || !is_array($review['proposal'] ?? NULL)
+      || ($review['proposal']['ready_for_confirmation'] ?? FALSE) !== TRUE
+      || ($review['proposal']['intent'] ?? NULL) !== ActivityCaptureProposal::INTENT_ONE_OFF
+      || ($review['proposal']['weekday'] ?? NULL) !== NULL
+      || !ActivitySeries::supportsTimeMode((string) ($review['proposal']['time_mode'] ?? ''))
+      || ($review['proposal']['responsible_person_id'] ?? NULL) !== (int) $scope['current_person']->id()
+      || ($review['proposal']['concerned_person_ids'] ?? NULL) !== []
+      || ($review['proposal']['location'] ?? NULL) !== NULL
+      || ($review['user_id'] ?? NULL) !== (int) $this->currentUser()->id()
+      || ($review['person_id'] ?? NULL) !== (int) $scope['current_person']->id()
+      || ($review['household_ids'] ?? NULL) !== $this->householdIds($scope)
+      || ($review['timezone'] ?? NULL) !== ($review['proposal']['source_timezone'] ?? NULL)
+      || !is_int($review['expires_at'] ?? NULL)
+      || $review['expires_at'] <= \Drupal::time()->getCurrentTime()
+      || $review['expires_at'] > \Drupal::time()->getCurrentTime() + 600
+      || !is_array($review['fields'] ?? NULL)
+      || ($review['fields']['activity_responsible_self'] ?? NULL) !== '1'
+      || ($review['fields']['activity_mode'] ?? NULL) !== ($review['proposal']['time_mode'] ?? NULL)) {
+      return FALSE;
+    }
+    $householdId = (int) ($review['proposal']['household_id'] ?? 0);
+    $household = $scope['households'][$householdId] ?? NULL;
+    return $household !== NULL
+      && ($review['household_label'] ?? NULL) === (string) $household->label();
+  }
+
+  /**
    * @param array<string, mixed> $scope
    * @return int[]
    */
@@ -390,6 +505,67 @@ final class GuidedAssistantForm extends FormBase {
       $fields[$name] = trim((string) $form_state->getValue($name));
     }
     return $fields;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function activityFields(FormStateInterface $form_state): array {
+    $fields = [];
+    foreach (['intent', 'activity_label', 'activity_date', 'activity_mode', 'activity_start', 'activity_end', 'activity_responsible_self'] as $name) {
+      $fields[$name] = trim((string) $form_state->getValue($name));
+    }
+    return $fields;
+  }
+
+  /**
+   * Builds an independent deterministic proposal from submitted typed fields.
+   *
+   * @return array<string, mixed>
+   */
+  private function activityInput(FormStateInterface $form_state, string $timezone): array {
+    $date = trim((string) $form_state->getValue('activity_date'));
+    $parts = explode('-', $date);
+    $validDate = count($parts) === 3
+      && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $date) === 1
+      && checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0]);
+    $mode = (string) $form_state->getValue('activity_mode');
+    if (!in_array($mode, [ActivitySeries::TIME_MODE_TIMED, ActivitySeries::TIME_MODE_ALL_DAY], TRUE)) {
+      throw new InvalidArgumentException('time_mode_conflict');
+    }
+    $allDay = $mode === ActivitySeries::TIME_MODE_ALL_DAY;
+    try {
+      $extraction = ActivityCaptureExtraction::fromArray([
+        'label_text' => trim((string) $form_state->getValue('activity_label')),
+        'location_text' => NULL,
+        'concerned_person_mentions' => [],
+        'unclassified_person_mentions' => [],
+        'concerned_person_alternative' => FALSE,
+        'responsibility_candidate' => $form_state->getValue('activity_responsible_self')
+          ? ActivityCaptureExtraction::RESPONSIBILITY_SELF : NULL,
+        'date_expression' => $validDate ? NULL : ($date !== '' ? $date : NULL),
+        'date_day' => $validDate ? (int) $parts[2] : NULL,
+        'date_month' => $validDate ? (int) $parts[1] : NULL,
+        'date_year' => $validDate ? (int) $parts[0] : NULL,
+        'relative_day_offset' => NULL,
+        'start_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_start')),
+        'end_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_end')),
+        'recurrence_expression' => NULL,
+        'explicit_all_day_signal' => $allDay,
+        'explicit_timed_signal' => !$allDay,
+      ]);
+    }
+    catch (InvalidArgumentException) {
+      throw new InvalidArgumentException('invalid_structured_fields');
+    }
+    return [
+      'context' => new ActivityCaptureInput(
+        'Explicit structured form; no language interpretation',
+        new DateTimeImmutable('now', new DateTimeZone('UTC')),
+        $timezone,
+      ),
+      'extraction' => $extraction,
+    ];
   }
 
   /**
@@ -420,6 +596,17 @@ final class GuidedAssistantForm extends FormBase {
       'status' => 'NEEDS_CLARIFICATION',
       'data' => NULL,
       'clarifications' => ['fresh_task_preview_required'],
+      'saved' => FALSE,
+    ]);
+  }
+
+  private function rejectActivityConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('activity_review', NULL);
+    $this->show($form_state, [
+      'intent' => ThreeIntentReadProposeService::PROPOSE_ACTIVITY,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_activity_preview_required'],
       'saved' => FALSE,
     ]);
   }
@@ -526,6 +713,28 @@ final class GuidedAssistantForm extends FormBase {
           ]));
         }
       }
+      if (($result['intent'] ?? NULL) === ThreeIntentReadProposeService::PROPOSE_ACTIVITY) {
+        $household = $scope['households'][(int) ($data['household_id'] ?? 0)] ?? NULL;
+        if ($household !== NULL) {
+          $build['household'] = $this->fact($this->t('@label: @value', [
+            '@label' => $this->tr('Household', 'Foyer'),
+            '@value' => (string) $household->label(),
+          ]));
+        }
+        $build['time_mode'] = $this->fact(
+          ($data['time_mode'] ?? '') === ActivitySeries::TIME_MODE_ALL_DAY
+            ? $this->tr('All day', 'Toute la journée')
+            : $this->tr('With times', 'Avec heures'),
+        );
+        $build['responsible'] = $this->fact(
+          ($data['responsible_person_id'] ?? NULL) !== NULL
+            ? $this->tr('I am responsible', 'Je suis responsable')
+            : $this->tr('Responsibility not specified', 'Responsabilité non précisée'),
+        );
+        $build['timezone'] = $this->fact($this->t('@timezone', [
+          '@timezone' => (string) ($data['source_timezone'] ?? ''),
+        ]));
+      }
       $date = (string) ($data['due_date'] ?? $data['due_at'] ?? $data['absolute_date'] ?? '');
       if ($date !== '') {
         $build['when'] = $this->fact($this->t('@date', ['@date' => $date]));
@@ -561,6 +770,10 @@ final class GuidedAssistantForm extends FormBase {
       'start_time_invalid' => $this->tr('Enter a start time (HH:MM).', 'Indiquez une heure de début (HH:MM).'),
       'end_time_required', 'end_time_invalid', 'end_time_after_start_required' => $this->tr('Enter an end time after the start.', 'Indiquez une heure de fin après le début.'),
       'household_selection_required' => $this->tr('Choose a Household.', 'Choisissez un foyer.'),
+      'fresh_activity_preview_required' => $this->tr(
+        'The activity preview is no longer valid. Review a new preview before creating an activity.',
+        'L’aperçu de l’activité n’est plus valide. Affichez un nouvel aperçu avant de créer une activité.',
+      ),
       'fresh_task_preview_required' => $this->tr(
         'The task preview is no longer valid. Review a new preview before creating a task.',
         'L’aperçu de la tâche n’est plus valide. Affichez un nouvel aperçu avant de créer une tâche.',
