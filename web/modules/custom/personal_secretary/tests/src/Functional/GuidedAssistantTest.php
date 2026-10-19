@@ -9,6 +9,7 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\PersonalTask;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\Tests\BrowserTestBase;
@@ -150,6 +151,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Synthetic guided walk');
     $this->assertSession()->pageTextContains('Preview not saved');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_activity"]');
     $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
     $this->submitForm($activity, 'Show preview');
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
@@ -158,6 +160,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->submitForm($activity, 'Show preview');
     $this->assertSession()->pageTextContains('NEEDS_CLARIFICATION');
     $this->assertSession()->pageTextContains('Enter an end time after the start.');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
 
     $activity['activity_mode'] = 'all_day';
     $this->submitForm($activity, 'Show preview');
@@ -195,6 +198,8 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->submitForm($task, 'Afficher l’aperçu');
     $this->assertSession()->pageTextContains('Aperçu non enregistré');
     $this->assertSession()->pageTextContains('Créer cette tâche');
+    $this->submitForm($activity, 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Créer cette activité');
     $this->assertSame($before, $this->domainCounts());
     $this->drupalGet('/en/personal-secretary/assistant');
     $this->assertSession()->statusCodeEquals(200);
@@ -216,6 +221,127 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSame((int) $person->id(), (int) $created[0]->get('assigned_person')->target_id);
     $this->getSession()->reload();
     $this->assertSame($after, $this->domainCounts(), 'PRG refresh must not resubmit task creation.');
+  }
+
+  public function testOnlyExplicitOneOffConfirmationCreatesActivityAndRejectsTampering(): void {
+    $person = $this->container->get('personal_secretary.domain_mutation')->createPerson('Synthetic Activity Creator');
+    $household = $this->container->get('personal_secretary.domain_mutation')->createHousehold('Synthetic Activity Household', [(int) $person->id()]);
+    $user = $this->productUser($person, [$household]);
+    $this->drupalLogin($user);
+    $route = '/personal-secretary/assistant';
+    $this->drupalGet($route);
+    $before = $this->domainCounts();
+
+    $timed = [
+      'intent' => 'PROPOSE_ACTIVITY',
+      'activity_label' => 'Synthetic confirmed timed walk',
+      'activity_date' => '2026-11-03',
+      'activity_mode' => 'timed',
+      'activity_start' => '09:15',
+      'activity_end' => '10:45',
+      'activity_responsible_self' => 1,
+    ];
+    $this->submitForm($timed, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Synthetic Activity Household');
+    $this->assertSession()->pageTextContains('Europe/Brussels');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($before, $this->domainCounts(), 'A complete preview is read-only.');
+
+    $this->submitForm(['activity_end' => '11:45'], 'Create this activity');
+    $this->assertSession()->pageTextContains('Review a new preview');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($before, $this->domainCounts(), 'Tampered review must not write.');
+
+    $this->submitForm($timed, 'Show preview');
+    $this->submitForm([], 'Create this activity');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
+    $this->assertSession()->pageTextContains('Activity created.');
+    $afterTimed = $this->domainCounts();
+    $this->assertSame($before['series'] + 1, $afterTimed['series']);
+    $seriesStorage = $this->container->get('entity_type.manager')->getStorage('personal_sec_activity_series');
+    $seriesStorage->resetCache();
+    $created = array_values(array_filter($seriesStorage->loadMultiple(),
+      static fn(ActivitySeries $item): bool => (string) $item->get('name')->value === 'Synthetic confirmed timed walk'));
+    $this->assertCount(1, $created);
+    $this->assertSame('timed', (string) $created[0]->get('time_mode')->value);
+    $this->assertSame((int) $household->id(), (int) $created[0]->get('household')->target_id);
+    $this->getSession()->reload();
+    $this->assertSame($afterTimed, $this->domainCounts(), 'Reload must not create a duplicate.');
+
+    $this->drupalGet($route);
+    $allDay = [
+      'intent' => 'PROPOSE_ACTIVITY',
+      'activity_label' => 'Synthetic confirmed all-day event',
+      'activity_date' => '2026-11-04',
+      'activity_mode' => 'all_day',
+      'activity_responsible_self' => 1,
+    ];
+    $this->submitForm($allDay, 'Show preview');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($afterTimed, $this->domainCounts());
+    $this->submitForm([], 'Create this activity');
+    $this->assertSession()->pageTextContains('Activity created.');
+    $afterAllDay = $this->domainCounts();
+    $this->assertSame($afterTimed['series'] + 1, $afterAllDay['series']);
+    $seriesStorage->resetCache();
+    $created = array_values(array_filter($seriesStorage->loadMultiple(),
+      static fn(ActivitySeries $item): bool => (string) $item->get('name')->value === 'Synthetic confirmed all-day event'));
+    $this->assertCount(1, $created);
+    $this->assertSame('all_day', (string) $created[0]->get('time_mode')->value);
+    $this->getSession()->reload();
+    $this->assertSame($afterAllDay, $this->domainCounts());
+
+    // Ready proposals with no explicit self responsibility remain preview-only.
+    $this->drupalGet($route);
+    $noResponsibility = $timed;
+    $noResponsibility['activity_responsible_self'] = 0;
+    $this->submitForm($noResponsibility, 'Show preview');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($afterAllDay, $this->domainCounts());
+    $this->submitForm(['intent' => 'GET_TODAY'], 'Show preview');
+    $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($afterAllDay, $this->domainCounts());
+  }
+
+  public function testAmbiguousHouseholdAndRevokedContextDoNotCreateActivity(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Activity Context');
+    $otherPerson = $domain->createPerson('Synthetic Alternative Context');
+    $h1 = $domain->createHousehold('Synthetic activity house one', [(int) $person->id(), (int) $otherPerson->id()]);
+    $h2 = $domain->createHousehold('Synthetic activity house two', [(int) $person->id()]);
+    $user = $this->productUser($person, [$h1, $h2]);
+    $this->drupalLogin($user);
+    $route = '/personal-secretary/assistant';
+    $this->drupalGet($route);
+    $before = $this->domainCounts();
+    $activity = [
+      'intent' => 'PROPOSE_ACTIVITY',
+      'activity_label' => 'Synthetic ambiguous activity',
+      'activity_date' => '2026-11-05',
+      'activity_mode' => 'all_day',
+      'activity_responsible_self' => 1,
+    ];
+    $this->submitForm($activity, 'Show preview');
+    $this->assertSession()->pageTextContains('NEEDS_CLARIFICATION');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    // With a single eligible household, a genuine review is possible.
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $h1->id()]]);
+    $user->save();
+    $this->drupalGet($route);
+    $this->submitForm($activity, 'Show preview');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    // Change the persisted CurrentPerson between preview and confirmation.
+    $user->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $otherPerson->id()]);
+    $user->save();
+    $this->submitForm([], 'Create this activity');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($before, $this->domainCounts());
   }
 
   public function testHouseholdAuthorizationDriftRejectsTaskConfirmation(): void {
