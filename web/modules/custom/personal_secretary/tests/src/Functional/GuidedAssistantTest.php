@@ -255,7 +255,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
 
     $this->submitForm($timed, 'Show preview');
     $this->submitForm([], 'Create this activity');
-    $this->assertSession()->addressEquals('/personal-secretary/activities/mine');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSession()->pageTextContains('Activity created.');
     $afterTimed = $this->domainCounts();
     $this->assertSame($before['series'] + 1, $afterTimed['series']);
