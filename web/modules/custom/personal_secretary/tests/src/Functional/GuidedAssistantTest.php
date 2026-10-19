@@ -16,7 +16,7 @@ use Drupal\user\UserInterface;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
- * Exercises a real browser session through the no-write guided assistant.
+ * Exercises read-only previews and explicit governed task confirmation.
  *
  * @group personal_secretary
  */
@@ -119,12 +119,23 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Synthetic guided task');
     $this->assertSession()->pageTextContains('Preview not saved');
+    $this->assertSession()->pageTextContains('Create this task will save one real local task.');
+    $this->assertSame($before, $this->domainCounts(), 'Preview must never create a task.');
+    $this->submitForm(['task_title' => 'Synthetic changed without review'], 'Create this task');
+    $this->assertSession()->pageTextContains('Review a new preview');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
+    $this->assertSame($before, $this->domainCounts(), 'Changed fields must not create the reviewed task.');
+
+    $this->submitForm($task, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_task"]');
     $this->submitForm($task, 'Show preview');
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
 
     $this->submitForm(['intent' => 'PROPOSE_TASK', 'task_title' => '', 'task_due_mode' => PersonalTask::DUE_DATE], 'Show preview');
     $this->assertSession()->pageTextContains('NEEDS_CLARIFICATION');
     $this->assertSession()->pageTextContains('Enter a valid title.');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
 
     $activity = [
       'intent' => 'PROPOSE_ACTIVITY',
@@ -139,6 +150,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Synthetic guided walk');
     $this->assertSession()->pageTextContains('Preview not saved');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
     $this->submitForm($activity, 'Show preview');
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
 
@@ -180,9 +192,58 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Choisir une action');
     $this->assertSession()->pageTextContains('Préparer une tâche');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/today');
+    $this->submitForm($task, 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Aperçu non enregistré');
+    $this->assertSession()->pageTextContains('Créer cette tâche');
+    $this->assertSame($before, $this->domainCounts());
     $this->drupalGet('/en/personal-secretary/assistant');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Choose an action');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
+    $this->submitForm($task, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSame($before, $this->domainCounts());
+    $this->submitForm([], 'Create this task');
+    $this->assertSession()->addressEquals('/en/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Task created.');
+    $after = $this->domainCounts();
+    $this->assertSame($before['task'] + 1, $after['task']);
+    $storage->resetCache();
+    $created = array_values(array_filter($storage->loadMultiple(),
+      static fn(PersonalTask $item): bool => (string) $item->get('title')->value === 'Synthetic guided task'));
+    $this->assertCount(1, $created);
+    $this->assertSame((int) $h1->id(), (int) $created[0]->get('household')->target_id);
+    $this->assertSame((int) $person->id(), (int) $created[0]->get('assigned_person')->target_id);
+    $this->getSession()->reload();
+    $this->assertSame($after, $this->domainCounts(), 'PRG refresh must not resubmit task creation.');
+  }
+
+  public function testHouseholdAuthorizationDriftRejectsTaskConfirmation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Drift Person');
+    $allowed = $domain->createHousehold('Synthetic Drift Eligible', [(int) $person->id()]);
+    $other = $domain->createHousehold('Synthetic Drift Other', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed, $other]);
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $before = $this->domainCounts();
+    $this->submitForm([
+      'intent' => 'PROPOSE_TASK',
+      'task_title' => 'Synthetic drifted task',
+      'task_household' => (string) $allowed->id(),
+      'task_due_mode' => PersonalTask::DUE_DATE,
+      'task_due_date' => '2026-11-01',
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSame($before, $this->domainCounts());
+    // Revoke precisely the reviewed Household before the final POST.
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [
+      ['target_id' => (int) $other->id()],
+    ]);
+    $user->save();
+    $this->submitForm([], 'Create this task');
+    $this->assertSame($before, $this->domainCounts());
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
   }
 
   /**

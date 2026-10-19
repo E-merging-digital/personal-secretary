@@ -15,6 +15,7 @@ use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\ActivityCaptureResolver;
 use Drupal\personal_secretary\Service\CurrentUserActivityCreationService;
 use Drupal\personal_secretary\Service\ThreeIntentReadProposeService;
+use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use Drupal\personal_secretary\Service\TodayService;
 use Drupal\personal_secretary\Value\ActivityCaptureExtraction;
 use Drupal\personal_secretary\Value\ActivityCaptureInput;
@@ -32,6 +33,7 @@ final class GuidedAssistantForm extends FormBase {
     protected CurrentUserActivityCreationService $activityCreation,
     protected ActivityCaptureResolver $captureResolver,
     protected LanguageManagerInterface $interfaceLanguage,
+    protected PersonalTaskMutationService $taskMutations,
   ) {
   }
 
@@ -41,6 +43,7 @@ final class GuidedAssistantForm extends FormBase {
       $container->get('personal_secretary.current_user_activity_creation'),
       $container->get('personal_secretary.activity_capture_resolver'),
       $container->get('language_manager'),
+      $container->get('personal_secretary.personal_task_mutation'),
     );
   }
 
@@ -55,8 +58,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. This guided assistant does not interpret free text or save anything.',
-        'Choisissez une action. Cet assistant guidé n’interprète pas de texte libre et n’enregistre rien.',
+        'Choose an action. The assistant does not interpret free text; only your explicit task confirmation can save a task.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; seule votre confirmation explicite peut enregistrer une tâche.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -174,12 +177,31 @@ final class GuidedAssistantForm extends FormBase {
     ];
     $result = $form_state->get('guided_result');
     if (is_array($result)) {
-      $form['result'] = $this->resultBuild($result);
+      $form['result'] = $this->resultBuild($result, $scope);
+      if ($this->taskReviewContextValid($result, $form_state->get('task_review'), $scope)) {
+        $form['task_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Create this task will save one real local task. Review the details above before confirming.',
+            'Créer cette tâche enregistrera une véritable tâche locale. Vérifiez les détails ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_create_task',
+              '#value' => $this->tr('Create this task', 'Créer cette tâche'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
     }
     return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $confirm = ($form_state->getTriggeringElement()['#name'] ?? '') === 'confirm_create_task';
     try {
       $scope = $this->activityCreation->creationScope();
       $today = $this->today->today();
@@ -188,6 +210,7 @@ final class GuidedAssistantForm extends FormBase {
       }
     }
     catch (InvalidArgumentException|RuntimeException) {
+      $form_state->set('task_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
         'clarifications' => ['authorized_scope_required'], 'saved' => FALSE,
@@ -196,22 +219,55 @@ final class GuidedAssistantForm extends FormBase {
     }
 
     $intent = (string) $form_state->getValue('intent');
+    $capabilities = new ThreeIntentReadProposeService(
+      $this->today, $this->activityCreation, $this->captureResolver,
+    );
+    if ($confirm) {
+      $review = $form_state->get('task_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== ThreeIntentReadProposeService::PROPOSE_TASK
+        || !$this->taskReviewContextValid($previous, $review, $scope)
+        || $review['fields'] !== $this->taskFields($form_state)) {
+        $this->rejectTaskConfirmation($form_state);
+        return;
+      }
+      // Re-evaluate the proposal and the current authorization before WRITE.
+      $fresh = $capabilities->handle($intent, $this->taskInput($form_state));
+      if ($fresh['status'] !== 'PROPOSAL_READY' || $fresh['saved'] !== FALSE
+        || $fresh['data'] !== $review['proposal']) {
+        $this->rejectTaskConfirmation($form_state);
+        return;
+      }
+      $data = $fresh['data'];
+      try {
+        $task = $this->taskMutations->createTask(
+          (string) $data['title'],
+          (int) $data['household_id'],
+          (string) $data['due_mode'],
+          $data['due_date'],
+          $data['due_at'],
+        );
+        if ($task->id() === NULL) {
+          throw new RuntimeException('A saved PersonalTask must have an ID.');
+        }
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $this->rejectTaskConfirmation($form_state);
+        return;
+      }
+      $form_state->set('task_review', NULL);
+      $this->messenger()->addStatus($this->tr(
+        'Task created.', 'Tâche créée.',
+      ));
+      $form_state->setRedirect('personal_secretary.my_tasks');
+      return;
+    }
+
+    // Preview is always read-only, and supersedes any earlier confirmation.
+    $form_state->set('task_review', NULL);
     $input = [];
     if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK) {
-      $input = [
-        'title' => (string) $form_state->getValue('task_title'),
-        'due_mode' => (string) $form_state->getValue('task_due_mode'),
-      ];
-      $selected = $form_state->getValue('task_household');
-      if ($selected !== NULL && $selected !== '') {
-        $input['household_id'] = ctype_digit((string) $selected) ? (int) $selected : -1;
-      }
-      if ($input['due_mode'] === PersonalTask::DUE_DATE) {
-        $input['due_date'] = trim((string) $form_state->getValue('task_due_date'));
-      }
-      elseif ($input['due_mode'] === PersonalTask::DUE_DATE_TIME) {
-        $input['due_at'] = trim((string) $form_state->getValue('task_due_at'));
-      }
+      $input = $this->taskInput($form_state);
     }
     elseif ($intent === ThreeIntentReadProposeService::PROPOSE_ACTIVITY) {
       $date = trim((string) $form_state->getValue('activity_date'));
@@ -265,10 +321,107 @@ final class GuidedAssistantForm extends FormBase {
         return;
       }
     }
-    $capabilities = new ThreeIntentReadProposeService(
-      $this->today, $this->activityCreation, $this->captureResolver,
-    );
-    $this->show($form_state, $capabilities->handle($intent, $input));
+    $result = $capabilities->handle($intent, $input);
+    if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK
+      && $result['status'] === 'PROPOSAL_READY'
+      && $result['saved'] === FALSE
+      && is_array($result['data'])) {
+      $data = $result['data'];
+      $household = $scope['households'][(int) $data['household_id']] ?? NULL;
+      if ($household !== NULL) {
+        $form_state->set('task_review', [
+          'fields' => $this->taskFields($form_state),
+          'proposal' => $data,
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'household_label' => (string) $household->label(),
+          'timezone' => $this->taskMutations->currentUserTimezoneId(),
+        ]);
+      }
+    }
+    $this->show($form_state, $result);
+  }
+
+  /**
+   * Only form-state data from the previous preview may authorize the button.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function taskReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    if (!is_array($result) || !is_array($review)
+      || ($result['intent'] ?? NULL) !== ThreeIntentReadProposeService::PROPOSE_TASK
+      || ($result['status'] ?? NULL) !== 'PROPOSAL_READY'
+      || ($result['saved'] ?? NULL) !== FALSE
+      || ($result['data'] ?? NULL) !== ($review['proposal'] ?? NULL)
+      || !is_array($review['proposal'] ?? NULL)
+      || ($review['proposal']['ready_for_confirmation'] ?? FALSE) !== TRUE
+      || ($review['user_id'] ?? NULL) !== (int) $this->currentUser()->id()
+      || ($review['person_id'] ?? NULL) !== (int) $scope['current_person']->id()
+      || ($review['household_ids'] ?? NULL) !== $this->householdIds($scope)
+      || ($review['timezone'] ?? NULL) !== $this->taskMutations->currentUserTimezoneId()
+      || !is_array($review['fields'] ?? NULL)) {
+      return FALSE;
+    }
+    $householdId = (int) ($review['proposal']['household_id'] ?? 0);
+    $household = $scope['households'][$householdId] ?? NULL;
+    return $household !== NULL
+      && ($review['household_label'] ?? NULL) === (string) $household->label();
+  }
+
+  /**
+   * @param array<string, mixed> $scope
+   * @return int[]
+   */
+  private function householdIds(array $scope): array {
+    $ids = array_map('intval', array_keys($scope['households']));
+    sort($ids, SORT_NUMERIC);
+    return $ids;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function taskFields(FormStateInterface $form_state): array {
+    $fields = [];
+    foreach (['intent', 'task_title', 'task_household', 'task_due_mode', 'task_due_date', 'task_due_at'] as $name) {
+      $fields[$name] = trim((string) $form_state->getValue($name));
+    }
+    return $fields;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function taskInput(FormStateInterface $form_state): array {
+    $input = [
+      'title' => (string) $form_state->getValue('task_title'),
+      'due_mode' => (string) $form_state->getValue('task_due_mode'),
+    ];
+    $selected = $form_state->getValue('task_household');
+    if ($selected !== NULL && $selected !== '') {
+      $input['household_id'] = ctype_digit((string) $selected) ? (int) $selected : -1;
+    }
+    if ($input['due_mode'] === PersonalTask::DUE_DATE) {
+      $input['due_date'] = trim((string) $form_state->getValue('task_due_date'));
+    }
+    elseif ($input['due_mode'] === PersonalTask::DUE_DATE_TIME) {
+      $input['due_at'] = trim((string) $form_state->getValue('task_due_at'));
+    }
+    return $input;
+  }
+
+  private function rejectTaskConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('task_review', NULL);
+    $this->show($form_state, [
+      'intent' => ThreeIntentReadProposeService::PROPOSE_TASK,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_task_preview_required'],
+      'saved' => FALSE,
+    ]);
   }
 
   /**
@@ -283,7 +436,7 @@ final class GuidedAssistantForm extends FormBase {
    * @param array<string, mixed> $result
    * @return array<string, mixed>
    */
-  private function resultBuild(array $result): array {
+  private function resultBuild(array $result, array $scope): array {
     $status = (string) ($result['status'] ?? 'UNAVAILABLE');
     $build = [
       '#type' => 'container',
@@ -350,6 +503,29 @@ final class GuidedAssistantForm extends FormBase {
       $build['proposal'] = $this->fact($this->t('@name', [
         '@name' => (string) ($data['title'] ?? $data['label'] ?? ''),
       ]));
+      if (($result['intent'] ?? NULL) === ThreeIntentReadProposeService::PROPOSE_TASK) {
+        $household = $scope['households'][(int) ($data['household_id'] ?? 0)] ?? NULL;
+        if ($household !== NULL) {
+          $build['household'] = $this->fact($this->t('@label: @value', [
+            '@label' => $this->tr('Household', 'Foyer'),
+            '@value' => (string) $household->label(),
+          ]));
+        }
+        $modes = [
+          PersonalTask::DUE_NONE => $this->tr('No deadline', 'Sans échéance'),
+          PersonalTask::DUE_DATE => $this->tr('Date', 'Date'),
+          PersonalTask::DUE_DATE_TIME => $this->tr('Date and time', 'Date et heure'),
+        ];
+        $mode = (string) ($data['due_mode'] ?? '');
+        if (isset($modes[$mode])) {
+          $build['due_mode'] = $this->fact($modes[$mode]);
+        }
+        if ($mode === PersonalTask::DUE_DATE_TIME) {
+          $build['timezone'] = $this->fact($this->t('@timezone', [
+            '@timezone' => $this->taskMutations->currentUserTimezoneId(),
+          ]));
+        }
+      }
       $date = (string) ($data['due_date'] ?? $data['due_at'] ?? $data['absolute_date'] ?? '');
       if ($date !== '') {
         $build['when'] = $this->fact($this->t('@date', ['@date' => $date]));
@@ -385,6 +561,10 @@ final class GuidedAssistantForm extends FormBase {
       'start_time_invalid' => $this->tr('Enter a start time (HH:MM).', 'Indiquez une heure de début (HH:MM).'),
       'end_time_required', 'end_time_invalid', 'end_time_after_start_required' => $this->tr('Enter an end time after the start.', 'Indiquez une heure de fin après le début.'),
       'household_selection_required' => $this->tr('Choose a Household.', 'Choisissez un foyer.'),
+      'fresh_task_preview_required' => $this->tr(
+        'The task preview is no longer valid. Review a new preview before creating a task.',
+        'L’aperçu de la tâche n’est plus valide. Affichez un nouvel aperçu avant de créer une tâche.',
+      ),
       'authorized_scope_required', 'authorized_today_scope_required',
       'authorized_task_scope_required', 'authorized_activity_scope_required',
       'household_scope_conflict' => $this->tr('Your account cannot access this scope.', 'Votre compte ne peut pas accéder à ce contexte.'),
