@@ -344,6 +344,167 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSame($before, $this->domainCounts());
   }
 
+  public function testWeeklyStructuredConfirmationAndGuardedNoWrite(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Weekly Creator');
+    $household = $domain->createHousehold('Synthetic Weekly Home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$household]);
+    $this->drupalLogin($user);
+    $route = '/personal-secretary/assistant';
+    $this->drupalGet($route);
+    $before = $this->domainCounts();
+    $weekly = [
+      'intent' => 'PROPOSE_ACTIVITY',
+      'activity_label' => 'Synthetic Wednesday Tennis',
+      'activity_recurrence' => 'weekly',
+      'activity_weekday' => 'WEDNESDAY',
+      'activity_date' => '2026-11-04',
+      'activity_mode' => 'timed',
+      'activity_start' => '16:00',
+      'activity_end' => '17:00',
+      'activity_responsible_self' => 1,
+    ];
+    $this->submitForm($weekly, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Every week');
+    $this->assertSession()->pageTextContains('Wednesday');
+    $this->assertSession()->pageTextContains('Synthetic Weekly Home');
+    $this->assertSession()->pageTextContains('Europe/Brussels');
+    $this->assertSession()->pageTextContains('Preview not saved');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    $this->submitForm(['activity_start' => '15:00'], 'Create this weekly activity');
+    $this->assertSession()->pageTextContains('Review a new preview');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    $wrongDay = $weekly;
+    $wrongDay['activity_weekday'] = 'TUESDAY';
+    $this->submitForm($wrongDay, 'Show preview');
+    $this->assertSession()->pageTextContains('first date must match');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    $missing = $weekly;
+    $missing['activity_responsible_self'] = 0;
+    $this->submitForm($missing, 'Show preview');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    $invalidTime = $weekly;
+    $invalidTime['activity_end'] = '15:00';
+    $this->submitForm($invalidTime, 'Show preview');
+    $this->assertSession()->pageTextContains('NEEDS_CLARIFICATION');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_weekly_activity"]');
+
+    $this->submitForm($weekly, 'Show preview');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+    $this->submitForm([], 'Create this weekly activity');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
+    $this->assertSession()->pageTextContains('Weekly activity created.');
+    $after = $this->domainCounts();
+    $this->assertSame($before['series'] + 1, $after['series']);
+    $manager = $this->container->get('entity_type.manager');
+    $seriesStorage = $manager->getStorage('personal_sec_activity_series');
+    $seriesStorage->resetCache();
+    $series = array_values(array_filter($seriesStorage->loadMultiple(),
+      static fn(ActivitySeries $a): bool => (string) $a->get('name')->value === 'Synthetic Wednesday Tennis'));
+    $this->assertCount(1, $series);
+    $this->assertSame('timed', (string) $series[0]->get('time_mode')->value);
+    $this->assertSame((int) $household->id(), (int) $series[0]->get('household')->target_id);
+    $this->assertSame('FREQ=WEEKLY;INTERVAL=1', (string) $series[0]->get('recurrence')->first()->rrule);
+    $ruleStorage = $manager->getStorage('personal_sec_resp_rule');
+    $rules = array_values(array_filter($ruleStorage->loadMultiple(),
+      static fn($rule): bool => (int) $rule->get('series')->target_id === (int) $series[0]->id()));
+    $this->assertCount(1, $rules);
+    $this->assertSame((int) $person->id(), (int) $rules[0]->get('responsible_person')->target_id);
+    $this->getSession()->reload();
+    $this->assertSame($after, $this->domainCounts(), 'PRG reload must not create a duplicate weekly series.');
+
+    $this->drupalGet($route);
+    $allDay = [
+      'intent' => 'PROPOSE_ACTIVITY',
+      'activity_label' => 'Synthetic Weekly All Day',
+      'activity_recurrence' => 'weekly',
+      'activity_weekday' => 'MONDAY',
+      'activity_date' => '2026-11-09',
+      'activity_mode' => 'all_day',
+      'activity_responsible_self' => 1,
+    ];
+    $this->submitForm($allDay, 'Show preview');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($after, $this->domainCounts());
+    $this->submitForm([], 'Create this weekly activity');
+    $this->assertSession()->pageTextContains('Weekly activity created.');
+    $seriesStorage->resetCache();
+    $allSeries = array_values(array_filter($seriesStorage->loadMultiple(),
+      static fn(ActivitySeries $a): bool => (string) $a->get('name')->value === 'Synthetic Weekly All Day'));
+    $this->assertCount(1, $allSeries);
+    $this->assertSame('all_day', (string) $allSeries[0]->get('time_mode')->value);
+    $this->assertSame($after['series'] + 1, $this->domainCounts()['series']);
+  }
+
+  public function testWeeklyDstRejectionAndFrenchPreview(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Weekly DST');
+    $household = $domain->createHousehold('Synthetic Weekly DST Household', [(int) $person->id()]);
+    $this->drupalLogin($this->productUser($person, [$household]));
+    $this->drupalGet('/personal-secretary/assistant');
+    $before = $this->domainCounts();
+    $activity = [
+      'intent' => 'PROPOSE_ACTIVITY',
+      'activity_label' => 'Synthetic Sunday Session',
+      'activity_recurrence' => 'weekly',
+      'activity_weekday' => 'SUNDAY',
+      'activity_date' => '2026-03-29',
+      'activity_mode' => 'timed',
+      'activity_start' => '02:15',
+      'activity_end' => '03:15',
+      'activity_responsible_self' => 1,
+    ];
+    $this->submitForm($activity, 'Show preview');
+    $this->assertSession()->pageTextContains('clock change');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    $activity['activity_date'] = '2026-10-25';
+    $activity['activity_start'] = '02:15';
+    $activity['activity_end'] = '03:15';
+    $this->submitForm($activity, 'Show preview');
+    $this->assertSession()->pageTextContains('clock change');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_weekly_activity"]');
+    $this->assertSame($before, $this->domainCounts());
+
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $activity['activity_date'] = '2026-11-01';
+    $activity['activity_start'] = '16:00';
+    $activity['activity_end'] = '17:00';
+    $this->submitForm($activity, 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Chaque semaine');
+    $this->assertSession()->pageTextContains('Dimanche');
+    $this->assertSession()->pageTextContains('Créer cette activité hebdomadaire');
+    $this->assertSame($before, $this->domainCounts());
+  }
+
   public function testHouseholdAuthorizationDriftRejectsTaskConfirmation(): void {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Synthetic Drift Person');
