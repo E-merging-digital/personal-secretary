@@ -12,9 +12,12 @@ use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
+use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Value\ActivityCaptureProposal;
 use Drupal\personal_secretary\Service\ActivityCaptureResolver;
 use Drupal\personal_secretary\Service\CurrentUserActivityCreationService;
 use Drupal\personal_secretary\Service\ThreeIntentReadProposeService;
+use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use Drupal\personal_secretary\Service\TodayService;
 use Drupal\personal_secretary\Value\ActivityCaptureExtraction;
 use Drupal\personal_secretary\Value\ActivityCaptureInput;
@@ -32,6 +35,7 @@ final class GuidedAssistantForm extends FormBase {
     protected CurrentUserActivityCreationService $activityCreation,
     protected ActivityCaptureResolver $captureResolver,
     protected LanguageManagerInterface $interfaceLanguage,
+    protected PersonalTaskMutationService $taskMutations,
   ) {
   }
 
@@ -41,6 +45,7 @@ final class GuidedAssistantForm extends FormBase {
       $container->get('personal_secretary.current_user_activity_creation'),
       $container->get('personal_secretary.activity_capture_resolver'),
       $container->get('language_manager'),
+      $container->get('personal_secretary.personal_task_mutation'),
     );
   }
 
@@ -55,8 +60,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. This guided assistant does not interpret free text or save anything.',
-        'Choisissez une action. Cet assistant guidé n’interprète pas de texte libre et n’enregistre rien.',
+        'Choose an action. The assistant does not interpret free text; only an explicit confirmation can create a task or activity.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; seule une confirmation explicite peut créer une tâche ou une activité.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -133,6 +138,31 @@ final class GuidedAssistantForm extends FormBase {
       '#attributes' => ['class' => ['ps-guided-assistant__fields']],
       '#states' => ['visible' => [':input[name="intent"]' => ['value' => ThreeIntentReadProposeService::PROPOSE_ACTIVITY]]],
     ];
+    $form['activity']['activity_recurrence'] = [
+      '#type' => 'select',
+      '#title' => $this->tr('Repeat', 'Répétition'),
+      '#options' => [
+        ActivityCaptureProposal::INTENT_ONE_OFF => $this->tr('One-off', 'Ponctuelle'),
+        ActivityCaptureProposal::INTENT_WEEKLY => $this->tr('Every week', 'Chaque semaine'),
+      ],
+      '#default_value' => ActivityCaptureProposal::INTENT_ONE_OFF,
+    ];
+    $form['activity']['activity_weekday'] = [
+      '#type' => 'select',
+      '#title' => $this->tr('Weekday of the first activity', 'Jour de la semaine de la première activité'),
+      '#options' => [
+        '' => $this->tr('Choose a weekday', 'Choisir un jour'),
+        'MONDAY' => $this->tr('Monday', 'Lundi'),
+        'TUESDAY' => $this->tr('Tuesday', 'Mardi'),
+        'WEDNESDAY' => $this->tr('Wednesday', 'Mercredi'),
+        'THURSDAY' => $this->tr('Thursday', 'Jeudi'),
+        'FRIDAY' => $this->tr('Friday', 'Vendredi'),
+        'SATURDAY' => $this->tr('Saturday', 'Samedi'),
+        'SUNDAY' => $this->tr('Sunday', 'Dimanche'),
+      ],
+      '#default_value' => '',
+      '#states' => ['visible' => [':input[name="activity_recurrence"]' => ['value' => ActivityCaptureProposal::INTENT_WEEKLY]]],
+    ];
     $form['activity']['activity_label'] = [
       '#type' => 'textfield', '#title' => $this->tr('Activity title', 'Intitulé de l’activité'),
       '#maxlength' => 255,
@@ -174,12 +204,70 @@ final class GuidedAssistantForm extends FormBase {
     ];
     $result = $form_state->get('guided_result');
     if (is_array($result)) {
-      $form['result'] = $this->resultBuild($result);
+      $form['result'] = $this->resultBuild($result, $scope);
+      if ($this->taskReviewContextValid($result, $form_state->get('task_review'), $scope)) {
+        $form['task_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Create this task will save one real local task. Review the details above before confirming.',
+            'Créer cette tâche enregistrera une véritable tâche locale. Vérifiez les détails ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_create_task',
+              '#value' => $this->tr('Create this task', 'Créer cette tâche'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
+      if ($this->activityReviewContextValid($result, $form_state->get('activity_review'), $scope)) {
+        $form['activity_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Create this activity will save one real local one-off activity. Review the details above before confirming.',
+            'Créer cette activité enregistrera une véritable activité ponctuelle locale. Vérifiez les détails ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_create_activity',
+              '#value' => $this->tr('Create this activity', 'Créer cette activité'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
+      if ($this->activityReviewContextValid($result, $form_state->get('activity_review'), $scope, ActivityCaptureProposal::INTENT_WEEKLY)) {
+        $form['weekly_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Create this weekly activity will save a recurring local activity without a predefined end date. Review the details above before confirming.',
+            'Créer cette activité hebdomadaire enregistrera une activité locale récurrente sans date de fin prédéfinie. Vérifiez les détails ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_create_weekly_activity',
+              '#value' => $this->tr('Create this weekly activity', 'Créer cette activité hebdomadaire'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
     }
     return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement()['#name'] ?? '';
+    $confirm = $trigger === 'confirm_create_task';
+    $confirmActivity = $trigger === 'confirm_create_activity';
+    $confirmWeekly = $trigger === 'confirm_create_weekly_activity';
     try {
       $scope = $this->activityCreation->creationScope();
       $today = $this->today->today();
@@ -188,6 +276,8 @@ final class GuidedAssistantForm extends FormBase {
       }
     }
     catch (InvalidArgumentException|RuntimeException) {
+      $form_state->set('task_review', NULL);
+      $form_state->set('activity_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
         'clarifications' => ['authorized_scope_required'], 'saved' => FALSE,
@@ -196,79 +286,460 @@ final class GuidedAssistantForm extends FormBase {
     }
 
     $intent = (string) $form_state->getValue('intent');
-    $input = [];
-    if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK) {
-      $input = [
-        'title' => (string) $form_state->getValue('task_title'),
-        'due_mode' => (string) $form_state->getValue('task_due_mode'),
-      ];
-      $selected = $form_state->getValue('task_household');
-      if ($selected !== NULL && $selected !== '') {
-        $input['household_id'] = ctype_digit((string) $selected) ? (int) $selected : -1;
-      }
-      if ($input['due_mode'] === PersonalTask::DUE_DATE) {
-        $input['due_date'] = trim((string) $form_state->getValue('task_due_date'));
-      }
-      elseif ($input['due_mode'] === PersonalTask::DUE_DATE_TIME) {
-        $input['due_at'] = trim((string) $form_state->getValue('task_due_at'));
-      }
-    }
-    elseif ($intent === ThreeIntentReadProposeService::PROPOSE_ACTIVITY) {
-      $date = trim((string) $form_state->getValue('activity_date'));
-      $parts = explode('-', $date);
-      $validDate = count($parts) === 3
-        && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1
-        && checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0]);
-      $mode = (string) $form_state->getValue('activity_mode');
-      if (!in_array($mode, ['timed', 'all_day'], TRUE)) {
-        $this->show($form_state, [
-          'status' => 'NEEDS_CLARIFICATION', 'data' => NULL,
-          'clarifications' => ['time_mode_conflict'], 'saved' => FALSE,
-        ]);
-        return;
-      }
-      $allDay = $mode === 'all_day';
-      try {
-        $extraction = ActivityCaptureExtraction::fromArray([
-          'label_text' => trim((string) $form_state->getValue('activity_label')),
-          'location_text' => NULL,
-          'concerned_person_mentions' => [],
-          'unclassified_person_mentions' => [],
-          'concerned_person_alternative' => FALSE,
-          'responsibility_candidate' => $form_state->getValue('activity_responsible_self')
-            ? ActivityCaptureExtraction::RESPONSIBILITY_SELF : NULL,
-          'date_expression' => $validDate ? NULL : ($date !== '' ? $date : NULL),
-          'date_day' => $validDate ? (int) $parts[2] : NULL,
-          'date_month' => $validDate ? (int) $parts[1] : NULL,
-          'date_year' => $validDate ? (int) $parts[0] : NULL,
-          'relative_day_offset' => NULL,
-          'start_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_start')),
-          'end_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_end')),
-          'recurrence_expression' => NULL,
-          'explicit_all_day_signal' => $allDay,
-          'explicit_timed_signal' => !$allDay,
-        ]);
-        $input = [
-          'context' => new ActivityCaptureInput(
-            'Explicit structured form; no language interpretation',
-            new DateTimeImmutable('now', new DateTimeZone('UTC')),
-            (string) $today['timezone'],
-          ),
-          'extraction' => $extraction,
-        ];
-      }
-      catch (InvalidArgumentException) {
-        $this->show($form_state, [
-          'status' => 'NEEDS_CLARIFICATION', 'data' => NULL,
-          'clarifications' => ['invalid_structured_fields'], 'saved' => FALSE,
-        ]);
-        return;
-      }
-    }
     $capabilities = new ThreeIntentReadProposeService(
       $this->today, $this->activityCreation, $this->captureResolver,
     );
-    $this->show($form_state, $capabilities->handle($intent, $input));
+    if ($confirm) {
+      $review = $form_state->get('task_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== ThreeIntentReadProposeService::PROPOSE_TASK
+        || !$this->taskReviewContextValid($previous, $review, $scope)
+        || $review['fields'] !== $this->taskFields($form_state)) {
+        $this->rejectTaskConfirmation($form_state);
+        return;
+      }
+      // Re-evaluate the proposal and the current authorization before WRITE.
+      $fresh = $capabilities->handle($intent, $this->taskInput($form_state));
+      if ($fresh['status'] !== 'PROPOSAL_READY' || $fresh['saved'] !== FALSE
+        || $fresh['data'] !== $review['proposal']) {
+        $this->rejectTaskConfirmation($form_state);
+        return;
+      }
+      $data = $fresh['data'];
+      try {
+        $task = $this->taskMutations->createTask(
+          (string) $data['title'],
+          (int) $data['household_id'],
+          (string) $data['due_mode'],
+          $data['due_date'],
+          $data['due_at'],
+        );
+        if ($task->id() === NULL) {
+          throw new RuntimeException('A saved PersonalTask must have an ID.');
+        }
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $this->rejectTaskConfirmation($form_state);
+        return;
+      }
+      $form_state->set('task_review', NULL);
+      $this->messenger()->addStatus($this->tr(
+        'Task created.', 'Tâche créée.',
+      ));
+      $form_state->setRedirect('personal_secretary.my_tasks');
+      return;
+    }
+
+    if ($confirmActivity || $confirmWeekly) {
+      $expectedIntent = $confirmWeekly ? ActivityCaptureProposal::INTENT_WEEKLY : ActivityCaptureProposal::INTENT_ONE_OFF;
+      $review = $form_state->get('activity_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== ThreeIntentReadProposeService::PROPOSE_ACTIVITY
+        || !$this->activityReviewContextValid($previous, $review, $scope, $expectedIntent)
+        || $review['fields'] !== $this->activityFields($form_state)
+        || $review['timezone'] !== (string) $today['timezone']) {
+        $this->rejectActivityConfirmation($form_state);
+        return;
+      }
+      try {
+        // A new read-only proposal must exactly match the reviewed one.
+        $fresh = $capabilities->handle($intent, $this->activityInput($form_state, (string) $today['timezone']));
+        if ($fresh['status'] !== 'PROPOSAL_READY' || $fresh['saved'] !== FALSE
+          || $fresh['data'] !== $review['proposal']) {
+          $this->rejectActivityConfirmation($form_state);
+          return;
+        }
+        $data = $fresh['data'];
+        $timezone = new DateTimeZone((string) $data['source_timezone']);
+        $date = (string) $data['absolute_date'];
+        if ($data['time_mode'] === ActivitySeries::TIME_MODE_ALL_DAY) {
+          $start = DateTimeImmutable::createFromFormat('!Y-m-d', $date, $timezone);
+          $end = $start instanceof DateTimeImmutable ? $start->modify('+1 day') : FALSE;
+          $expectedStart = $date;
+          $format = 'Y-m-d';
+        }
+        else {
+          $expectedStart = $date . ' ' . (string) $data['local_start_time'];
+          $expectedEnd = $date . ' ' . (string) $data['local_end_time'];
+          $start = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $expectedStart, $timezone);
+          $end = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $expectedEnd, $timezone);
+          $format = 'Y-m-d H:i';
+        }
+        if (!$start instanceof DateTimeImmutable || !$end instanceof DateTimeImmutable
+          || $start->format($format) !== $expectedStart
+          || ($data['time_mode'] === ActivitySeries::TIME_MODE_TIMED && $end->format($format) !== $expectedEnd)
+          || $end <= $start) {
+          throw new InvalidArgumentException('Reviewed local activity date/time is invalid.');
+        }
+        // Consume the Form API review before the sole domain mutation.
+        $form_state->set('activity_review', NULL);
+        $series = $this->activityCreation->{$confirmWeekly ? 'addWeeklyActivity' : 'addOneOffActivity'}(
+          (int) $review['person_id'],
+          (int) $data['household_id'],
+          (string) $data['label'],
+          $start,
+          $end,
+          '',
+          0,
+          '',
+          [],
+          (string) $data['time_mode'],
+        );
+        if ($series->id() === NULL) {
+          throw new RuntimeException('A saved ActivitySeries must have an ID.');
+        }
+      }
+      catch (\Exception) {
+        $this->rejectActivityConfirmation($form_state);
+        return;
+      }
+      $this->messenger()->addStatus($confirmWeekly
+        ? $this->tr('Weekly activity created.', 'Activité hebdomadaire créée.')
+        : $this->tr('Activity created.', 'Activité créée.'));
+      $form_state->setRedirect('personal_secretary.my_upcoming');
+      return;
+    }
+
+    // Preview is always read-only, and supersedes any earlier confirmation.
+    $form_state->set('task_review', NULL);
+    $form_state->set('activity_review', NULL);
+    $input = [];
+    if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK) {
+      $input = $this->taskInput($form_state);
+    }
+    elseif ($intent === ThreeIntentReadProposeService::PROPOSE_ACTIVITY) {
+      try {
+        $input = $this->activityInput($form_state, (string) $today['timezone']);
+      }
+      catch (InvalidArgumentException $e) {
+        $this->show($form_state, [
+          'intent' => $intent,
+          'status' => 'NEEDS_CLARIFICATION', 'data' => NULL,
+          'clarifications' => [$e->getMessage()], 'saved' => FALSE,
+        ]);
+        return;
+      }
+    }
+    $result = $capabilities->handle($intent, $input);
+    if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK
+      && $result['status'] === 'PROPOSAL_READY'
+      && $result['saved'] === FALSE
+      && is_array($result['data'])) {
+      $data = $result['data'];
+      $household = $scope['households'][(int) $data['household_id']] ?? NULL;
+      if ($household !== NULL) {
+        $form_state->set('task_review', [
+          'fields' => $this->taskFields($form_state),
+          'proposal' => $data,
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'household_label' => (string) $household->label(),
+          'timezone' => $this->taskMutations->currentUserTimezoneId(),
+        ]);
+      }
+    }
+    if ($intent === ThreeIntentReadProposeService::PROPOSE_ACTIVITY
+      && $result['status'] === 'PROPOSAL_READY'
+      && $result['saved'] === FALSE
+      && is_array($result['data'])) {
+      $data = $result['data'];
+      $household = $scope['households'][(int) ($data['household_id'] ?? 0)] ?? NULL;
+      if ($household !== NULL) {
+        $review = [
+          'fields' => $this->activityFields($form_state),
+          'proposal' => $data,
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'household_label' => (string) $household->label(),
+          'timezone' => (string) $today['timezone'],
+          'expires_at' => \Drupal::time()->getCurrentTime() + 600,
+        ];
+        if ($this->activityReviewContextValid($result, $review, $scope, (string) ($data['intent'] ?? ''))) {
+          $form_state->set('activity_review', $review);
+        }
+      }
+    }
+    $this->show($form_state, $result);
+  }
+
+  /**
+   * Only form-state data from the previous preview may authorize the button.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function taskReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    if (!is_array($result) || !is_array($review)
+      || ($result['intent'] ?? NULL) !== ThreeIntentReadProposeService::PROPOSE_TASK
+      || ($result['status'] ?? NULL) !== 'PROPOSAL_READY'
+      || ($result['saved'] ?? NULL) !== FALSE
+      || ($result['data'] ?? NULL) !== ($review['proposal'] ?? NULL)
+      || !is_array($review['proposal'] ?? NULL)
+      || ($review['proposal']['ready_for_confirmation'] ?? FALSE) !== TRUE
+      || ($review['user_id'] ?? NULL) !== (int) $this->currentUser()->id()
+      || ($review['person_id'] ?? NULL) !== (int) $scope['current_person']->id()
+      || ($review['household_ids'] ?? NULL) !== $this->householdIds($scope)
+      || ($review['timezone'] ?? NULL) !== $this->taskMutations->currentUserTimezoneId()
+      || !is_array($review['fields'] ?? NULL)) {
+      return FALSE;
+    }
+    $householdId = (int) ($review['proposal']['household_id'] ?? 0);
+    $household = $scope['households'][$householdId] ?? NULL;
+    return $household !== NULL
+      && ($review['household_label'] ?? NULL) === (string) $household->label();
+  }
+
+  /**
+   * The previous server-side preview, not an agent or POST argument, gates WRITE.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function activityReviewContextValid(mixed $result, mixed $review, array $scope, string $expectedIntent = ActivityCaptureProposal::INTENT_ONE_OFF): bool {
+    if (!is_array($result) || !is_array($review)
+      || ($result['intent'] ?? NULL) !== ThreeIntentReadProposeService::PROPOSE_ACTIVITY
+      || ($result['status'] ?? NULL) !== 'PROPOSAL_READY'
+      || ($result['saved'] ?? NULL) !== FALSE
+      || ($result['data'] ?? NULL) !== ($review['proposal'] ?? NULL)
+      || !is_array($review['proposal'] ?? NULL)
+      || ($review['proposal']['ready_for_confirmation'] ?? FALSE) !== TRUE
+      || !in_array($expectedIntent, [ActivityCaptureProposal::INTENT_ONE_OFF, ActivityCaptureProposal::INTENT_WEEKLY], TRUE)
+      || ($review['proposal']['intent'] ?? NULL) !== $expectedIntent
+      || ($expectedIntent === ActivityCaptureProposal::INTENT_ONE_OFF && ($review['proposal']['weekday'] ?? NULL) !== NULL)
+      || ($expectedIntent === ActivityCaptureProposal::INTENT_WEEKLY && ($review['proposal']['weekday'] ?? NULL) !== ($review['fields']['activity_weekday'] ?? NULL))
+      || ($expectedIntent === ActivityCaptureProposal::INTENT_WEEKLY && !$this->weeklyDateMatches($review['proposal']))
+      || !ActivitySeries::supportsTimeMode((string) ($review['proposal']['time_mode'] ?? ''))
+      || ($review['proposal']['responsible_person_id'] ?? NULL) !== (int) $scope['current_person']->id()
+      || ($review['proposal']['concerned_person_ids'] ?? NULL) !== []
+      || ($review['proposal']['location'] ?? NULL) !== NULL
+      || ($review['user_id'] ?? NULL) !== (int) $this->currentUser()->id()
+      || ($review['person_id'] ?? NULL) !== (int) $scope['current_person']->id()
+      || ($review['household_ids'] ?? NULL) !== $this->householdIds($scope)
+      || ($review['timezone'] ?? NULL) !== ($review['proposal']['source_timezone'] ?? NULL)
+      || !is_int($review['expires_at'] ?? NULL)
+      || $review['expires_at'] <= \Drupal::time()->getCurrentTime()
+      || $review['expires_at'] > \Drupal::time()->getCurrentTime() + 600
+      || !is_array($review['fields'] ?? NULL)
+      || ($review['fields']['activity_responsible_self'] ?? NULL) !== '1'
+      || ($review['fields']['activity_mode'] ?? NULL) !== ($review['proposal']['time_mode'] ?? NULL)) {
+      return FALSE;
+    }
+    $householdId = (int) ($review['proposal']['household_id'] ?? 0);
+    $household = $scope['households'][$householdId] ?? NULL;
+    return $household !== NULL
+      && ($review['household_label'] ?? NULL) === (string) $household->label();
+  }
+
+  /**
+   * @param array<string, mixed> $scope
+   * @return int[]
+   */
+  private function householdIds(array $scope): array {
+    $ids = array_map('intval', array_keys($scope['households']));
+    sort($ids, SORT_NUMERIC);
+    return $ids;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function taskFields(FormStateInterface $form_state): array {
+    $fields = [];
+    foreach (['intent', 'task_title', 'task_household', 'task_due_mode', 'task_due_date', 'task_due_at'] as $name) {
+      $fields[$name] = trim((string) $form_state->getValue($name));
+    }
+    return $fields;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function activityFields(FormStateInterface $form_state): array {
+    $fields = [];
+    foreach (['intent', 'activity_label', 'activity_date', 'activity_mode', 'activity_start', 'activity_end', 'activity_responsible_self', 'activity_recurrence', 'activity_weekday'] as $name) {
+      $fields[$name] = trim((string) $form_state->getValue($name));
+    }
+    return $fields;
+  }
+
+  /**
+   * Builds an independent deterministic proposal from submitted typed fields.
+   *
+   * @return array<string, mixed>
+   */
+  private function activityInput(FormStateInterface $form_state, string $timezone): array {
+    $date = trim((string) $form_state->getValue('activity_date'));
+    $parts = explode('-', $date);
+    $validDate = count($parts) === 3
+      && preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $date) === 1
+      && checkdate((int) $parts[1], (int) $parts[2], (int) $parts[0]);
+    $mode = (string) $form_state->getValue('activity_mode');
+    if (!in_array($mode, [ActivitySeries::TIME_MODE_TIMED, ActivitySeries::TIME_MODE_ALL_DAY], TRUE)) {
+      throw new InvalidArgumentException('time_mode_conflict');
+    }
+    $allDay = $mode === ActivitySeries::TIME_MODE_ALL_DAY;
+    $recurrence = (string) $form_state->getValue('activity_recurrence');
+    if (!in_array($recurrence, [ActivityCaptureProposal::INTENT_ONE_OFF, ActivityCaptureProposal::INTENT_WEEKLY], TRUE)) {
+      throw new InvalidArgumentException('recurrence_required');
+    }
+    $weekday = trim((string) $form_state->getValue('activity_weekday'));
+    $days = [
+      'MONDAY' => 'monday', 'TUESDAY' => 'tuesday', 'WEDNESDAY' => 'wednesday',
+      'THURSDAY' => 'thursday', 'FRIDAY' => 'friday',
+      'SATURDAY' => 'saturday', 'SUNDAY' => 'sunday',
+    ];
+    if ($recurrence === ActivityCaptureProposal::INTENT_WEEKLY) {
+      if (!$validDate || !isset($days[$weekday])) {
+        throw new InvalidArgumentException('weekly_date_weekday_required');
+      }
+      $localDate = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone($timezone));
+      if (!$localDate instanceof DateTimeImmutable || strtoupper($localDate->format('l')) !== $weekday) {
+        throw new InvalidArgumentException('weekly_date_weekday_mismatch');
+      }
+      if ($allDay) {
+        if (trim((string) $form_state->getValue('activity_start')) !== ''
+          || trim((string) $form_state->getValue('activity_end')) !== '') {
+          throw new InvalidArgumentException('weekly_all_day_without_times');
+        }
+      }
+      else {
+        $start = trim((string) $form_state->getValue('activity_start'));
+        $end = trim((string) $form_state->getValue('activity_end'));
+        if (preg_match('/^(?:[01]\\d|2[0-3]):[0-5]\\d$/', $start) === 1
+          && preg_match('/^(?:[01]\\d|2[0-3]):[0-5]\\d$/', $end) === 1
+          && $end > $start
+          && (!$this->uniqueWeeklyLocalTime($date, $start, $timezone)
+            || !$this->uniqueWeeklyLocalTime($date, $end, $timezone))) {
+          throw new InvalidArgumentException('weekly_dst_invalid');
+        }
+      }
+    }
+    try {
+      $extraction = ActivityCaptureExtraction::fromArray([
+        'label_text' => trim((string) $form_state->getValue('activity_label')),
+        'location_text' => NULL,
+        'concerned_person_mentions' => [],
+        'unclassified_person_mentions' => [],
+        'concerned_person_alternative' => FALSE,
+        'responsibility_candidate' => $form_state->getValue('activity_responsible_self')
+          ? ActivityCaptureExtraction::RESPONSIBILITY_SELF : NULL,
+        'date_expression' => $validDate ? NULL : ($date !== '' ? $date : NULL),
+        'date_day' => $validDate ? (int) $parts[2] : NULL,
+        'date_month' => $validDate ? (int) $parts[1] : NULL,
+        'date_year' => $validDate ? (int) $parts[0] : NULL,
+        'relative_day_offset' => NULL,
+        'start_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_start')),
+        'end_time_expression' => $allDay ? NULL : trim((string) $form_state->getValue('activity_end')),
+        'recurrence_expression' => $recurrence === ActivityCaptureProposal::INTENT_WEEKLY
+          ? 'every ' . $days[$weekday] : NULL,
+        'explicit_all_day_signal' => $allDay,
+        'explicit_timed_signal' => !$allDay,
+      ]);
+    }
+    catch (InvalidArgumentException) {
+      throw new InvalidArgumentException('invalid_structured_fields');
+    }
+    return [
+      'context' => new ActivityCaptureInput(
+        'Explicit structured form; no language interpretation',
+        new DateTimeImmutable('now', new DateTimeZone('UTC')),
+        $timezone,
+      ),
+      'extraction' => $extraction,
+    ];
+  }
+
+  /**
+   * Rejects normalized nonexistent times and duplicate local times at DST fall-back.
+   */
+  private function uniqueWeeklyLocalTime(string $date, string $time, string $timezone): bool {
+    $zone = new DateTimeZone($timezone);
+    $local = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $date . ' ' . $time, $zone);
+    if (!$local instanceof DateTimeImmutable || $local->format('Y-m-d H:i') !== $date . ' ' . $time) {
+      return FALSE;
+    }
+    $wall = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $date . ' ' . $time, new DateTimeZone('UTC'));
+    if (!$wall instanceof DateTimeImmutable) {
+      return FALSE;
+    }
+    $transitions = $zone->getTransitions($local->getTimestamp() - 86400, $local->getTimestamp() + 86400);
+    if ($transitions === FALSE) {
+      return TRUE;
+    }
+    $previousOffset = NULL;
+    foreach ($transitions as $transition) {
+      $offset = (int) $transition['offset'];
+      if ($previousOffset !== NULL && $offset < $previousOffset
+        && $wall->getTimestamp() >= (int) $transition['ts'] + $offset
+        && $wall->getTimestamp() < (int) $transition['ts'] + $previousOffset) {
+        return FALSE;
+      }
+      $previousOffset = $offset;
+    }
+    return TRUE;
+  }
+
+  /**
+   * @param array<string, mixed> $data
+   */
+  private function weeklyDateMatches(array $data): bool {
+    $weekday = (string) ($data['weekday'] ?? '');
+    $date = (string) ($data['absolute_date'] ?? '');
+    if (!in_array($weekday, ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'], TRUE)
+      || preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $date) !== 1) {
+      return FALSE;
+    }
+    $localDate = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
+    return $localDate instanceof DateTimeImmutable
+      && $localDate->format('Y-m-d') === $date
+      && strtoupper($localDate->format('l')) === $weekday;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function taskInput(FormStateInterface $form_state): array {
+    $input = [
+      'title' => (string) $form_state->getValue('task_title'),
+      'due_mode' => (string) $form_state->getValue('task_due_mode'),
+    ];
+    $selected = $form_state->getValue('task_household');
+    if ($selected !== NULL && $selected !== '') {
+      $input['household_id'] = ctype_digit((string) $selected) ? (int) $selected : -1;
+    }
+    if ($input['due_mode'] === PersonalTask::DUE_DATE) {
+      $input['due_date'] = trim((string) $form_state->getValue('task_due_date'));
+    }
+    elseif ($input['due_mode'] === PersonalTask::DUE_DATE_TIME) {
+      $input['due_at'] = trim((string) $form_state->getValue('task_due_at'));
+    }
+    return $input;
+  }
+
+  private function rejectTaskConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('task_review', NULL);
+    $this->show($form_state, [
+      'intent' => ThreeIntentReadProposeService::PROPOSE_TASK,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_task_preview_required'],
+      'saved' => FALSE,
+    ]);
+  }
+
+  private function rejectActivityConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('activity_review', NULL);
+    $this->show($form_state, [
+      'intent' => ThreeIntentReadProposeService::PROPOSE_ACTIVITY,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_activity_preview_required'],
+      'saved' => FALSE,
+    ]);
   }
 
   /**
@@ -283,7 +754,7 @@ final class GuidedAssistantForm extends FormBase {
    * @param array<string, mixed> $result
    * @return array<string, mixed>
    */
-  private function resultBuild(array $result): array {
+  private function resultBuild(array $result, array $scope): array {
     $status = (string) ($result['status'] ?? 'UNAVAILABLE');
     $build = [
       '#type' => 'container',
@@ -350,6 +821,65 @@ final class GuidedAssistantForm extends FormBase {
       $build['proposal'] = $this->fact($this->t('@name', [
         '@name' => (string) ($data['title'] ?? $data['label'] ?? ''),
       ]));
+      if (($result['intent'] ?? NULL) === ThreeIntentReadProposeService::PROPOSE_TASK) {
+        $household = $scope['households'][(int) ($data['household_id'] ?? 0)] ?? NULL;
+        if ($household !== NULL) {
+          $build['household'] = $this->fact($this->t('@label: @value', [
+            '@label' => $this->tr('Household', 'Foyer'),
+            '@value' => (string) $household->label(),
+          ]));
+        }
+        $modes = [
+          PersonalTask::DUE_NONE => $this->tr('No deadline', 'Sans échéance'),
+          PersonalTask::DUE_DATE => $this->tr('Date', 'Date'),
+          PersonalTask::DUE_DATE_TIME => $this->tr('Date and time', 'Date et heure'),
+        ];
+        $mode = (string) ($data['due_mode'] ?? '');
+        if (isset($modes[$mode])) {
+          $build['due_mode'] = $this->fact($modes[$mode]);
+        }
+        if ($mode === PersonalTask::DUE_DATE_TIME) {
+          $build['timezone'] = $this->fact($this->t('@timezone', [
+            '@timezone' => $this->taskMutations->currentUserTimezoneId(),
+          ]));
+        }
+      }
+      if (($result['intent'] ?? NULL) === ThreeIntentReadProposeService::PROPOSE_ACTIVITY) {
+        $household = $scope['households'][(int) ($data['household_id'] ?? 0)] ?? NULL;
+        if ($household !== NULL) {
+          $build['household'] = $this->fact($this->t('@label: @value', [
+            '@label' => $this->tr('Household', 'Foyer'),
+            '@value' => (string) $household->label(),
+          ]));
+        }
+        if (($data['intent'] ?? NULL) === ActivityCaptureProposal::INTENT_WEEKLY) {
+          $names = [
+            'MONDAY' => $this->tr('Monday', 'Lundi'),
+            'TUESDAY' => $this->tr('Tuesday', 'Mardi'),
+            'WEDNESDAY' => $this->tr('Wednesday', 'Mercredi'),
+            'THURSDAY' => $this->tr('Thursday', 'Jeudi'),
+            'FRIDAY' => $this->tr('Friday', 'Vendredi'),
+            'SATURDAY' => $this->tr('Saturday', 'Samedi'),
+            'SUNDAY' => $this->tr('Sunday', 'Dimanche'),
+          ];
+          $build['recurrence'] = $this->fact($this->tr('Every week', 'Chaque semaine'));
+          $build['weekday'] = $this->fact($names[(string) ($data['weekday'] ?? '')]
+            ?? $this->tr('Choose a weekday', 'Choisir un jour'));
+        }
+        $build['time_mode'] = $this->fact(
+          ($data['time_mode'] ?? '') === ActivitySeries::TIME_MODE_ALL_DAY
+            ? $this->tr('All day', 'Toute la journée')
+            : $this->tr('With times', 'Avec heures'),
+        );
+        $build['responsible'] = $this->fact(
+          ($data['responsible_person_id'] ?? NULL) !== NULL
+            ? $this->tr('I am responsible', 'Je suis responsable')
+            : $this->tr('Responsibility not specified', 'Responsabilité non précisée'),
+        );
+        $build['timezone'] = $this->fact($this->t('@timezone', [
+          '@timezone' => (string) ($data['source_timezone'] ?? ''),
+        ]));
+      }
       $date = (string) ($data['due_date'] ?? $data['due_at'] ?? $data['absolute_date'] ?? '');
       if ($date !== '') {
         $build['when'] = $this->fact($this->t('@date', ['@date' => $date]));
@@ -385,6 +915,19 @@ final class GuidedAssistantForm extends FormBase {
       'start_time_invalid' => $this->tr('Enter a start time (HH:MM).', 'Indiquez une heure de début (HH:MM).'),
       'end_time_required', 'end_time_invalid', 'end_time_after_start_required' => $this->tr('Enter an end time after the start.', 'Indiquez une heure de fin après le début.'),
       'household_selection_required' => $this->tr('Choose a Household.', 'Choisissez un foyer.'),
+      'recurrence_required' => $this->tr('Choose one-off or weekly.', 'Choisissez ponctuelle ou chaque semaine.'),
+      'weekly_date_weekday_required' => $this->tr('Choose a valid first date and weekday.', 'Choisissez une première date et un jour de semaine valides.'),
+      'weekly_date_weekday_mismatch' => $this->tr('The first date must match the selected weekday.', 'La première date doit correspondre au jour de semaine choisi.'),
+      'weekly_all_day_without_times' => $this->tr('All-day weekly activities cannot have clock times.', 'Une activité hebdomadaire sur toute la journée ne peut pas comporter d’heures.'),
+      'weekly_dst_invalid' => $this->tr('The selected local time is ambiguous or does not exist due to a clock change.', 'L’heure locale choisie est ambiguë ou inexistante en raison du changement d’heure.'),
+      'fresh_activity_preview_required' => $this->tr(
+        'The activity preview is no longer valid. Review a new preview before creating an activity.',
+        'L’aperçu de l’activité n’est plus valide. Affichez un nouvel aperçu avant de créer une activité.',
+      ),
+      'fresh_task_preview_required' => $this->tr(
+        'The task preview is no longer valid. Review a new preview before creating a task.',
+        'L’aperçu de la tâche n’est plus valide. Affichez un nouvel aperçu avant de créer une tâche.',
+      ),
       'authorized_scope_required', 'authorized_today_scope_required',
       'authorized_task_scope_required', 'authorized_activity_scope_required',
       'household_scope_conflict' => $this->tr('Your account cannot access this scope.', 'Votre compte ne peut pas accéder à ce contexte.'),
