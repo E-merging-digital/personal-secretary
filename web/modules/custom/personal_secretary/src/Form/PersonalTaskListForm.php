@@ -227,10 +227,14 @@ final class PersonalTaskListForm extends FormBase {
    * It must never fall through to task mutation dispatch.
    */
   public function submitFilter(array &$form, FormStateInterface $form_state): void {
+    // Read the actual submitted field names; the container may flatten them.
+    $input = $form_state->getUserInput();
     [$status, $title] = $this->readFilters([
-      'status' => $form_state->getValue('status')
+      'status' => $input['status'] ?? $input['filters']['status']
+        ?? $form_state->getValue('status')
         ?? $form_state->getValue(['filters', 'status']),
-      'q' => $form_state->getValue('title')
+      'q' => $input['title'] ?? $input['filters']['title']
+        ?? $form_state->getValue('title')
         ?? $form_state->getValue(['filters', 'title']),
     ]);
     $form_state->setRedirect('personal_secretary.my_tasks', [], [
