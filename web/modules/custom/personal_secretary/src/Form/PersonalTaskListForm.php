@@ -63,7 +63,7 @@ final class PersonalTaskListForm extends FormBase {
         '#type' => 'submit',
         '#value' => $this->t('Search tasks'),
         '#name' => 'filter_tasks',
-        '#task_action' => 'filter',
+        '#submit' => ['::submitFilter'],
       ],
       'reset' => [
         '#type' => 'link',
@@ -221,21 +221,27 @@ final class PersonalTaskListForm extends FormBase {
     return $form;
   }
 
+  /**
+   * Search is read-only and uses a dedicated submit callback.
+   *
+   * It must never fall through to task mutation dispatch.
+   */
+  public function submitFilter(array &$form, FormStateInterface $form_state): void {
+    [$status, $title] = $this->readFilters([
+      'status' => $form_state->getValue('status')
+        ?? $form_state->getValue(['filters', 'status']),
+      'q' => $form_state->getValue('title')
+        ?? $form_state->getValue(['filters', 'title']),
+    ]);
+    $form_state->setRedirect('personal_secretary.my_tasks', [], [
+      'query' => $this->filterQuery($status, $title),
+    ]);
+  }
+
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $taskId = (int) ($trigger['#task_id'] ?? 0);
     $action = (string) ($trigger['#task_action'] ?? '');
-
-    if ($action === 'filter') {
-      [$status, $title] = $this->readFilters([
-        'status' => $form_state->getValue('status'),
-        'q' => $form_state->getValue('title'),
-      ]);
-      $form_state->setRedirect('personal_secretary.my_tasks', [], [
-        'query' => $this->filterQuery($status, $title),
-      ]);
-      return;
-    }
 
     [$status, $title] = $this->readFilters($this->getRequest()->query->all());
     $filterQuery = $this->filterQuery($status, $title);
