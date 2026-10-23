@@ -426,13 +426,13 @@ final class PersonalTaskTest extends BrowserTestBase {
       'The default open view retains smart overdue/due/undated ordering.',
     );
 
-    $this->drupalGet('/personal-secretary/tasks/mine?status=completed');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->assertSession()->linkExists('Synthetic archive 100%_ marker');
     $this->assertSession()->pageTextContains('Completed');
     $this->assertSession()->pageTextNotContains('Synthetic overdue task');
     $this->assertSession()->buttonNotExists('Mark complete');
 
-    $this->drupalGet('/personal-secretary/tasks/mine?status=all');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all']]);
     $this->assertCount(5, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
     $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
     $this->assertSession()->pageTextContains('Open');
@@ -442,22 +442,22 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic physically deleted task');
 
     // Literal %/_ are escaped by Drupal EntityQuery, not interpreted as SQL patterns.
-    $this->drupalGet('/personal-secretary/tasks/mine?status=all&q=' . rawurlencode('%_ marker'));
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all', 'q' => '%_ marker']]);
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
     $this->assertSession()->linkExists('Synthetic archive 100%_ marker');
     $this->assertSession()->pageTextNotContains('Synthetic archive 100AB marker');
-    $this->drupalGet('/personal-secretary/tasks/mine?status=completed&q=' . rawurlencode('not present'));
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed', 'q' => 'not present']]);
     $this->assertSession()->pageTextContains('No tasks match this search.');
     $this->assertSession()->fieldValueEquals('status', 'completed');
     $this->assertSession()->fieldValueEquals('title', 'not present');
 
-    $this->drupalGet('/personal-secretary/tasks/mine?status=unknown&q[]=forged');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'unknown', 'q' => ['forged']]]);
     $this->assertSession()->pageTextContains('Synthetic overdue task');
     $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
-    $this->drupalGet('/personal-secretary/tasks/mine?status[]=completed');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => ['completed']]]);
     $this->assertSession()->pageTextContains('Synthetic overdue task');
     $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
-    $this->drupalGet('/personal-secretary/tasks/mine?q=' . str_repeat('x', 101));
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['q' => str_repeat('x', 101)]]);
     $this->assertSession()->pageTextContains('Synthetic overdue task');
 
     $this->drupalGet('/personal-secretary/tasks/mine');
@@ -476,7 +476,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSame($completedAt, (int) $afterSearch->get('completed_at')->value);
     $this->assertSame($baselineCount, (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute(), 'GET and search must not create or delete tasks.');
 
-    $this->drupalGet('/personal-secretary/tasks/mine?status=completed');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->clickLink('Synthetic archive 100%_ marker');
     $this->assertSession()->addressMatches('#/personal-secretary/tasks/' . $completed->id() . '$#');
     $this->assertSession()->linkExists('Reopen task');
@@ -490,7 +490,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->drupalLogout();
     $unauthorized = $this->drupalCreateUser([]);
     $this->drupalLogin($unauthorized);
-    $this->drupalGet('/personal-secretary/tasks/mine?status=all&q=Synthetic');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all', 'q' => 'Synthetic']]);
     $this->assertSession()->statusCodeEquals(403);
   }
 
@@ -523,14 +523,14 @@ final class PersonalTaskTest extends BrowserTestBase {
     $user = $this->taskUser($person->id(), [$household->id()]);
     $this->drupalLogin($user);
 
-    $this->drupalGet('/fr/personal-secretary/tasks/mine?status=completed');
+    $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rechercher dans les titres');
     $this->assertSession()->pageTextContains('Filtrer les tâches par statut');
     $this->assertSession()->pageTextContains('Aucune tâche terminée.');
     $this->assertSession()->linkExists('Effacer les filtres');
 
-    $this->drupalGet('/en/personal-secretary/tasks/mine?status=completed');
+    $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Search task titles');
     $this->assertSession()->pageTextContains('Task status filter');
