@@ -38,6 +38,40 @@ final class PersonalTaskListForm extends FormBase {
     $form['#cache'] = ['max-age' => 0];
     $form['#attributes']['class'][] = 'ps-task-list-form';
 
+    [$statusFilter, $titleFilter] = $this->readFilters($this->getRequest()->query->all());
+    $form['filters'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-task-filters']],
+      'title' => [
+        '#type' => 'textfield',
+        '#title' => $this->t('Search task titles'),
+        '#default_value' => $titleFilter,
+        '#maxlength' => 100,
+        '#size' => 32,
+      ],
+      'status' => [
+        '#type' => 'select',
+        '#title' => $this->t('Task status filter'),
+        '#options' => [
+          'open' => $this->t('Open'),
+          'completed' => $this->t('Completed'),
+          'all' => $this->t('All'),
+        ],
+        '#default_value' => $statusFilter,
+      ],
+      'apply' => [
+        '#type' => 'submit',
+        '#value' => $this->t('Search tasks'),
+        '#name' => 'filter_tasks',
+        '#task_action' => 'filter',
+      ],
+      'reset' => [
+        '#type' => 'link',
+        '#title' => $this->t('Clear filters'),
+        '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+      ],
+    ];
+
     $form['toolbar'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-task-list__toolbar']],
@@ -74,7 +108,7 @@ final class PersonalTaskListForm extends FormBase {
     }
 
     try {
-      $items = $this->taskQuery->myOpenTasks();
+      $items = $this->taskQuery->myTasks($this->statusConstant($statusFilter), $titleFilter);
     }
     catch (InvalidArgumentException) {
       $form['remediation'] = [
@@ -89,7 +123,13 @@ final class PersonalTaskListForm extends FormBase {
       $form['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('No open tasks.'),
+        '#value' => $titleFilter !== ''
+          ? $this->t('No tasks match this search.')
+          : ($statusFilter === 'completed'
+            ? $this->t('No completed tasks.')
+            : ($statusFilter === 'all'
+              ? $this->t('No tasks found.')
+              : $this->t('No open tasks.'))),
         '#attributes' => ['class' => ['ps-empty-state']],
       ];
       return $form;
@@ -106,7 +146,7 @@ final class PersonalTaskListForm extends FormBase {
     foreach ($items as $delta => $item) {
       $id = (int) $item['id'];
       $rowClasses = ['ps-task-row'];
-      if ($item['overdue']) {
+      if ($item['overdue'] && $item['status'] === PersonalTask::STATUS_OPEN) {
         $rowClasses[] = 'ps-task-row--overdue';
       }
 
@@ -120,20 +160,39 @@ final class PersonalTaskListForm extends FormBase {
         'title' => [
           '#type' => 'html_tag',
           '#tag' => 'h2',
-          '#value' => $this->t('@task', ['@task' => (string) $item['title']]),
           '#attributes' => ['class' => ['ps-task-row__title']],
+          'detail' => [
+            '#type' => 'link',
+            '#title' => (string) $item['title'],
+            '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id]),
+          ],
         ],
       ];
+
+      if ($statusFilter !== 'open') {
+        $form['items'][$delta]['status'] = [
+          '#type' => 'html_tag',
+          '#tag' => 'p',
+          '#value' => $item['status'] === PersonalTask::STATUS_COMPLETED
+            ? $this->t('Completed')
+            : $this->t('Open'),
+          '#attributes' => ['class' => ['ps-task-row__status']],
+        ];
+      }
 
       if ((string) $item['due_label'] !== '') {
         $form['items'][$delta]['due'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
-          '#value' => $item['overdue']
+          '#value' => $item['overdue'] && $item['status'] === PersonalTask::STATUS_OPEN
             ? $this->t('Overdue: @due', ['@due' => (string) $item['due_label']])
             : $this->t('Due: @due', ['@due' => (string) $item['due_label']]),
           '#attributes' => ['class' => ['ps-task-row__due']],
         ];
+      }
+
+      if ($item['status'] !== PersonalTask::STATUS_OPEN) {
+        continue;
       }
 
       $form['items'][$delta]['actions'] = [
@@ -171,6 +230,20 @@ final class PersonalTaskListForm extends FormBase {
     $taskId = (int) ($trigger['#task_id'] ?? 0);
     $action = (string) ($trigger['#task_action'] ?? '');
 
+    if ($action === 'filter') {
+      [$status, $title] = $this->readFilters([
+        'status' => $form_state->getValue('status'),
+        'q' => $form_state->getValue('title'),
+      ]);
+      $form_state->setRedirect('personal_secretary.my_tasks', [], [
+        'query' => $this->filterQuery($status, $title),
+      ]);
+      return;
+    }
+
+    [$status, $title] = $this->readFilters($this->getRequest()->query->all());
+    $filterQuery = $this->filterQuery($status, $title);
+
     try {
       if ($action === 'complete') {
         $this->taskMutations->completeTask($taskId);
@@ -180,7 +253,7 @@ final class PersonalTaskListForm extends FormBase {
         $form_state->setRedirect(
           'personal_secretary.my_tasks',
           [],
-          ['query' => ['reopen_task' => $taskId]],
+          ['query' => ['reopen_task' => $taskId] + $filterQuery],
         );
         return;
       }
@@ -188,7 +261,7 @@ final class PersonalTaskListForm extends FormBase {
       if ($action === 'reopen') {
         $this->taskMutations->reopenTask($taskId);
         $this->messenger()->addStatus($this->t('Task reopened.'));
-        $form_state->setRedirect('personal_secretary.my_tasks');
+        $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
         return;
       }
     }
@@ -204,6 +277,46 @@ final class PersonalTaskListForm extends FormBase {
       $this->t('This task action is no longer authorized or valid.'),
     );
     $form_state->setRedirect('personal_secretary.my_tasks');
+  }
+
+  /**
+   * @param array<string, mixed> $input
+   *
+   * @return array{string, string}
+   */
+  private function readFilters(array $input): array {
+    $status = $input['status'] ?? 'open';
+    $status = is_string($status) && in_array($status, ['open', 'completed', 'all'], TRUE)
+      ? $status
+      : 'open';
+    $title = $input['q'] ?? '';
+    $title = is_string($title) ? trim($title) : '';
+    if (mb_strlen($title) > 100) {
+      $title = '';
+    }
+    return [$status, $title];
+  }
+
+  private function statusConstant(string $status): string {
+    return match ($status) {
+      'completed' => PersonalTask::STATUS_COMPLETED,
+      'all' => 'ALL',
+      default => PersonalTask::STATUS_OPEN,
+    };
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function filterQuery(string $status, string $title): array {
+    $query = [];
+    if ($status !== 'open') {
+      $query['status'] = $status;
+    }
+    if ($title !== '') {
+      $query['q'] = $title;
+    }
+    return $query;
   }
 
 }
