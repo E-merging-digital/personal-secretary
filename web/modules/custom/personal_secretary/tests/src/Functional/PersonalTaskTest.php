@@ -18,12 +18,14 @@ use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\UserInterface;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 
 /**
  * Proves the first standalone PersonalTask vertical.
  *
  * @group personal_secretary
  */
+#[RunTestsInSeparateProcesses]
 final class PersonalTaskTest extends BrowserTestBase {
 
   protected static $modules = ['block', 'field', 'personal_secretary'];
