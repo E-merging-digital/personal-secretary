@@ -30,7 +30,7 @@ final class MyUpcomingTest extends BrowserTestBase {
 
     $this->drupalGet($myUpcomingUrl);
     $this->assertSession()->statusCodeEquals(403);
-    $this->drupalGet($myUpcomingUrl . '?days=30');
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30']]));
     $this->assertSession()->statusCodeEquals(403);
 
     $this->installUserPersonFieldViaEntityApi();
@@ -283,7 +283,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Prepare excluded clear kit');
     $this->assertSession()->pageTextNotContains('B Other Person');
 
-    $this->drupalGet($myUpcomingUrl . '?days=30');
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30']]));
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 30 days.');
     $this->assertSession()->pageTextContains('Later A activity');
@@ -294,7 +294,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->elementExists('css', '.ps-upcoming-horizon a[aria-current="page"][href$="days=30"]');
     $this->assertSession()->linkByHrefExists($myUpcomingUrl);
 
-    $this->drupalGet($laterOwnedDetailUrl . '?days=30');
+    $this->drupalGet(Url::fromUserInput($laterOwnedDetailUrl, ['query' => ['days' => '30']]));
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Later A activity');
     $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
@@ -304,8 +304,8 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($this->detailUrl($otherHouseholdSeries, $otherHouseholdOccurrence->originalOccurrenceKey));
     $this->assertSession()->statusCodeEquals(404);
 
-    foreach (['?days=31', '?days=-1', '?days=garbage', '?days%5B%5D=30'] as $malformed) {
-      $this->drupalGet($myUpcomingUrl . $malformed);
+    foreach (['31', '-1', 'garbage', ['30']] as $malformed) {
+      $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => $malformed]]));
       $this->assertSession()->statusCodeEquals(200);
       $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
       $this->assertSession()->pageTextNotContains('Later A activity');
