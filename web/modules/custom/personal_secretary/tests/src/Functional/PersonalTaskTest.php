@@ -461,8 +461,28 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic overdue task');
 
     $this->drupalGet('/personal-secretary/tasks/mine');
+    // Keep the diagnostic bounded to synthetic field names and response metadata.
+    $titleName = (string) $this->assertSession()->fieldExists('title')->getAttribute('name');
+    $statusName = (string) $this->assertSession()->fieldExists('status')->getAttribute('name');
+    $submitName = (string) $this->assertSession()->buttonExists('Search tasks')->getAttribute('name');
     $this->submitForm(['title' => 'Synthetic future', 'status' => 'open'], 'Search tasks');
-    $this->assertSession()->addressMatches('/q=Synthetic(?:%20|\\+)future/');
+    $notices = array_map(
+      static fn ($element): string => trim($element->getText()),
+      $this->getSession()->getPage()->findAll('css', '[role="alert"], .messages'),
+    );
+    $this->assertMatchesRegularExpression(
+      '/q=Synthetic(?:%20|\\+)future/',
+      $this->getSession()->getCurrentUrl(),
+      sprintf(
+        'Synthetic search submit: HTTP=%d, fields=%s/%s, button=%s, notices=%s, overdue_visible=%s.',
+        $this->getSession()->getStatusCode(),
+        $titleName,
+        $statusName,
+        $submitName,
+        implode('|', array_slice($notices, 0, 3)),
+        str_contains($this->getSession()->getPage()->getText(), 'Synthetic overdue task') ? 'YES' : 'NO',
+      ),
+    );
     $this->assertSession()->pageTextContains('Synthetic future task');
     $this->assertSession()->pageTextNotContains('Synthetic overdue task');
     $this->clickLink('Clear filters');
