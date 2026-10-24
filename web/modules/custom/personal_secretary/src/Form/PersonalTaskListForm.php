@@ -160,7 +160,11 @@ final class PersonalTaskListForm extends FormBase {
         'title' => [
           '#type' => 'link',
           '#title' => (string) $item['title'],
-          '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id]),
+          '#url' => Url::fromRoute(
+            'personal_secretary.task_status',
+            ['task' => $id],
+            ['query' => $this->filterQuery($statusFilter, $titleFilter)],
+          ),
           '#attributes' => ['class' => ['ps-task-row__title']],
         ],
       ];
