@@ -50,7 +50,9 @@ final class EditTimeCommitmentService {
    *   series: \Drupal\personal_secretary\Entity\ActivitySeries,
    *   source_timezone: string,
    *   default_effective_date: string,
-   *   default_mode: string
+   *   default_mode: string,
+   *   is_one_off: bool,
+   *   one_off_occurrence_local_start: ?string
    * }
    */
   public function context(int $seriesId): array {
@@ -62,14 +64,21 @@ final class EditTimeCommitmentService {
     $defaultBoundary = $todayLocal->modify('+1 day');
     $defaultOccurrence = $this->firstEffectiveOccurrence($series, $defaultBoundary);
     $currentRule = $this->timeCommitment->resolve($series, $defaultOccurrence);
+    $recurrence = $series->get('recurrence')->first()?->getValue() ?? [];
+    $isOneOff = strtoupper(trim((string) ($recurrence['rrule'] ?? ''))) === 'FREQ=DAILY;COUNT=1';
+    $oneOffLocalStart = $isOneOff ? $defaultOccurrence->effectiveSourceLocalStart : NULL;
 
     return [
       'series' => $series,
       'source_timezone' => $timezone->getName(),
-      'default_effective_date' => $defaultBoundary->format('Y-m-d'),
+      'default_effective_date' => $isOneOff
+        ? substr($defaultOccurrence->effectiveSourceLocalStart, 0, 10)
+        : $defaultBoundary->format('Y-m-d'),
       'default_mode' => $currentRule === NULL
         ? self::MODE_NONE
         : self::MODE_FULL_OCCURRENCE,
+      'is_one_off' => $isOneOff,
+      'one_off_occurrence_local_start' => $oneOffLocalStart,
     ];
   }
 
