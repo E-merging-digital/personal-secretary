@@ -501,7 +501,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->clickLink('Synthetic archive 100%_ marker');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Task details');
-    $this->assertSession()->elementTextContains('css', 'h2', 'Synthetic archive 100%_ marker');
+    $this->assertSession()->elementExists('xpath', '//h2[contains(., "Synthetic archive 100%_ marker")]');
     $this->assertSession()->pageTextContains('Completed');
     $this->assertSession()->pageTextContains('No due date.');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?status=completed&q=archive');
