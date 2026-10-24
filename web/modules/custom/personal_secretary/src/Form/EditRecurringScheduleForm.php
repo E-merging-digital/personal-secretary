@@ -79,9 +79,15 @@ final class EditRecurringScheduleForm extends FormBase {
       '#markup' => $this->t('Future cancellations, reschedules, or responsibility changes tied to the old audited schedule may need to be redone after this change.'),
     ];
 
+    $form['scope_notice'] = [
+      '#type' => 'item',
+      '#markup' => $this->t('This changes the weekly series from the selected date, not just one occurrence. Use Reschedule occurrence for one date.'),
+    ];
+
     $form['effective_from_date'] = [
       '#type' => 'date',
       '#title' => $this->t('Effective from date'),
+      '#description' => $this->t('The selected date also sets the new weekday (for example, a Thursday moves the weekly series to Thursdays).'),
       '#default_value' => $context['default_effective_date'],
       '#required' => TRUE,
     ];
