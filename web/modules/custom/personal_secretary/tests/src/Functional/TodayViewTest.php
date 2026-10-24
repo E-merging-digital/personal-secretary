@@ -250,6 +250,16 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSame(['Tasks', 'Preparations', 'Planning'], $headings);
     $this->assertSame($countsBefore, $this->domainCounts());
 
+    // Creating an activity is a direct Today action; Cancel never writes.
+    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $this->clickLink('Add activity');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->buttonExists('Add activity');
+    $this->assertSession()->linkExists('Cancel');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSame($countsBefore, $this->domainCounts());
+
     $taskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
     $taskId = (int) $dueToday->id();
     // Visiting the action route is read-only; only the Form API POST mutates.
