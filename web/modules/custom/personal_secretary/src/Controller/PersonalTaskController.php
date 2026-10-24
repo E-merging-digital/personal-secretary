@@ -11,6 +11,7 @@ use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use Drupal\personal_secretary\Service\PersonalTaskQueryService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -21,12 +22,14 @@ final class PersonalTaskController extends ControllerBase {
   public function __construct(
     private readonly PersonalTaskQueryService $taskQuery,
     private readonly PersonalTaskMutationService $taskMutations,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.personal_task_query'),
       $container->get('personal_secretary.personal_task_mutation'),
+      $container->get('request_stack'),
     );
   }
 
@@ -116,8 +119,15 @@ final class PersonalTaskController extends ControllerBase {
       '#cache' => ['max-age' => 0],
       'title' => [
         '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('@task', ['@task' => (string) $item['title']]),
+      ],
+      'due' => [
+        '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('Task: @task', ['@task' => (string) $item['title']]),
+        '#value' => (string) $item['due_label'] !== ''
+          ? $this->t('Due: @due', ['@due' => (string) $item['due_label']])
+          : $this->t('No due date.'),
       ],
       'status' => [
         '#type' => 'html_tag',
@@ -129,7 +139,7 @@ final class PersonalTaskController extends ControllerBase {
       'back' => [
         '#type' => 'link',
         '#title' => $this->t('Back to My tasks'),
-        '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+        '#url' => Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $this->taskListReturnQuery()]),
       ],
     ];
 
@@ -155,6 +165,28 @@ final class PersonalTaskController extends ControllerBase {
     ];
 
     return $build;
+  }
+
+  /**
+   * Preserves only validated task-search context in the detail's return link.
+   *
+   * @return array<string, string>
+   */
+  private function taskListReturnQuery(): array {
+    $query = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
+    $filters = [];
+    $status = $query['status'] ?? NULL;
+    if (is_string($status) && in_array($status, ['completed', 'all'], TRUE)) {
+      $filters['status'] = $status;
+    }
+    $title = $query['q'] ?? NULL;
+    if (is_string($title)) {
+      $title = trim($title);
+      if ($title !== '' && mb_strlen($title) <= 100) {
+        $filters['q'] = $title;
+      }
+    }
+    return $filters;
   }
 
 }

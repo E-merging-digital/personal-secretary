@@ -496,6 +496,36 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSame($completedAt, (int) $afterSearch->get('completed_at')->value);
     $this->assertSame($baselineCount, (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute(), 'GET and search must not create or delete tasks.');
 
+    // Browsing a retained task must not lose a legitimate search context.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed', 'q' => 'archive']]);
+    $this->clickLink('Synthetic archive 100%_ marker');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Task details');
+    $this->assertSession()->elementExists('xpath', '//h2[contains(., "Synthetic archive 100%_ marker")]');
+    $this->assertSession()->pageTextContains('Completed');
+    $this->assertSession()->pageTextContains('No due date.');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?status=completed&q=archive');
+    $this->clickLink('Back to My tasks');
+    $this->assertSession()->fieldValueEquals('status', 'completed');
+    $this->assertSession()->fieldValueEquals('title', 'archive');
+    $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
+    $this->assertSession()->pageTextNotContains('Synthetic future task');
+
+    $this->drupalGet('/personal-secretary/tasks/' . (int) $future->id());
+    $this->assertSession()->pageTextContains('Task details');
+    $this->assertSession()->pageTextContains('Due: 2099-01-01');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+
+    // Forged or unrelated query parameters must never be propagated by Back.
+    $this->drupalGet('/personal-secretary/tasks/' . (int) $future->id(), ['query' => [
+      'status' => ['completed'],
+      'q' => ['forged'],
+      'destination' => '/admin',
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefNotExists('/admin');
+    $this->assertSame($baselineCount, (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute());
+
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->clickLink('Synthetic archive 100%_ marker');
     $this->assertSession()->addressMatches('#/personal-secretary/tasks/' . $completed->id() . '$#');
