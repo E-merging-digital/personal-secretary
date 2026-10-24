@@ -218,6 +218,8 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->linkExists('My preparations');
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $this->assertSession()->pageTextContains('Today route task');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/add');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $dueToday->id());
     $this->assertSession()->pageTextContains('Today due preparation');
     $this->assertSession()->pageTextContains('Today active overdue preparation');
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
@@ -248,30 +250,35 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSame(['Tasks', 'Preparations', 'Planning'], $headings);
     $this->assertSame($countsBefore, $this->domainCounts());
 
-    $accountSwitcher->switchTo($authorized);
-    try {
-      $this->assertTrue($taskMutations->completeTask((int) $dueToday->id()));
-    }
-    finally {
-      $accountSwitcher->switchBack();
-    }
+    $taskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $taskId = (int) $dueToday->id();
+    // Visiting the action route is read-only; only the Form API POST mutates.
+    $this->drupalGet('/personal-secretary/today/tasks/' . $taskId . '/complete');
+    $this->assertSession()->statusCodeEquals(200);
+    $taskStorage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
+
     $this->drupalGet($todayUrl);
+    $this->assertSession()->buttonExists('Mark complete');
+    $this->submitForm([], 'Mark complete');
+    $this->assertSession()->addressEquals('/personal-secretary/today?reopen_task=' . $taskId);
     $this->assertSession()->pageTextNotContains('Today route task');
     $this->assertSession()->pageTextContains('Today due preparation');
+    $this->assertSession()->buttonExists('Reopen task');
+    $taskStorage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $taskStorage->load($taskId)->get('status')->value);
 
-    $accountSwitcher->switchTo($authorized);
-    try {
-      $this->assertTrue($taskMutations->reopenTask((int) $dueToday->id()));
-    }
-    finally {
-      $accountSwitcher->switchBack();
-    }
-    $this->drupalGet($todayUrl);
+    $this->submitForm([], 'Reopen task');
+    $this->assertSession()->addressEquals($todayUrl);
     $this->assertSession()->pageTextContains('Today route task');
+    $taskStorage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
     $this->drupalLogout();
 
     $this->drupalLogin($noGrant);
     $this->drupalGet($todayUrl);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet('/personal-secretary/today/tasks/' . $taskId . '/complete');
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalLogout();
 
@@ -279,6 +286,10 @@ final class TodayViewTest extends BrowserTestBase {
     $this->drupalGet($todayUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Link your account to a valid Household member to see Today.');
+    $this->drupalGet('/personal-secretary/today/tasks/' . $taskId . '/reopen');
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($todayUrl . '?reopen_task=' . $taskId);
+    $this->assertSession()->buttonNotExists('Reopen task');
     foreach (['Today route task', 'Today authorized UTC activity', 'Today cross-midnight activity', 'Today responsibility to current', 'Today due preparation', 'Today active overdue preparation'] as $leakedText) {
       $this->assertSession()->pageTextNotContains($leakedText);
     }

@@ -7,12 +7,16 @@ namespace Drupal\personal_secretary\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
+use Drupal\personal_secretary\Form\TodayTaskTransitionForm;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\TodayService;
 use InvalidArgumentException;
 use RuntimeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Renders the derived current-user Today surface.
@@ -22,12 +26,14 @@ final class TodayController extends ControllerBase {
   public function __construct(
     private readonly TodayService $todayService,
     private readonly LanguageManagerInterface $todayLanguageManager,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.today'),
       $container->get('language_manager'),
+      $container->get('request_stack'),
     );
   }
 
@@ -92,8 +98,27 @@ final class TodayController extends ControllerBase {
           '#title' => $this->t('My tasks'),
           '#url' => Url::fromRoute('personal_secretary.my_tasks'),
         ],
+        'add' => [
+          '#type' => 'link',
+          '#title' => $this->t('Add task'),
+          '#url' => Url::fromRoute('personal_secretary.add_task'),
+          '#attributes' => ['class' => ['ps-task-list__add']],
+        ],
       ],
     ];
+
+    // Offer Undo only for an authorized task that is still completed.
+    $reopenTaskId = $this->requestStack->getCurrentRequest()?->query->getInt('reopen_task') ?? 0;
+    if ($reopenTaskId > 0) {
+      try {
+        $build['tasks']['undo'] = $this->formBuilder()->getForm(
+          TodayTaskTransitionForm::class, 'reopen', $reopenTaskId,
+        );
+      }
+      catch (NotFoundHttpException) {
+        // Do not reveal stale or inaccessible task identifiers.
+      }
+    }
 
     if ($today['tasks'] === []) {
       $build['tasks']['empty'] = [
@@ -127,7 +152,7 @@ final class TodayController extends ControllerBase {
           ],
           'status' => [
             '#type' => 'link',
-            '#title' => $this->t('Task status'),
+            '#title' => $this->t('Task details'),
             '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id]),
           ],
           'edit' => [
@@ -135,11 +160,7 @@ final class TodayController extends ControllerBase {
             '#title' => $this->t('Edit'),
             '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id]),
           ],
-          'complete' => [
-            '#type' => 'link',
-            '#title' => $this->t('Mark complete'),
-            '#url' => Url::fromRoute('personal_secretary.complete_task', ['task' => $id]),
-          ],
+          'complete' => $this->formBuilder()->getForm(TodayTaskTransitionForm::class, 'complete', $id),
         ];
       }
     }
