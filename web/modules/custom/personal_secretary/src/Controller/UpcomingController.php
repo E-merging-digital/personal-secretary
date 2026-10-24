@@ -271,8 +271,9 @@ final class UpcomingController extends ControllerBase {
         continue;
       }
 
+      $isRecurring = $this->pauseRecurringActivity->canPause((int) $scheduleTarget['series_id']);
       $seriesActions = [];
-      if (!$allDay) {
+      if ($isRecurring && !$allDay) {
         $seriesActions['schedule'] = [
           '#type' => 'link',
           '#title' => $this->t('Change recurring schedule'),
@@ -280,12 +281,14 @@ final class UpcomingController extends ControllerBase {
           '#attributes' => ['class' => ['ps-action-link']],
         ];
       }
-      $seriesActions['recurring_responsibility'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Change recurring responsibility'),
-        '#url' => Url::fromRoute('personal_secretary.edit_recurring_responsibility', ['series' => $scheduleTarget['series_id']]),
-        '#attributes' => ['class' => ['ps-action-link']],
-      ];
+      if ($isRecurring) {
+        $seriesActions['recurring_responsibility'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Change recurring responsibility'),
+          '#url' => Url::fromRoute('personal_secretary.edit_recurring_responsibility', ['series' => $scheduleTarget['series_id']]),
+          '#attributes' => ['class' => ['ps-action-link']],
+        ];
+      }
       if ($this->timeCommitmentEditor->canEdit((int) $scheduleTarget['series_id'])) {
         $seriesActions['time_commitment'] = [
           '#type' => 'link',
@@ -294,7 +297,7 @@ final class UpcomingController extends ControllerBase {
           '#attributes' => ['class' => ['ps-action-link']],
         ];
       }
-      if ($this->pauseRecurringActivity->canPause((int) $scheduleTarget['series_id'])) {
+      if ($isRecurring) {
         $seriesActions['pause'] = [
           '#type' => 'link',
           '#title' => $this->t('Pause recurring activity'),
@@ -303,12 +306,14 @@ final class UpcomingController extends ControllerBase {
         ];
       }
 
-      $build[$delta]['series_actions'] = [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--series']],
-        'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('Activity settings')],
-        'links' => ['#type' => 'container', '#attributes' => ['class' => ['ps-action-group__links']]] + $seriesActions,
-      ];
+      if ($seriesActions !== []) {
+        $build[$delta]['series_actions'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--series']],
+          'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('Activity settings')],
+          'links' => ['#type' => 'container', '#attributes' => ['class' => ['ps-action-group__links']]] + $seriesActions,
+        ];
+      }
     }
 
     return $build;
