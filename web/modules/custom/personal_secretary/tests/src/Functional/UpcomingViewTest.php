@@ -125,6 +125,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextNotContains('No upcoming activities in the next 7 days.');
     $this->assertSession()->pageTextContains('Synthetic upcoming activity');
+    $this->assertSession()->linkNotExists('Change recurring schedule');
+    $this->assertSession()->linkNotExists('Change recurring responsibility');
+    $this->assertSession()->linkNotExists('Pause recurring activity');
     $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
     $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ .ps-upcoming-list');
@@ -297,6 +300,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     // Each activity owns its summary and both existing action sections.
     $activityItems = $this->getSession()->getPage()->findAll('css', '.ps-upcoming-list > .ps-upcoming-list__item');
     $this->assertCount(2, $activityItems);
+    $this->assertSession()->linkExists('Change recurring schedule');
+    $this->assertSession()->linkExists('Change recurring responsibility');
+    $this->assertSession()->linkExists('Pause recurring activity');
     foreach ($activityItems as $activityItem) {
       $this->assertCount(1, $activityItem->findAll('css', 'article.ps-upcoming-card'));
       $this->assertCount(1, $activityItem->findAll('css', '.ps-action-group--occurrence'));
