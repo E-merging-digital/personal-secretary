@@ -9,6 +9,7 @@ use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use InvalidArgumentException;
@@ -142,6 +143,13 @@ final class PersonalTaskForm extends FormBase {
     $form['actions']['submit'] = [
       '#type' => 'submit',
       '#value' => $task instanceof PersonalTask ? $this->t('Save task') : $this->t('Add task'),
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+      '#attributes' => ['class' => ['button']],
+      '#weight' => 10,
     ];
 
     return $form;
