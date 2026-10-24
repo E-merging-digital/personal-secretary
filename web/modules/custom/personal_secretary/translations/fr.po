@@ -1331,3 +1331,7 @@ msgstr "Cette modification s’applique à la série hebdomadaire à partir de l
 
 msgid "The selected date also sets the new weekday (for example, a Thursday moves the weekly series to Thursdays)."
 msgstr "La date choisie définit aussi le nouveau jour de la semaine (par exemple, un jeudi déplace la série hebdomadaire aux jeudis)."
+
+# Explicit explanation when Google export is ineligible (#310).
+msgid "Google Calendar is only available for one-off activities you are responsible for and that occupy your time. If you manage this activity, check its time settings under Activity settings."
+msgstr "Google Agenda est proposé uniquement pour les activités ponctuelles dont vous êtes responsable et qui occupent votre temps. Si vous gérez cette activité, vérifiez ses paramètres horaires dans « Paramètres de l’activité »."

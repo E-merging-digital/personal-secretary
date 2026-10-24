@@ -116,6 +116,11 @@ final class TimeCommitmentDirtyStateJavascriptTest extends WebDriverTestBase {
     $this->setMode(EditTimeCommitmentService::MODE_FULL_OCCURRENCE);
     $this->assertSaveState(TRUE);
     $this->submitForm([], 'Save time commitment');
+    // Selenium can return from the click before the full-page redirect lands.
+    $this->getSession()->wait(
+      10000,
+      'window.location.pathname === ' . json_encode($upcomingUrl, JSON_THROW_ON_ERROR),
+    );
     $this->assertSession()->addressEquals($upcomingUrl);
     $rules = array_values($storage->loadMultiple());
     $this->assertCount(1, $rules);

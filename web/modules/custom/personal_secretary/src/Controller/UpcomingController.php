@@ -163,7 +163,18 @@ final class UpcomingController extends ControllerBase {
       $occurrence[0]['occurrence_actions']['google_calendar'] = $google;
     }
     catch (InvalidArgumentException|\RuntimeException) {
-      // Ineligible occurrences have no Google action; domain detail stays usable.
+      // Explain necessary calendar eligibility without changing the domain rules.
+      $occurrence[0]['occurrence_actions'] ??= [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--occurrence']],
+        'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('This occurrence')],
+      ];
+      $occurrence[0]['occurrence_actions']['calendar_availability'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#attributes' => ['class' => ['ps-calendar-availability']],
+        '#value' => $this->t('Google Calendar is only available for one-off activities you are responsible for and that occupy your time. If you manage this activity, check its time settings under Activity settings.'),
+      ];
     }
 
     return [

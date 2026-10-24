@@ -48,7 +48,6 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
     $end = $start->modify('+1 hour');
     $series = $domain->createActivitySeries('Synthetic calendar activity', (int) $household->id(), $start, $end, 'FREQ=DAILY;COUNT=1');
     $this->container->get('personal_secretary.responsibility_mutation')->createResponsibilityRule($series, (int) $person->id(), $start, $end, 'FREQ=DAILY;COUNT=1');
-    $this->container->get('personal_secretary.time_commitment_mutation')->createFullOccurrenceCommitment($series, $start);
     $key = $this->container->get('personal_secretary.occurrence_projection')->project($series, limit: 2)[0]->originalOccurrenceKey;
     $parameters = ['series' => $series->id(), 'original_occurrence_key' => $key];
     $detail = Url::fromRoute('personal_secretary.occurrence_detail', $parameters);
@@ -64,6 +63,19 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
     $this->drupalLogin($account);
     $this->drupalGet($detail);
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementExists('css', '.ps-calendar-availability');
+    $this->assertSession()->pageTextContains('Google Calendar is only available for one-off activities');
+    $this->assertSession()->pageTextContains('check its time settings under Activity settings');
+    $this->assertSession()->linkNotExists('Connect Google Calendar');
+    $this->assertSession()->buttonNotExists('Add to Google Calendar');
+    $this->drupalGet($formUrl);
+    $this->assertSession()->statusCodeEquals(404);
+
+    // The existing domain mutation makes this one-off occurrence eligible.
+    $this->container->get('personal_secretary.time_commitment_mutation')->createFullOccurrenceCommitment($series, $start);
+    $this->drupalGet($detail);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementNotExists('css', '.ps-calendar-availability');
     $this->assertSession()->linkExists('Connect Google Calendar');
     $connection = CalendarAccountConnection::create([
       'owner_user' => $account->id(), 'provider_subject_id' => 'synthetic-subject',
@@ -123,6 +135,14 @@ final class GoogleCalendarExportUiTest extends BrowserTestBase {
     personal_secretary_import_french_catalog();
     $translations = $this->container->get('string_translation');
     $translations->reset();
+    $this->assertSame(
+      'Google Agenda est proposé uniquement pour les activités ponctuelles dont vous êtes responsable et qui occupent votre temps. Si vous gérez cette activité, vérifiez ses paramètres horaires dans « Paramètres de l’activité ».',
+      (string) $translations->translate(
+        'Google Calendar is only available for one-off activities you are responsible for and that occupy your time. If you manage this activity, check its time settings under Activity settings.',
+        [],
+        ['langcode' => 'fr'],
+      ),
+    );
     $this->assertSame(
       'Autoriser et ajouter à Google Agenda',
       (string) $translations->translate(
