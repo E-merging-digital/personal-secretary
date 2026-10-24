@@ -267,8 +267,27 @@ final class PersonalTaskTest extends BrowserTestBase {
     $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
 
     $this->drupalLogin($user);
+
+    // Both Cancel links navigate back without submitting or changing a task.
+    $idsBeforeCancel = $storage->getQuery()->accessCheck(FALSE)->execute();
+    $this->drupalGet('/personal-secretary/tasks/add');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkExists('Cancel');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressMatches('~/personal-secretary/tasks/mine$~');
+    $this->assertSame($idsBeforeCancel, $storage->getQuery()->accessCheck(FALSE)->execute());
+
     $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/edit');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkExists('Cancel');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressMatches('~/personal-secretary/tasks/mine$~');
+    $storage->resetCache([$taskId]);
+    $unchanged = $storage->load($taskId);
+    $this->assertInstanceOf(PersonalTask::class, $unchanged);
+    $this->assertSame('Synthetic task before edit', (string) $unchanged->label());
+
+    $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/edit');
     $this->submitForm([
       'title' => 'Synthetic task after edit',
       'due_mode' => PersonalTask::DUE_NONE,
