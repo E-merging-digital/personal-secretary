@@ -15,6 +15,7 @@ use Drupal\personal_secretary\Service\PauseRecurringActivityService;
 use Drupal\personal_secretary\Service\UpcomingActivityService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -29,6 +30,7 @@ final class UpcomingController extends ControllerBase {
     private readonly HouseholdAuthorizationService $householdAuthorization,
     private readonly EditTimeCommitmentService $timeCommitmentEditor,
     private readonly PauseRecurringActivityService $pauseRecurringActivity,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -39,6 +41,7 @@ final class UpcomingController extends ControllerBase {
       $container->get('personal_secretary.household_authorization'),
       $container->get('personal_secretary.edit_time_commitment'),
       $container->get('personal_secretary.pause_recurring_activity'),
+      $container->get('request_stack'),
     );
   }
 
@@ -106,26 +109,29 @@ final class UpcomingController extends ControllerBase {
       return $build;
     }
 
+    $days = $this->selectedHorizonDays();
     $items = $this->upcomingActivities->upcomingForPersonInHouseholds(
       $person,
       $householdIds,
+      $days,
     );
     $build = $this->windowBuild(
-      (string) $this->t('Showing My upcoming activities for the next 7 days.'),
+      (string) $this->t('Showing My upcoming activities for the next @days days.', ['@days' => $days]),
     );
+    $build['horizon'] = $this->horizonLinks($days);
     $build['add_activity'] = $this->addActivityLink();
 
     if ($items === []) {
       $build['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('No upcoming activities are assigned to you in the next 7 days.'),
+        '#value' => $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days]),
       ];
       return $build;
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days);
     return $build;
   }
 
@@ -167,7 +173,11 @@ final class UpcomingController extends ControllerBase {
       'back' => [
         '#type' => 'link',
         '#title' => $this->t('Back to My upcoming'),
-        '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
+        '#url' => Url::fromRoute(
+          'personal_secretary.my_upcoming',
+          [],
+          $this->selectedHorizonDays() === 30 ? ['query' => ['days' => '30']] : [],
+        ),
         '#attributes' => ['class' => ['ps-occurrence-detail__back']],
       ],
       'occurrence' => $occurrence,
@@ -198,6 +208,7 @@ final class UpcomingController extends ControllerBase {
     bool $includeAdminMutationLinks,
     bool $includeSelfMutationLinks,
     bool $includeDetailLinks,
+    int $days = 7,
   ): array {
     $build = [
       '#type' => 'container',
@@ -227,7 +238,7 @@ final class UpcomingController extends ControllerBase {
 
       $occurrenceActions = [];
       if ($includeDetailLinks) {
-        $occurrenceActions['detail'] = $this->detailLink($responsibilityTarget);
+        $occurrenceActions['detail'] = $this->detailLink($responsibilityTarget, $days);
       }
       if ($includeAdminMutationLinks) {
         $occurrenceActions['responsibility'] = [
@@ -308,14 +319,14 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function detailLink(array $target): array {
+  private function detailLink(array $target, int $days): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('View details'),
       '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
         'series' => $target['series_id'],
         'original_occurrence_key' => $target['original_occurrence_key'],
-      ]),
+      ], $days === 30 ? ['query' => ['days' => '30']] : []),
       '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--primary']],
     ];
   }
@@ -353,6 +364,54 @@ final class UpcomingController extends ControllerBase {
       ),
       '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--danger']],
     ];
+  }
+
+  /**
+   * Only two bounded, read-only horizons are supported.
+   */
+  private function selectedHorizonDays(): int {
+    $days = $this->requestStack->getCurrentRequest()?->query->all()['days'] ?? NULL;
+    return $days === '30' ? 30 : 7;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function horizonLinks(int $activeDays): array {
+    $links = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['ps-upcoming-horizon'],
+        'role' => 'navigation',
+        'aria-label' => (string) $this->t('Choose the upcoming period'),
+      ],
+      'label' => [
+        '#type' => 'html_tag',
+        '#tag' => 'span',
+        '#value' => $this->t('Show upcoming for:'),
+      ],
+    ];
+
+    foreach ([7, 30] as $days) {
+      $selected = $activeDays === $days;
+      $attributes = ['class' => ['button', 'ps-upcoming-horizon__choice']];
+      if ($selected) {
+        $attributes['class'][] = 'button--primary';
+        $attributes['aria-current'] = 'page';
+      }
+      $links['days_' . $days] = [
+        '#type' => 'link',
+        '#title' => $this->t('@days days', ['@days' => $days]),
+        '#url' => Url::fromRoute(
+          'personal_secretary.my_upcoming',
+          [],
+          $days === 30 ? ['query' => ['days' => '30']] : [],
+        ),
+        '#attributes' => $attributes,
+      ];
+    }
+
+    return $links;
   }
 
   private function hasExistingContext(): bool {

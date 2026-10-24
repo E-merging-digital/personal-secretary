@@ -24,6 +24,8 @@ final class UpcomingActivityService {
 
   private const DEFAULT_WINDOW_DAYS = 7;
 
+  private const MAX_WINDOW_DAYS = 30;
+
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly EffectiveOccurrenceProjectionService $effectiveOccurrences,
@@ -125,14 +127,17 @@ final class UpcomingActivityService {
    *   cancel_target: ?array{series_id: int, original_occurrence_key: string}
    * }>
    */
-  public function upcomingForPersonInHouseholds(Person $person, array $householdIds): array {
+  public function upcomingForPersonInHouseholds(Person $person, array $householdIds, int $windowDays = self::DEFAULT_WINDOW_DAYS): array {
     $personId = $this->requirePersistedPersonId($person);
     $householdIds = $this->normalizeHouseholdIds($householdIds);
+    if (!in_array($windowDays, [self::DEFAULT_WINDOW_DAYS, self::MAX_WINDOW_DAYS], TRUE)) {
+      throw new InvalidArgumentException('Upcoming horizon must be exactly 7 or 30 days.');
+    }
     if ($householdIds === []) {
       return [];
     }
 
-    [$windowStart, $windowEnd] = $this->defaultWindow();
+    [$windowStart, $windowEnd] = $this->defaultWindow($windowDays);
 
     return $this->aggregateInternal(
       $windowStart,
@@ -160,7 +165,9 @@ final class UpcomingActivityService {
       throw new InvalidArgumentException('Occurrence detail requires an existing target identity.');
     }
 
-    [$windowStart, $windowEnd] = $this->defaultWindow();
+    // Detail may be linked from either 7-day or 30-day My upcoming. The
+    // Person/Household filters remain mandatory before any entity is loaded.
+    [$windowStart, $windowEnd] = $this->defaultWindow(self::MAX_WINDOW_DAYS);
     $matches = array_values(array_filter(
       $this->aggregateInternal(
         $windowStart,
@@ -213,13 +220,16 @@ final class UpcomingActivityService {
   /**
    * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
    */
-  private function defaultWindow(): array {
+  private function defaultWindow(int $days = self::DEFAULT_WINDOW_DAYS): array {
+    if (!in_array($days, [self::DEFAULT_WINDOW_DAYS, self::MAX_WINDOW_DAYS], TRUE)) {
+      throw new InvalidArgumentException('Upcoming horizon must be exactly 7 or 30 days.');
+    }
     $windowStart = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
       ->setTimezone(new DateTimeZone('UTC'));
 
     return [
       $windowStart,
-      $windowStart->modify('+' . self::DEFAULT_WINDOW_DAYS . ' days'),
+      $windowStart->modify('+' . $days . ' days'),
     ];
   }
 

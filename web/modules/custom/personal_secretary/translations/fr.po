@@ -1302,3 +1302,19 @@ msgstr "Aucune tâche terminée."
 
 msgid "No tasks found."
 msgstr "Aucune tâche trouvée."
+
+# My upcoming bounded horizon controls (#296).
+msgid "Showing My upcoming activities for the next @days days."
+msgstr "Affichage de mes activités à venir dans les @days prochains jours."
+
+msgid "No upcoming activities are assigned to you in the next @days days."
+msgstr "Aucune activité ne vous est attribuée dans les @days prochains jours."
+
+msgid "Choose the upcoming period"
+msgstr "Choisir la période des activités à venir"
+
+msgid "Show upcoming for:"
+msgstr "Afficher les activités à venir sur :"
+
+msgid "@days days"
+msgstr "@days jours"
