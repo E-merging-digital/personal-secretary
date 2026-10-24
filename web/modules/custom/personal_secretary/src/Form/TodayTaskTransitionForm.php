@@ -21,7 +21,7 @@ final class TodayTaskTransitionForm extends FormBase {
 
   public function __construct(
     private readonly PersonalTaskMutationService $taskMutations,
-    private readonly RouteMatchInterface $routeMatch,
+    private readonly RouteMatchInterface $currentRouteMatch,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -104,11 +104,11 @@ final class TodayTaskTransitionForm extends FormBase {
   }
 
   private function action(): string {
-    return (string) ($this->routeMatch->getRouteObject()?->getDefault('_today_task_action') ?? '');
+    return (string) ($this->currentRouteMatch->getRouteObject()?->getDefault('_today_task_action') ?? '');
   }
 
   private function taskId(): int {
-    return (int) $this->routeMatch->getParameter('task');
+    return (int) $this->currentRouteMatch->getParameter('task');
   }
 
   private function routeForAction(string $action): string {
