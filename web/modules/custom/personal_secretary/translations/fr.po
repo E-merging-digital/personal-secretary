@@ -1277,3 +1277,28 @@ msgstr "Ce conflit bloque toutes les annulations. Les dates affichées sont seul
 
 msgid "No changes to save."
 msgstr "Aucune modification à enregistrer."
+
+# Task history search and status filters (#294).
+msgid "All"
+msgstr "Toutes"
+
+msgid "Search task titles"
+msgstr "Rechercher dans les titres"
+
+msgid "Task status filter"
+msgstr "Filtrer les tâches par statut"
+
+msgid "Search tasks"
+msgstr "Rechercher"
+
+msgid "Clear filters"
+msgstr "Effacer les filtres"
+
+msgid "No tasks match this search."
+msgstr "Aucune tâche ne correspond à cette recherche."
+
+msgid "No completed tasks."
+msgstr "Aucune tâche terminée."
+
+msgid "No tasks found."
+msgstr "Aucune tâche trouvée."

@@ -129,7 +129,11 @@ final class BilingualUiTest extends BrowserTestBase {
         $todayEnd,
       );
 
-      $futureStart = $nowUtc->modify('+1 day')->setTimezone(new DateTimeZone('Europe/Brussels'));
+      // Use an unambiguous source-local clock time even on DST changeovers.
+      $futureStart = $nowUtc
+        ->setTimezone(new DateTimeZone('Europe/Brussels'))
+        ->modify('+1 day')
+        ->setTime(14, 0);
       $futureEnd = $futureStart->modify('+1 hour');
       $futureSeries = $this->createSeriesWithRule(
         'Cours de guitare – Éva',
@@ -152,11 +156,13 @@ final class BilingualUiTest extends BrowserTestBase {
         $window['local_date'],
       );
 
-      $target = $timeline->projectBaseWindow(
+      $baseOccurrences = $timeline->projectBaseWindow(
         $futureSeries,
         $nowUtc,
         $nowUtc->modify('+2 days'),
-      )[0];
+      );
+      $this->assertCount(1, $baseOccurrences, 'Synthetic future occurrence must be projected.');
+      $target = $baseOccurrences[0];
       $before = [
         'timezone' => (string) $user->getTimezone(),
         'rrule' => (string) $futureSeries->get('recurrence')->first()?->getValue()['rrule'],
@@ -299,11 +305,13 @@ final class BilingualUiTest extends BrowserTestBase {
       ->getStorage('personal_sec_activity_series')
       ->load($futureSeries->id());
     $this->assertInstanceOf(ActivitySeries::class, $futureSeriesReloaded);
-    $targetAfter = $timeline->projectBaseWindow(
+    $baseOccurrencesAfter = $timeline->projectBaseWindow(
       $futureSeriesReloaded,
       $nowUtc,
       $nowUtc->modify('+2 days'),
-    )[0];
+    );
+    $this->assertCount(1, $baseOccurrencesAfter, 'Synthetic future occurrence must survive language changes.');
+    $targetAfter = $baseOccurrencesAfter[0];
     $reloaded = User::load($user->id());
     $this->assertSame($before['timezone'], (string) $reloaded?->getTimezone());
     $this->assertSame($before['rrule'], (string) $futureSeriesReloaded->get('recurrence')->first()?->getValue()['rrule']);

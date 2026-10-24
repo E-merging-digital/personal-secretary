@@ -16,7 +16,7 @@ use Drupal\user\UserInterface;
 use InvalidArgumentException;
 
 /**
- * Builds the authorized, personalized OPEN PersonalTask read model.
+ * Builds authorized, personalized PersonalTask read models.
  */
 final class PersonalTaskQueryService {
 
@@ -33,6 +33,26 @@ final class PersonalTaskQueryService {
    * @return array<int, array<string, mixed>>
    */
   public function myOpenTasks(): array {
+    return $this->myTasks();
+  }
+
+  /**
+   * Finds retained tasks in a bounded status and literal-title view.
+   *
+   * The identity, Household-grant and membership restrictions are applied in
+   * the entity query before any matching PersonalTask is loaded.
+   *
+   * @return array<int, array<string, mixed>>
+   */
+  public function myTasks(string $status = PersonalTask::STATUS_OPEN, string $title = ''): array {
+    if (!in_array($status, [PersonalTask::STATUS_OPEN, PersonalTask::STATUS_COMPLETED, 'ALL'], TRUE)) {
+      throw new InvalidArgumentException('Unsupported task status filter.');
+    }
+    $title = trim($title);
+    if (mb_strlen($title) > 100) {
+      throw new InvalidArgumentException('Task title search is too long.');
+    }
+
     $user = $this->currentPersistedUser();
     $authorizedIds = $this->householdAuthorization->authorizedHouseholdIds($user);
     $person = $this->currentPersonResolver->resolve($user);
@@ -41,14 +61,24 @@ final class PersonalTaskQueryService {
       return [];
     }
 
-    $ids = $this->entityTypeManager
+    $query = $this->entityTypeManager
       ->getStorage(PersonalTask::ENTITY_TYPE_ID)
       ->getQuery()
       ->accessCheck(FALSE)
       ->condition('household', $eligibleIds, 'IN')
-      ->condition('assigned_person', (int) $person->id())
-      ->condition('status', PersonalTask::STATUS_OPEN)
-      ->execute();
+      ->condition('assigned_person', (int) $person->id());
+    if ($status === 'ALL') {
+      $query->condition('status', [PersonalTask::STATUS_OPEN, PersonalTask::STATUS_COMPLETED], 'IN');
+    }
+    else {
+      $query->condition('status', $status);
+    }
+    if ($title !== '') {
+      // Drupal EntityQuery's CONTAINS escapes LIKE wildcards for literal text.
+      $query->condition('title', $title, 'CONTAINS');
+    }
+
+    $ids = $query->execute();
     if ($ids === []) {
       return [];
     }
