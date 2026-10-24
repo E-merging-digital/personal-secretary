@@ -361,7 +361,8 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
 
     $this->drupalGet($futureEditUrl);
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->fieldExists('effective_from_date');
+    $this->assertSession()->elementNotExists('css', 'input[type="date"][name="effective_from_date"]');
+    $this->assertSession()->elementExists('css', 'input[type="hidden"][name="effective_from_date"]');
     $this->assertSession()->fieldExists('mode');
 
     $this->drupalGet($recurringEditUrl);
@@ -449,10 +450,9 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
     $this->assertSession()->fieldExists('mode');
     $this->assertCount(0, $commitmentStorage->loadMultiple());
 
-    // The effective transition is the actual future occurrence, even when
-    // a different hidden date is supplied by the client.
+    // The effective transition is the actual future occurrence (not the
+    // default next-day boundary) without any editable date form field.
     $this->submitForm([
-      'effective_from_date' => $today->modify('+30 days')->format('Y-m-d'),
       'mode' => EditTimeCommitmentService::MODE_FULL_OCCURRENCE,
     ], 'Save time commitment');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
