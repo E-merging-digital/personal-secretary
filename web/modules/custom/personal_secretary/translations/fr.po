@@ -1318,3 +1318,9 @@ msgstr "Afficher les activités à venir sur :"
 
 msgid "@days days"
 msgstr "@days jours"
+
+msgid "Task details"
+msgstr "Détails de la tâche"
+
+msgid "No due date."
+msgstr "Aucune échéance."
