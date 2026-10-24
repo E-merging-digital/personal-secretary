@@ -1324,3 +1324,10 @@ msgstr "Détails de la tâche"
 
 msgid "No due date."
 msgstr "Aucune échéance."
+
+# Recurring schedule scope and weekday explanation (#308).
+msgid "This changes the weekly series from the selected date, not just one occurrence. Use Reschedule occurrence for one date."
+msgstr "Cette modification s’applique à la série hebdomadaire à partir de la date choisie, et non à une seule occurrence. Utilisez « Replanifier l’occurrence » pour une seule date."
+
+msgid "The selected date also sets the new weekday (for example, a Thursday moves the weekly series to Thursdays)."
+msgstr "La date choisie définit aussi le nouveau jour de la semaine (par exemple, un jeudi déplace la série hebdomadaire aux jeudis)."

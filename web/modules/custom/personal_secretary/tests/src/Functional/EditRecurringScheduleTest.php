@@ -103,6 +103,10 @@ final class EditRecurringScheduleTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->pageTextContains('Synthetic Schedule Person');
     $this->assertSession()->pageTextContains('may need to be redone');
+    $this->assertSession()->pageTextContains('This changes the weekly series from the selected date');
+    $this->assertSession()->pageTextContains('Use Reschedule occurrence for one date');
+    $this->assertSession()->pageTextContains('The selected date also sets the new weekday');
+    $this->assertSession()->pageTextContains('a Thursday moves the weekly series to Thursdays');
     $this->assertSession()->fieldExists('effective_from_date');
     $this->assertSession()->fieldExists('new_start_local_time');
     $this->assertSession()->fieldExists('new_end_local_time');
