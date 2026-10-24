@@ -222,6 +222,12 @@ final class TodayController extends ControllerBase {
         '#title' => $this->t('My upcoming'),
         '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
       ],
+      'add' => [
+        '#type' => 'link',
+        '#title' => $this->t('Add activity'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity'),
+        '#attributes' => ['class' => ['button', 'button--primary']],
+      ],
     ];
 
     if ($today['planning'] === []) {

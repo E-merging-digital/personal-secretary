@@ -241,6 +241,13 @@ final class AddActivityForm extends FormBase {
       '#value' => $this->t('Add activity'),
       '#button_type' => 'primary',
     ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.today'),
+      '#attributes' => ['class' => ['button']],
+      '#weight' => 10,
+    ];
 
     return $form;
   }
