@@ -30,6 +30,8 @@ final class MyUpcomingTest extends BrowserTestBase {
 
     $this->drupalGet($myUpcomingUrl);
     $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet($myUpcomingUrl . '?days=30');
+    $this->assertSession()->statusCodeEquals(403);
 
     $this->installUserPersonFieldViaEntityApi();
 
@@ -158,6 +160,56 @@ final class MyUpcomingTest extends BrowserTestBase {
       'FREQ=DAILY;COUNT=1',
     );
 
+    // Future synthetic data proves the two bounded horizons and scoped details.
+    $laterOwnedSeries = $this->createSeriesWithRule(
+      'Later A activity',
+      (int) $household->id(),
+      (int) $personA->id(),
+      $nowLocal->modify('+20 days')->setTime(9, 0),
+    );
+    $laterOtherSeries = $this->createSeriesWithRule(
+      'Later B activity',
+      (int) $household->id(),
+      (int) $personB->id(),
+      $nowLocal->modify('+21 days')->setTime(10, 0),
+    );
+    $this->createSeriesWithRule(
+      'Outside horizon A activity',
+      (int) $household->id(),
+      (int) $personA->id(),
+      $nowLocal->modify('+32 days')->setTime(11, 0),
+    );
+    $personC = $domain->createPerson('C Other Household Person');
+    $otherHousehold = $domain->createHousehold(
+      'Other synthetic household',
+      [(int) $personC->id()],
+    );
+    $otherHouseholdSeries = $this->createSeriesWithRule(
+      'Later other-household activity',
+      (int) $otherHousehold->id(),
+      (int) $personC->id(),
+      $nowLocal->modify('+20 days')->setTime(14, 0),
+    );
+    $laterOwnedOccurrence = $effectiveProjection->project(
+      $laterOwnedSeries,
+      $nowUtc,
+      $nowUtc->modify('+30 days'),
+    )[0];
+    $laterOtherOccurrence = $effectiveProjection->project(
+      $laterOtherSeries,
+      $nowUtc,
+      $nowUtc->modify('+30 days'),
+    )[0];
+    $otherHouseholdOccurrence = $effectiveProjection->project(
+      $otherHouseholdSeries,
+      $nowUtc,
+      $nowUtc->modify('+30 days'),
+    )[0];
+    $laterOwnedDetailUrl = $this->detailUrl(
+      $laterOwnedSeries,
+      $laterOwnedOccurrence->originalOccurrenceKey,
+    );
+
     $ruleAOccurrence = $effectiveProjection->project($ruleASeries, $nowUtc, $windowEnd)[0];
     $ruleBOccurrence = $effectiveProjection->project($ruleBSeries, $nowUtc, $windowEnd)[0];
     $ruleADetailUrl = $this->detailUrl($ruleASeries, $ruleAOccurrence->originalOccurrenceKey);
@@ -203,6 +255,13 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($myUpcomingUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-horizon a[aria-current="page"]');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
+    $this->assertSession()->pageTextNotContains('Later A activity');
+    $this->assertSession()->pageTextNotContains('Later B activity');
+    $this->assertSession()->pageTextNotContains('Later other-household activity');
+    $this->assertSession()->pageTextNotContains('Outside horizon A activity');
     $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
     $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ .ps-upcoming-list');
@@ -224,6 +283,33 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Prepare excluded clear kit');
     $this->assertSession()->pageTextNotContains('B Other Person');
 
+    $this->drupalGet($myUpcomingUrl . '?days=30');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 30 days.');
+    $this->assertSession()->pageTextContains('Later A activity');
+    $this->assertSession()->pageTextNotContains('Later B activity');
+    $this->assertSession()->pageTextNotContains('Later other-household activity');
+    $this->assertSession()->pageTextNotContains('Outside horizon A activity');
+    $this->assertSession()->linkByHrefExists($laterOwnedDetailUrl . '?days=30');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-horizon a[aria-current="page"][href$="days=30"]');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+
+    $this->drupalGet($laterOwnedDetailUrl . '?days=30');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Later A activity');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
+
+    $this->drupalGet($this->detailUrl($laterOtherSeries, $laterOtherOccurrence->originalOccurrenceKey));
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($this->detailUrl($otherHouseholdSeries, $otherHouseholdOccurrence->originalOccurrenceKey));
+    $this->assertSession()->statusCodeEquals(404);
+
+    foreach (['?days=31', '?days=-1', '?days=garbage', '?days%5B%5D=30'] as $malformed) {
+      $this->drupalGet($myUpcomingUrl . $malformed);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+      $this->assertSession()->pageTextNotContains('Later A activity');
+    }
     $this->assertSame($countsBefore, $this->domainCounts());
 
     $userStorage->resetCache([$authorizedId]);
