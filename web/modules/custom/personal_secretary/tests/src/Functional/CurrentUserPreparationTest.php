@@ -10,6 +10,7 @@ use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
+use Drupal\personal_secretary\Entity\PreparationCompletion;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\Tests\BrowserTestBase;
@@ -243,9 +244,19 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $preparationMutations->retirePreparationRequirement($oldRequirement, $lifecycleStart);
     $preparationMutations->createPreparationRequirement($lifecycleSeries, 'Replacement preparation requirement', 4 * 86400, $lifecycleStart);
 
+    // A preparation due on day 20 can belong to an activity beyond day 30.
+    $distantActivity = $this->createSeriesWithRule('Activity on day thirty-five', (int) $h1->id(), (int) $person->id(), $fixedNow->modify('+35 days'));
+    $preparationMutations->createPreparationRequirement($distantActivity, 'Preparation due on day twenty', 15 * 86400, $effectiveFrom);
+
+    $beyondHorizon = $this->createSeriesWithRule('Activity on day thirty-six', (int) $h1->id(), (int) $person->id(), $fixedNow->modify('+36 days'));
+    $preparationMutations->createPreparationRequirement($beyondHorizon, 'Preparation due on day thirty-one', 5 * 86400, $effectiveFrom);
+
     $accountSwitcher->switchTo($authorized);
     try {
       $after = $preparations->mine($fixedNow);
+      $explicitSeven = $preparations->mine($fixedNow, 7);
+      $backgroundSeven = $preparations->mineForUser($authorized, $fixedNow);
+      $extended = $preparations->mine($fixedNow, 30);
     }
     finally {
       $accountSwitcher->switchBack();
@@ -267,6 +278,39 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     }
     $this->assertSame('Europe/Brussels', $after['timezone']);
     $this->assertDueOrder($after['items']);
+    $this->assertSame($after, $explicitSeven, 'The explicit seven-day horizon preserves the default read model.');
+    $this->assertSame($after, $backgroundSeven, 'Background reads retain their seven-day default.');
+    $this->assertArrayNotHasKey('Preparation due on day twenty', $afterItems);
+    $this->assertArrayNotHasKey('Preparation due on day thirty-one', $afterItems);
+
+    $extendedItems = $this->itemsByInstruction($extended['items']);
+    $this->assertArrayHasKey('Preparation due on day twenty', $extendedItems);
+    $this->assertArrayNotHasKey('Preparation due on day thirty-one', $extendedItems);
+    foreach (['Unauthorized H2 thirty day lead preparation', 'Other person preparation', 'Preparation removed by cancel', 'Preparation moved out by reschedule', 'Preparation disappears after responsibility override'] as $excluded) {
+      $this->assertArrayNotHasKey($excluded, $extendedItems);
+    }
+    $this->assertSame($fixedNow->modify('+30 days')->format(DATE_ATOM), $extended['due_window_end']);
+    $this->assertSame($fixedNow->modify('+45 days')->format(DATE_ATOM), $extended['occurrence_projection_end']);
+    $this->assertTrue($extendedItems['Active overdue preparation']['overdue']);
+    $this->assertDueOrder($extended['items']);
+
+    // One synthetic explicit completion proves that both horizon views retain
+    // the existing Prepared/To prepare groups without a GET-time mutation.
+    $candidate = $afterItems['All-day preparation'];
+    $accountSwitcher->switchTo($authorized);
+    try {
+      $completion = $this->container->get('personal_secretary.preparation_completion');
+      $this->assertTrue($completion->markPrepared(
+        (int) $candidate['_completion_series_id'],
+        (string) $candidate['_completion_original_occurrence_key'],
+        (int) $candidate['_completion_requirement_id'],
+      ));
+      $preparedThirty = $preparations->mine($fixedNow, 30);
+    }
+    finally {
+      $accountSwitcher->switchBack();
+    }
+    $this->assertTrue($this->itemsByInstruction($preparedThirty['items'])['All-day preparation']['prepared']);
 
     $accountSwitcher->switchTo($fallback);
     try {
@@ -290,6 +334,11 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $countsBefore = $this->domainCounts();
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 7 days.');
+    $this->assertSession()->linkByHrefExists($route . '?days=7');
+    $this->assertSession()->linkByHrefExists($route . '?days=30');
+    $this->assertSession()->elementExists('xpath', '//a[@aria-current="page"][contains(@href, "days=7")]');
+    $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
     $this->assertSession()->pageTextContains('Active overdue preparation');
     $this->assertSession()->pageTextContains('Long lead preparation due inside seven days');
     $this->assertSession()->pageTextContains('Preparation appears after responsibility override');
@@ -316,25 +365,61 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
     $this->assertSession()->pageTextNotContains('Preparation removed by cancel');
     $this->assertSession()->pageTextNotContains('Preparation moved out by reschedule');
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="All-day preparation"]]',
+    );
     $this->assertSame($countsBefore, $this->domainCounts());
+
+    // The wider GET-only horizon includes day 20 but excludes day 31,
+    // canceled/reassigned and unauthorized preparations.
+    $this->drupalGet($route . '?days=30');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 30 days.');
+    $this->assertSession()->elementExists('xpath', '//a[@aria-current="page"][contains(@href, "days=30")]');
+    $this->assertSession()->pageTextContains('Preparation due on day twenty');
+    $this->assertSession()->pageTextContains('Active overdue preparation');
+    $this->assertSession()->pageTextNotContains('Preparation due on day thirty-one');
+    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
+    $this->assertSession()->pageTextNotContains('Preparation disappears after responsibility override');
+    $this->assertSession()->pageTextNotContains('Preparation moved out by reschedule');
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="All-day preparation"]]',
+    );
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Thirty-day GET must not write domain data.');
+
+    // A forged, array-valued or unsupported horizon fails back to seven days.
+    foreach (['?days=7', '?days=invalid', '?days=-7', '?days=31', '?days[]=30'] as $query) {
+      $this->drupalGet($route . $query);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 7 days.');
+      $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
+      $this->assertSame($countsBefore, $this->domainCounts(), 'Reading a malformed horizon must not mutate domain data.');
+    }
     $this->drupalLogout();
 
     $this->drupalLogin($noGrant);
-    $this->drupalGet($route);
+    $this->drupalGet($route . '?days=30');
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalLogout();
 
     $this->drupalLogin($secondGranted);
-    $this->drupalGet($route);
+    $this->drupalGet($route . '?days=30');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Active overdue preparation');
     $this->assertSession()->pageTextContains('Long lead preparation due inside seven days');
+    $this->assertSession()->pageTextContains('Preparation due on day twenty');
+    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
     $this->drupalLogout();
 
     $this->drupalLogin($emptyGranted);
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 7 days.');
+    $this->drupalGet($route . '?days=30');
+    $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 30 days.');
+    $this->assertSession()->pageTextContains('No preparation shown in this period has been marked prepared.');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
     $this->assertSession()->pageTextContains('Add an activity to prepare');
     $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
@@ -384,8 +469,12 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       ])->save();
     $this->container->get('language_manager')->reset();
     $this->drupalLogin($emptyGranted);
-    $this->drupalGet('/fr/personal-secretary/preparations/mine');
+    $this->drupalGet('/fr/personal-secretary/preparations/mine?days=30');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('30 jours');
+    $this->assertSession()->pageTextContains('7 jours');
+    $this->assertSession()->pageTextContains('Aucun préparatif à venir ne vous est attribué dans les 30 prochains jours.');
+    $this->assertSession()->pageTextContains('Aucun préparatif affiché pour cette période n’a été marqué comme prêt.');
     $this->assertSession()->pageTextContains('Les préparatifs sont associés aux activités.');
     $this->assertSession()->linkExists('Ajouter une activité à préparer');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/activities/add');
@@ -448,6 +537,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       'rules' => count($manager->getStorage('personal_sec_resp_rule')->loadMultiple()),
       'overrides' => count($manager->getStorage('personal_sec_resp_override')->loadMultiple()),
       'preparations' => count($manager->getStorage('personal_sec_prep_req')->loadMultiple()),
+      'completions' => count($manager->getStorage(PreparationCompletion::ENTITY_TYPE_ID)->loadMultiple()),
     ];
   }
 
