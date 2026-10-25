@@ -89,6 +89,7 @@ final class GuidedAssistantForm extends FormBase {
       '#title' => $this->tr('Choose an action', 'Choisir une action'),
       '#options' => [
         ThreeIntentReadProposeService::GET_TODAY => $this->tr('View my day', 'Consulter ma journée'),
+        ThreeIntentReadProposeService::GET_TOMORROW => $this->tr('View tomorrow', 'Préparer demain'),
         ThreeIntentReadProposeService::PROPOSE_TASK => $this->tr('Prepare a task', 'Préparer une tâche'),
         ThreeIntentReadProposeService::PROPOSE_ACTIVITY => $this->tr('Prepare an activity', 'Préparer une activité'),
       ],
@@ -785,11 +786,15 @@ final class GuidedAssistantForm extends FormBase {
     }
     if ($status === 'READ_SUCCESS' && is_array($result['data'] ?? NULL)) {
       $data = $result['data'];
-      $build['date'] = $this->fact($this->t('Today: @date (@timezone)', [
+      $tomorrow = ($result['intent'] ?? NULL) === ThreeIntentReadProposeService::GET_TOMORROW;
+      $build['date'] = $this->fact($this->t('@day: @date (@timezone)', [
+        '@day' => $tomorrow ? $this->tr('Tomorrow', 'Demain') : $this->tr('Today', 'Aujourd’hui'),
         '@date' => (string) $data['local_date'],
         '@timezone' => (string) $data['timezone'],
       ]));
-      $build['briefing'] = $this->todayBriefing($data);
+      $build['briefing'] = $tomorrow
+        ? $this->tomorrowBriefing($data)
+        : $this->todayBriefing($data);
       foreach (['tasks', 'preparations', 'planning'] as $kind) {
         $build[$kind . '_heading'] = [
           '#type' => 'html_tag', '#tag' => 'h3',
@@ -950,7 +955,46 @@ final class GuidedAssistantForm extends FormBase {
         'Aucune tâche ni aucun préparatif en retard.',
       ));
 
-    $build['links'] = [
+    $build['links'] = $this->briefingLinks();
+    return $build;
+  }
+
+  /**
+   * Read-only evening view from the same privacy-filtered day projection.
+   */
+  private function tomorrowBriefing(array $data): array {
+    $build = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-card', 'ps-guided-assistant__briefing']],
+      'heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h3',
+        '#value' => $this->tr('Tomorrow at a glance', 'Demain en bref'),
+      ],
+    ];
+    foreach ([
+      'tasks' => [$this->tr('Tasks due tomorrow', 'Tâches à échéance demain'), count($data['tasks'])],
+      'preparations' => [$this->tr('Preparations due tomorrow', 'Préparatifs à faire demain'), count($data['preparations'])],
+      'planning' => [$this->tr('Planning items tomorrow', 'Éléments au planning demain'), count($data['planning'])],
+    ] as $key => [$label, $count]) {
+      $build[$key] = $this->fact($this->t('@label: @count', [
+        '@label' => $label,
+        '@count' => $count,
+      ]));
+    }
+    $build['notice'] = $this->fact($this->tr(
+      'A preview of currently known items, not a live calendar sync. Due or overdue items for today remain in View my day.',
+      'Un aperçu des éléments actuellement connus, sans synchronisation du calendrier en direct. Les échéances du jour et les retards restent dans Consulter ma journée.',
+    ));
+    $build['links'] = $this->briefingLinks();
+    return $build;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function briefingLinks(): array {
+    $links = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-guided-assistant__briefing-links']],
     ];
@@ -960,14 +1004,14 @@ final class GuidedAssistantForm extends FormBase {
       'preparations' => ['personal_secretary.my_preparations', $this->tr('My preparations', 'Mes préparatifs')],
       'upcoming' => ['personal_secretary.my_upcoming', $this->tr('My upcoming', 'Mes activités à venir')],
     ] as $key => [$route, $label]) {
-      $build['links'][$key] = [
+      $links[$key] = [
         '#type' => 'link',
         '#title' => $label,
         '#url' => Url::fromRoute($route),
         '#attributes' => ['class' => ['button']],
       ];
     }
-    return $build;
+    return $links;
   }
 
   private function fact(string|TranslatableMarkup $text): array {
