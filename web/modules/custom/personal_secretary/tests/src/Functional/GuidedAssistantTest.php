@@ -51,16 +51,18 @@ final class GuidedAssistantTest extends BrowserTestBase {
       ->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('Y-m-d');
     $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
     // Test fixtures are persisted in the isolated test database only.
+    $yesterday = (new \DateTimeImmutable($localDate))->modify('-1 day')->format('Y-m-d');
     foreach ([
-      ['Synthetic visible Today task', (int) $h1->id()],
-      ['Synthetic forbidden Today task', (int) $h2->id()],
-    ] as [$title, $householdId]) {
+      ['Synthetic visible Today task', (int) $h1->id(), $localDate],
+      ['Synthetic overdue Today task', (int) $h1->id(), $yesterday],
+      ['Synthetic forbidden Today task', (int) $h2->id(), $localDate],
+    ] as [$title, $householdId, $dueDate]) {
       $storage->create([
         'title' => $title,
         'household' => $householdId,
         'assigned_person' => (int) $person->id(),
         'due_mode' => PersonalTask::DUE_DATE,
-        'due_date' => $localDate,
+        'due_date' => $dueDate,
         'status' => PersonalTask::STATUS_OPEN,
       ])->save();
     }
@@ -111,7 +113,19 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->submitForm(['intent' => 'GET_TODAY'], 'Show preview');
     $this->assertSession()->pageTextContains('READ_SUCCESS');
     $this->assertSession()->pageTextContains('Synthetic visible Today task');
+    $this->assertSession()->pageTextContains('Synthetic overdue Today task');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
+    $this->assertSession()->pageTextContains('Your day at a glance');
+    $this->assertSession()->pageTextContains('Tasks due or overdue: 2');
+    $this->assertSession()->pageTextContains('Overdue tasks: 1');
+    $this->assertSession()->pageTextContains('Preparations due or overdue: 0');
+    $this->assertSession()->pageTextContains('Overdue preparations: 0');
+    $this->assertSession()->pageTextContains('Planning items: 0');
+    $this->assertSession()->pageTextContains('Some items are overdue.');
+    $this->assertSession()->pageTextContains('Overdue:');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
     $this->assertSession()->pageTextContains('Preview not saved');
     $this->assertSame($before, $this->domainCounts());
 
@@ -195,6 +209,16 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Choisir une action');
     $this->assertSession()->pageTextContains('Préparer une tâche');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/today');
+    $this->submitForm(['intent' => 'GET_TODAY'], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Votre journée en bref');
+    $this->assertSession()->pageTextContains('Tâches dues ou en retard: 2');
+    $this->assertSession()->pageTextContains('Tâches en retard: 1');
+    $this->assertSession()->pageTextContains('Certains éléments sont en retard.');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/preparations/mine');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/upcoming/mine');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
+    $this->assertSame($before, $this->domainCounts());
     $this->submitForm($task, 'Afficher l’aperçu');
     $this->assertSession()->pageTextContains('Aperçu non enregistré');
     $this->assertSession()->pageTextContains('Créer cette tâche');
