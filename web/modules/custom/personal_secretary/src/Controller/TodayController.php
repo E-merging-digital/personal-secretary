@@ -10,6 +10,7 @@ use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
 use Drupal\personal_secretary\Form\TodayTaskTransitionForm;
+use Drupal\personal_secretary\Form\TodayQuickTaskForm;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\personal_secretary\Service\TodayService;
 use InvalidArgumentException;
@@ -104,6 +105,7 @@ final class TodayController extends ControllerBase {
           '#url' => Url::fromRoute('personal_secretary.add_task'),
           '#attributes' => ['class' => ['ps-task-list__add']],
         ],
+        'quick' => $this->formBuilder()->getForm(TodayQuickTaskForm::class),
       ],
     ];
 
