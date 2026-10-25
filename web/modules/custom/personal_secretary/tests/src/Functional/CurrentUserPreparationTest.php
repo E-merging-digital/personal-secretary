@@ -373,7 +373,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
 
     // The wider GET-only horizon includes day 20 but excludes day 31,
     // canceled/reassigned and unauthorized preparations.
-    $this->drupalGet($route . '?days=30');
+    $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 30 days.');
     $this->assertSession()->elementExists('xpath', '//a[@aria-current="page"][contains(@href, "days=30")]');
@@ -390,8 +390,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSame($countsBefore, $this->domainCounts(), 'Thirty-day GET must not write domain data.');
 
     // A forged, array-valued or unsupported horizon fails back to seven days.
-    foreach (['?days=7', '?days=invalid', '?days=-7', '?days=31', '?days[]=30'] as $query) {
-      $this->drupalGet($route . $query);
+    foreach ([['days' => '7'], ['days' => 'invalid'], ['days' => '-7'], ['days' => '31'], ['days' => ['30']]] as $query) {
+      $this->drupalGet($route, ['query' => $query]);
       $this->assertSession()->statusCodeEquals(200);
       $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 7 days.');
       $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
@@ -400,12 +400,12 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalLogout();
 
     $this->drupalLogin($noGrant);
-    $this->drupalGet($route . '?days=30');
+    $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalLogout();
 
     $this->drupalLogin($secondGranted);
-    $this->drupalGet($route . '?days=30');
+    $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Active overdue preparation');
     $this->assertSession()->pageTextContains('Long lead preparation due inside seven days');
@@ -417,7 +417,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 7 days.');
-    $this->drupalGet($route . '?days=30');
+    $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 30 days.');
     $this->assertSession()->pageTextContains('No preparation shown in this period has been marked prepared.');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
@@ -469,7 +469,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       ])->save();
     $this->container->get('language_manager')->reset();
     $this->drupalLogin($emptyGranted);
-    $this->drupalGet('/fr/personal-secretary/preparations/mine?days=30');
+    $this->drupalGet('/fr/personal-secretary/preparations/mine', ['query' => ['days' => '30']]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('30 jours');
     $this->assertSession()->pageTextContains('7 jours');
