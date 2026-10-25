@@ -13,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\Person;
+use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Value\EffectiveResponsibility;
 use Drupal\user\UserInterface;
 use InvalidArgumentException;
@@ -100,6 +101,82 @@ final class TodayService {
       'local_end' => $window['local_end']->format(DateTimeInterface::ATOM),
       'utc_start' => $window['utc_start']->format(DateTimeInterface::ATOM),
       'utc_end' => $window['utc_end']->format(DateTimeInterface::ATOM),
+      'tasks' => $tasks,
+      'preparations' => $preparations,
+      'activities' => $activities,
+      'external_events' => $externalEvents,
+      'planning' => $this->planning($activities, $externalEvents),
+    ];
+  }
+
+
+  /**
+   * Previews the next local civil day from current authorized domain truth.
+   *
+   * Tomorrow is a calendar day in the viewer's timezone, not the next 24
+   * hours. The current instant remains unchanged for due/eligibility reads.
+   *
+   * @return array<string, mixed>
+   *   Same presentation shape as today(), limited to tomorrow's due items.
+   */
+  public function tomorrow(): array {
+    $user = $this->currentPersistedUser();
+    $authorizedHouseholdIds = $this->householdAuthorization->authorizedHouseholdIds($user);
+    if ($authorizedHouseholdIds === []) {
+      throw new InvalidArgumentException('Tomorrow requires at least one authorized Household.');
+    }
+    $person = $this->currentPersonResolver->resolve($user);
+    $nowUtc = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('UTC'));
+
+    $todayWindow = $this->windowFor($user, $nowUtc);
+    $localStart = $todayWindow['local_end'];
+    $localEnd = $localStart->modify('+1 day');
+    $localDate = $localStart->format('Y-m-d');
+    $utcStart = $localStart->setTimezone(new DateTimeZone('UTC'));
+    $utcEnd = $localEnd->setTimezone(new DateTimeZone('UTC'));
+
+    // PersonalTaskQueryService has already enforced active user, Household,
+    // CurrentPerson, assignment and open status before presenting each row.
+    // Its civil due labels are normalized to the same viewer timezone.
+    $tasks = array_values(array_filter(
+      $this->personalTaskQuery->myOpenTasks(),
+      static fn(array $item): bool =>
+        in_array($item['due_mode'], [PersonalTask::DUE_DATE, PersonalTask::DUE_DATE_TIME], TRUE)
+        && substr((string) $item['due_label'], 0, 10) === $localDate,
+    ));
+
+    // mine() derives future eligibility relative to the *real* current
+    // instant. Never advance now into the future to emulate a Today read.
+    $preparations = array_values(array_filter(
+      $this->currentUserPreparations->mine($nowUtc)['items'],
+      static fn(array $item): bool =>
+        ($item['prepared'] ?? FALSE) !== TRUE
+        && substr((string) $item['due_time_iso'], 0, 10) === $localDate,
+    ));
+
+    $activities = $this->activities(
+      $authorizedHouseholdIds,
+      (int) $person->id(),
+      $person->uuid(),
+      $utcStart,
+      $utcEnd,
+      $todayWindow['timezone'],
+    );
+    $externalEvents = $this->externalPlanning->today(
+      $utcStart,
+      $utcEnd,
+      $localDate,
+      $todayWindow['timezone'],
+    );
+
+    return [
+      'timezone' => $todayWindow['timezone'],
+      'local_date' => $localDate,
+      'local_start' => $localStart->format(DateTimeInterface::ATOM),
+      'local_end' => $localEnd->format(DateTimeInterface::ATOM),
+      'utc_start' => $utcStart->format(DateTimeInterface::ATOM),
+      'utc_end' => $utcEnd->format(DateTimeInterface::ATOM),
       'tasks' => $tasks,
       'preparations' => $preparations,
       'activities' => $activities,
