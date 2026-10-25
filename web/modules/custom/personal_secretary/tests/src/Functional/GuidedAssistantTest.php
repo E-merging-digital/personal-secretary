@@ -52,10 +52,13 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
     // Test fixtures are persisted in the isolated test database only.
     $yesterday = (new \DateTimeImmutable($localDate))->modify('-1 day')->format('Y-m-d');
+    $tomorrow = (new \DateTimeImmutable($localDate))->modify('+1 day')->format('Y-m-d');
     foreach ([
       ['Synthetic visible Today task', (int) $h1->id(), $localDate],
       ['Synthetic overdue Today task', (int) $h1->id(), $yesterday],
       ['Synthetic forbidden Today task', (int) $h2->id(), $localDate],
+      ['Synthetic due Tomorrow task', (int) $h1->id(), $tomorrow],
+      ['Synthetic forbidden Tomorrow task', (int) $h2->id(), $tomorrow],
     ] as [$title, $householdId, $dueDate]) {
       $storage->create([
         'title' => $title,
@@ -66,6 +69,43 @@ final class GuidedAssistantTest extends BrowserTestBase {
         'status' => PersonalTask::STATUS_OPEN,
       ])->save();
     }
+    $tomorrowAtUtc = (new \DateTimeImmutable($tomorrow . ' 00:30', new \DateTimeZone('Europe/Brussels')))
+      ->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s');
+    $storage->create([
+      'title' => 'Synthetic timed Tomorrow task',
+      'household' => (int) $h1->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_DATE_TIME,
+      'due_at' => $tomorrowAtUtc,
+      'status' => PersonalTask::STATUS_OPEN,
+    ])->save();
+
+    // A one-off local activity and an unprepared requirement due tomorrow.
+    $tomorrowStart = new \DateTimeImmutable($tomorrow . ' 14:00', new \DateTimeZone('Europe/Brussels'));
+    $tomorrowEnd = $tomorrowStart->modify('+1 hour');
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $responsibility = $this->container->get('personal_secretary.responsibility_mutation');
+    $preparation = $this->container->get('personal_secretary.preparation_requirement_mutation');
+    $series = $domain->createActivitySeries(
+      'Synthetic Tomorrow local activity', (int) $h1->id(),
+      $tomorrowStart, $tomorrowEnd, 'FREQ=DAILY;COUNT=1',
+    );
+    $responsibility->createResponsibilityRule(
+      $series, (int) $person->id(), $tomorrowStart, $tomorrowEnd, 'FREQ=DAILY;COUNT=1',
+    );
+    $dueAt = $tomorrowStart->modify('-4 hours');
+    $preparation->createPreparationRequirement(
+      $series, 'Synthetic Tomorrow preparation',
+      $tomorrowStart->getTimestamp() - $dueAt->getTimestamp(),
+      $tomorrowStart->modify('-10 days'),
+    );
+    $forbiddenSeries = $domain->createActivitySeries(
+      'Synthetic forbidden Tomorrow activity', (int) $h2->id(),
+      $tomorrowStart, $tomorrowEnd, 'FREQ=DAILY;COUNT=1',
+    );
+    $responsibility->createResponsibilityRule(
+      $forbiddenSeries, (int) $person->id(), $tomorrowStart, $tomorrowEnd, 'FREQ=DAILY;COUNT=1',
+    );
 
     $this->drupalLogin($ordinary);
     $this->drupalGet($route);
@@ -102,6 +142,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/today');
     $this->assertSession()->pageTextContains('Choose an action');
     $this->assertSession()->pageTextContains('View my day');
+    $this->assertSession()->pageTextContains('View tomorrow');
     $this->assertSession()->pageTextContains('Prepare a task');
     $this->assertSession()->pageTextContains('Prepare an activity');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
@@ -128,6 +169,25 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
     $this->assertSession()->pageTextContains('Preview not saved');
     $this->assertSame($before, $this->domainCounts());
+
+    $this->submitForm(['intent' => 'GET_TOMORROW'], 'Show preview');
+    $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $this->assertSession()->pageTextContains('Tomorrow: ' . $tomorrow . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('Tomorrow at a glance');
+    $this->assertSession()->pageTextContains('Tasks due tomorrow: 2');
+    $this->assertSession()->pageTextContains('Preparations due tomorrow: 1');
+    $this->assertSession()->pageTextContains('Planning items tomorrow: 1');
+    $this->assertSession()->pageTextContains('Synthetic due Tomorrow task');
+    $this->assertSession()->pageTextContains('Synthetic timed Tomorrow task');
+    $this->assertSession()->pageTextContains('Synthetic Tomorrow preparation');
+    $this->assertSession()->pageTextContains('Synthetic Tomorrow local activity');
+    $this->assertSession()->pageTextContains($tomorrow . ' 00:30');
+    $this->assertSession()->pageTextNotContains('Synthetic visible Today task');
+    $this->assertSession()->pageTextNotContains('Synthetic overdue Today task');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow task');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow activity');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
+    $this->assertSame($before, $this->domainCounts(), 'Tomorrow preview must be read-only.');
 
     $task = ['intent' => 'PROPOSE_TASK', 'task_title' => 'Synthetic guided task', 'task_due_mode' => PersonalTask::DUE_NONE];
     $this->submitForm($task, 'Show preview');
@@ -218,6 +278,14 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/preparations/mine');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/upcoming/mine');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
+    $this->assertSame($before, $this->domainCounts());
+    $this->submitForm(['intent' => 'GET_TOMORROW'], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Demain en bref');
+    $this->assertSession()->pageTextContains('Tâches à échéance demain: 2');
+    $this->assertSession()->pageTextContains('Préparatifs à faire demain: 1');
+    $this->assertSession()->pageTextContains('Synthetic timed Tomorrow task');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow task');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/upcoming/mine');
     $this->assertSame($before, $this->domainCounts());
     $this->submitForm($task, 'Afficher l’aperçu');
     $this->assertSession()->pageTextContains('Aperçu non enregistré');
