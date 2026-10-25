@@ -789,6 +789,7 @@ final class GuidedAssistantForm extends FormBase {
         '@date' => (string) $data['local_date'],
         '@timezone' => (string) $data['timezone'],
       ]));
+      $build['briefing'] = $this->todayBriefing($data);
       foreach (['tasks', 'preparations', 'planning'] as $kind) {
         $build[$kind . '_heading'] = [
           '#type' => 'html_tag', '#tag' => 'h3',
@@ -802,16 +803,23 @@ final class GuidedAssistantForm extends FormBase {
           $build[$kind . '_empty'] = $this->fact($this->tr('No items for this section.', 'Aucun élément pour cette section.'));
         }
         foreach ($data[$kind] as $index => $item) {
-          $label = $kind === 'tasks' ? $item['title']
-            : ($kind === 'preparations' ? $item['instruction'] : $item['title']);
-          $extra = $kind === 'planning'
-            ? ($item['kind'] === 'external_event'
-              ? $this->tr(' — external data stored locally; freshness not verified.',
-                ' — données externes enregistrées localement ; actualisation non vérifiée.')
-              : $this->tr(' — local activity.', ' — activité locale.'))
-            : '';
+          if ($kind === 'tasks' || $kind === 'preparations') {
+            $label = $kind === 'tasks' ? (string) $item['title'] : (string) $item['instruction'];
+            $due = $kind === 'tasks' ? (string) $item['due_label'] : (string) $item['due_time'];
+            $when = $item['overdue']
+              ? $this->tr('Overdue', 'En retard')
+              : $this->tr('Due', 'Échéance');
+            $build[$kind . '_' . $index] = $this->fact($this->t('@label — @when: @due', [
+              '@label' => $label, '@when' => $when, '@due' => $due,
+            ]));
+            continue;
+          }
+          $extra = $item['kind'] === 'external_event'
+            ? $this->tr(' — external data stored locally; freshness not verified.',
+              ' — données externes enregistrées localement ; actualisation non vérifiée.')
+            : $this->tr(' — local activity.', ' — activité locale.');
           $build[$kind . '_' . $index] = $this->fact($this->t('@label@extra', [
-            '@label' => (string) $label, '@extra' => (string) $extra,
+            '@label' => (string) $item['title'], '@extra' => $extra,
           ]));
         }
       }
@@ -890,6 +898,74 @@ final class GuidedAssistantForm extends FormBase {
           '@end' => (string) $data['local_end_time'],
         ]));
       }
+    }
+    return $build;
+  }
+
+
+  /**
+   * Read-only briefing composed solely from the authorized GET_TODAY snapshot.
+   *
+   * @param array<string, mixed> $data
+   *   Whitelisted presentation data, not provider payloads or entity IDs.
+   */
+  private function todayBriefing(array $data): array {
+    $taskOverdue = count(array_filter(
+      $data['tasks'],
+      static fn(array $item): bool => (bool) $item['overdue'],
+    ));
+    $preparationOverdue = count(array_filter(
+      $data['preparations'],
+      static fn(array $item): bool => (bool) $item['overdue'],
+    ));
+
+    $build = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-card', 'ps-guided-assistant__briefing']],
+      'heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h3',
+        '#value' => $this->tr('Your day at a glance', 'Votre journée en bref'),
+      ],
+    ];
+    foreach ([
+      'tasks' => [$this->tr('Tasks due or overdue', 'Tâches dues ou en retard'), count($data['tasks'])],
+      'tasks_overdue' => [$this->tr('Overdue tasks', 'Tâches en retard'), $taskOverdue],
+      'preparations' => [$this->tr('Preparations due or overdue', 'Préparatifs dus ou en retard'), count($data['preparations'])],
+      'preparations_overdue' => [$this->tr('Overdue preparations', 'Préparatifs en retard'), $preparationOverdue],
+      'planning' => [$this->tr('Planning items', 'Éléments du planning'), count($data['planning'])],
+    ] as $key => [$label, $count]) {
+      $build[$key] = $this->fact($this->t('@label: @count', [
+        '@label' => $label,
+        '@count' => $count,
+      ]));
+    }
+    $build['attention'] = $this->fact($taskOverdue + $preparationOverdue > 0
+      ? $this->tr(
+        'Some items are overdue. Check the lists below before planning your day.',
+        'Certains éléments sont en retard. Vérifiez les listes ci-dessous avant de planifier votre journée.',
+      )
+      : $this->tr(
+        'No overdue tasks or preparations.',
+        'Aucune tâche ni aucun préparatif en retard.',
+      ));
+
+    $build['links'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-guided-assistant__briefing-links']],
+    ];
+    foreach ([
+      'today' => ['personal_secretary.today', $this->tr('Today', 'Aujourd’hui')],
+      'tasks' => ['personal_secretary.my_tasks', $this->tr('My tasks', 'Mes tâches')],
+      'preparations' => ['personal_secretary.my_preparations', $this->tr('My preparations', 'Mes préparatifs')],
+      'upcoming' => ['personal_secretary.my_upcoming', $this->tr('My upcoming', 'Mes activités à venir')],
+    ] as $key => [$route, $label]) {
+      $build['links'][$key] = [
+        '#type' => 'link',
+        '#title' => $label,
+        '#url' => Url::fromRoute($route),
+        '#attributes' => ['class' => ['button']],
+      ];
     }
     return $build;
   }
