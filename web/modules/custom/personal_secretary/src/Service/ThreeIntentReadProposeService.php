@@ -21,6 +21,7 @@ use RuntimeException;
 final class ThreeIntentReadProposeService {
 
   public const GET_TODAY = 'GET_TODAY';
+  public const GET_TOMORROW = 'GET_TOMORROW';
   public const PROPOSE_TASK = 'PROPOSE_TASK';
   public const PROPOSE_ACTIVITY = 'PROPOSE_ACTIVITY';
 
@@ -39,7 +40,8 @@ final class ThreeIntentReadProposeService {
    */
   public function handle(string $intent, array $input = []): array {
     return match ($intent) {
-      self::GET_TODAY => $this->getToday($input),
+      self::GET_TODAY => $this->getDay(self::GET_TODAY, $input),
+      self::GET_TOMORROW => $this->getDay(self::GET_TOMORROW, $input),
       self::PROPOSE_TASK => $this->proposeTask($input),
       self::PROPOSE_ACTIVITY => $this->proposeActivity($input),
       default => $this->result($intent, 'NONE', 'UNAVAILABLE', NULL, ['unsupported_intent']),
@@ -49,15 +51,17 @@ final class ThreeIntentReadProposeService {
   /**
    * @param array<string, mixed> $input
    */
-  private function getToday(array $input): array {
+  private function getDay(string $intent, array $input): array {
     if ($input !== []) {
-      return $this->result(self::GET_TODAY, 'READ', 'UNAVAILABLE', NULL, ['unexpected_input']);
+      return $this->result($intent, 'READ', 'UNAVAILABLE', NULL, ['unexpected_input']);
     }
     try {
-      $today = $this->today->today();
+      $day = $intent === self::GET_TOMORROW
+        ? $this->today->tomorrow()
+        : $this->today->today();
     }
     catch (InvalidArgumentException|RuntimeException) {
-      return $this->result(self::GET_TODAY, 'READ', 'ACCESS_DENIED', NULL, ['authorized_today_scope_required']);
+      return $this->result($intent, 'READ', 'ACCESS_DENIED', NULL, ['authorized_today_scope_required']);
     }
 
     // Whitelist presentation data; no entity ID, provider payload, or token.
@@ -66,12 +70,12 @@ final class ThreeIntentReadProposeService {
       'due_mode' => (string) $row['due_mode'],
       'due_label' => (string) $row['due_label'],
       'overdue' => (bool) $row['overdue'],
-    ], $today['tasks']);
+    ], $day['tasks']);
     $preparations = array_map(static fn(array $row): array => [
       'instruction' => (string) $row['instruction'],
       'due_time' => (string) $row['due_time'],
       'overdue' => (bool) $row['overdue'],
-    ], $today['preparations']);
+    ], $day['preparations']);
     $planning = array_map(static function (array $entry): array {
       $row = $entry['item'];
       $external = $entry['kind'] === 'external_event';
@@ -87,13 +91,13 @@ final class ThreeIntentReadProposeService {
         'editability' => $external ? (string) $row['editability'] : 'READ_ONLY_CAPABILITY',
         'source_freshness' => $external ? 'AS_STORED_NOT_LIVE_VERIFIED' : 'LOCAL_DOMAIN',
       ];
-    }, $today['planning']);
+    }, $day['planning']);
 
-    return $this->result(self::GET_TODAY, 'READ', 'READ_SUCCESS', [
-      'timezone' => (string) $today['timezone'],
-      'local_date' => (string) $today['local_date'],
-      'local_start' => (string) $today['local_start'],
-      'local_end' => (string) $today['local_end'],
+    return $this->result($intent, 'READ', 'READ_SUCCESS', [
+      'timezone' => (string) $day['timezone'],
+      'local_date' => (string) $day['local_date'],
+      'local_start' => (string) $day['local_start'],
+      'local_end' => (string) $day['local_end'],
       'tasks' => array_values($tasks),
       'preparations' => array_values($preparations),
       'planning' => array_values($planning),
