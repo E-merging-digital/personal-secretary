@@ -361,7 +361,8 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
 
     $this->drupalGet($futureEditUrl);
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->fieldExists('effective_from_date');
+    $this->assertSession()->elementNotExists('css', 'input[type="date"][name="effective_from_date"]');
+    $this->assertSession()->elementExists('css', 'input[type="hidden"][name="effective_from_date"]');
     $this->assertSession()->fieldExists('mode');
 
     $this->drupalGet($recurringEditUrl);
@@ -376,6 +377,119 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
       $futureOneOff,
       $recurring,
     ]));
+  }
+
+  /**
+   * A future one-off derives its sole effective date from the occurrence.
+   */
+  public function testOneOffTimeCommitmentHasNoEditableEffectiveDate(): void {
+    $this->installUserPersonFieldViaEntityApi();
+
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    /** @var \Drupal\personal_secretary\Service\AddActivityService $addActivity */
+    $addActivity = $this->container->get('personal_secretary.add_activity');
+
+    $timezone = new DateTimeZone('Europe/Brussels');
+    $today = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone($timezone)
+      ->setTime(0, 0);
+    $timedStart = $today->modify('+9 days')->setTime(10, 15);
+    $allDayStart = $today->modify('+10 days');
+    $recurringStart = $today->modify('+11 days')->setTime(14, 0);
+
+    $person = $domain->createPerson('One-off Time Commitment Person');
+    $household = $domain->createHousehold(
+      'One-off Time Commitment Household',
+      [(int) $person->id()],
+    );
+    $timed = $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'One-off timed commitment',
+      $timedStart,
+      $timedStart->modify('+45 minutes'),
+    );
+    $allDay = $addActivity->addOneOffActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'One-off all-day commitment',
+      $allDayStart,
+      $allDayStart->modify('+1 day'),
+      '',
+      0,
+      '',
+      [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $recurring = $addActivity->addWeeklyActivity(
+      (int) $household->id(),
+      (int) $person->id(),
+      'Weekly recurring commitment',
+      $recurringStart,
+      $recurringStart->modify('+1 hour'),
+    );
+
+    $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
+    $authorized->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
+    $authorized->save();
+    $this->drupalLogin($authorized);
+
+    $seriesRevisions = $this->seriesRevisions([$timed, $allDay, $recurring]);
+    $commitmentStorage = $this->container->get('entity_type.manager')
+      ->getStorage(TimeCommitmentRule::ENTITY_TYPE_ID);
+    $this->assertCount(0, $commitmentStorage->loadMultiple());
+
+    $this->drupalGet($this->timeCommitmentEditUrl($timed));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Date and time of this activity');
+    $this->assertSession()->pageTextContains($timedStart->format('Y-m-d H:i'));
+    $this->assertSession()->pageTextContains('This activity happens once, so its effective date is set automatically.');
+    $this->assertSession()->elementNotExists('css', 'input[type="date"][name="effective_from_date"]');
+    $this->assertSession()->elementExists('css', 'input[type="hidden"][name="effective_from_date"][data-ps-time-commitment-date]');
+    $this->assertSession()->fieldExists('mode');
+    $this->assertCount(0, $commitmentStorage->loadMultiple());
+
+    // The effective transition is the actual future occurrence (not the
+    // default next-day boundary) without any editable date form field.
+    $this->submitForm([
+      'mode' => EditTimeCommitmentService::MODE_FULL_OCCURRENCE,
+    ], 'Save time commitment');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $rules = array_values($commitmentStorage->loadMultiple());
+    $this->assertCount(1, $rules);
+    $this->assertSame(
+      $timedStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s'),
+      (string) $rules[0]->get('effective_from')->value,
+    );
+
+    $this->drupalGet($this->timeCommitmentEditUrl($allDay));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Date of this activity');
+    $this->assertSession()->pageTextContains($allDayStart->format('Y-m-d'));
+    $this->assertSession()->elementNotExists('css', 'input[type="date"][name="effective_from_date"]');
+    $this->assertSession()->elementExists('css', 'input[type="hidden"][name="effective_from_date"]');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertCount(1, $commitmentStorage->loadMultiple());
+
+    $this->drupalGet($this->timeCommitmentEditUrl($allDay));
+    $this->submitForm([
+      'mode' => EditTimeCommitmentService::MODE_FULL_OCCURRENCE,
+    ], 'Save time commitment');
+    $rules = array_values($commitmentStorage->loadMultiple());
+    $this->assertCount(2, $rules);
+    $this->assertContains(
+      $allDayStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s'),
+      array_map(static fn(TimeCommitmentRule $rule): string => (string) $rule->get('effective_from')->value, $rules),
+    );
+
+    $this->drupalGet($this->timeCommitmentEditUrl($recurring));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Effective from date');
+    $this->assertSession()->elementExists('css', 'input[type="date"][name="effective_from_date"]');
+    $this->assertSession()->elementNotExists('css', 'input[type="hidden"][name="effective_from_date"]');
+    $this->assertSame($seriesRevisions, $this->seriesRevisions([$timed, $allDay, $recurring]));
   }
 
   /**

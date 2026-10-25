@@ -1335,3 +1335,12 @@ msgstr "La date choisie définit aussi le nouveau jour de la semaine (par exempl
 # Explicit explanation when Google export is ineligible (#310).
 msgid "Google Calendar is only available for one-off activities you are responsible for and that occupy your time. If you manage this activity, check its time settings under Activity settings."
 msgstr "Google Agenda est proposé uniquement pour les activités ponctuelles dont vous êtes responsable et qui occupent votre temps. Si vous gérez cette activité, vérifiez ses paramètres horaires dans « Paramètres de l’activité »."
+
+msgid "Date of this activity"
+msgstr "Date de cette activité"
+
+msgid "Date and time of this activity"
+msgstr "Date et heure de cette activité"
+
+msgid "This activity happens once, so its effective date is set automatically."
+msgstr "Cette activité n’a lieu qu’une fois : sa date d’effet est définie automatiquement."

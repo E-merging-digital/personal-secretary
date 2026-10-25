@@ -9,6 +9,7 @@ use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\EditTimeCommitmentService;
 use InvalidArgumentException;
 use RuntimeException;
@@ -61,14 +62,37 @@ final class EditTimeCommitmentForm extends FormBase {
         ? $this->t('Yes, for the full activity')
         : $this->t('No'),
     ];
-    $form['effective_from_date'] = [
-      '#type' => 'date',
-      '#title' => $this->t('Effective from date'),
-      '#description' => $this->t('Changes take effect from the first future occurrence on or after this date in the activity\'s timezone. Earlier occurrences stay unchanged.'),
-      '#default_value' => $context['default_effective_date'],
-      '#required' => TRUE,
-      '#attributes' => ['data-ps-time-commitment-date' => ''],
-    ];
+    if ($context['is_one_off']) {
+      $isAllDay = $context['series']->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
+      $localStart = (string) $context['one_off_occurrence_local_start'];
+      $form['occurrence_date'] = [
+        '#type' => 'item',
+        '#title' => $isAllDay
+          ? $this->t('Date of this activity')
+          : $this->t('Date and time of this activity'),
+        '#markup' => Html::escape($isAllDay
+          ? substr($localStart, 0, 10)
+          : str_replace('T', ' ', substr($localStart, 0, 16))),
+        '#description' => $this->t('This activity happens once, so its effective date is set automatically.'),
+      ];
+      // Keep the existing progressive-enhancement selector, but never trust
+      // the hidden date on submission: the server re-derives the sole date.
+      $form['effective_from_date'] = [
+        '#type' => 'hidden',
+        '#value' => $context['default_effective_date'],
+        '#attributes' => ['data-ps-time-commitment-date' => ''],
+      ];
+    }
+    else {
+      $form['effective_from_date'] = [
+        '#type' => 'date',
+        '#title' => $this->t('Effective from date'),
+        '#description' => $this->t('Changes take effect from the first future occurrence on or after this date in the activity\'s timezone. Earlier occurrences stay unchanged.'),
+        '#default_value' => $context['default_effective_date'],
+        '#required' => TRUE,
+        '#attributes' => ['data-ps-time-commitment-date' => ''],
+      ];
+    }
     $form['mode'] = [
       '#type' => 'radios',
       '#title' => $this->t('Does this activity occupy your time?'),
@@ -117,7 +141,7 @@ final class EditTimeCommitmentForm extends FormBase {
     try {
       $this->timeCommitmentEditor->prepare(
         $this->seriesId(),
-        (string) $form_state->getValue('effective_from_date'),
+        $this->effectiveDate($form_state),
         (string) $form_state->getValue('mode'),
       );
     }
@@ -133,7 +157,7 @@ final class EditTimeCommitmentForm extends FormBase {
     try {
       $this->timeCommitmentEditor->apply(
         $this->seriesId(),
-        (string) $form_state->getValue('effective_from_date'),
+        $this->effectiveDate($form_state),
         (string) $form_state->getValue('mode'),
       );
     }
@@ -154,6 +178,17 @@ final class EditTimeCommitmentForm extends FormBase {
     catch (InvalidArgumentException | RuntimeException $exception) {
       throw new NotFoundHttpException('The requested time commitment cannot be edited.', $exception);
     }
+  }
+
+  /**
+   * One-off changes always target their sole future effective occurrence;
+   * the submitted hidden form value is never trusted.
+   */
+  private function effectiveDate(FormStateInterface $form_state): string {
+    $context = $this->resolveContext();
+    return $context['is_one_off']
+      ? $context['default_effective_date']
+      : (string) $form_state->getValue('effective_from_date');
   }
 
   private function seriesId(): int {
