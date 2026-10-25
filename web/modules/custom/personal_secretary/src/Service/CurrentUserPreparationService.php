@@ -40,17 +40,26 @@ final class CurrentUserPreparationService {
     private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
-  public function mine(?DateTimeImmutable $nowUtc = NULL): array {
-    return $this->mineForUser($this->currentPersistedUser(), $nowUtc);
+  public function mine(?DateTimeImmutable $nowUtc = NULL, int $windowDays = self::DEFAULT_WINDOW_DAYS): array {
+    return $this->mineForUser($this->currentPersistedUser(), $nowUtc, $windowDays);
   }
 
   /**
    * Account-parameterized equivalent of mine() for background product work.
+   *
+   * The seven-day default remains unchanged for reminders and other consumers.
    */
-  public function mineForUser(UserInterface $user, ?DateTimeImmutable $nowUtc = NULL): array {
+  public function mineForUser(
+    UserInterface $user,
+    ?DateTimeImmutable $nowUtc = NULL,
+    int $windowDays = self::DEFAULT_WINDOW_DAYS,
+  ): array {
+    if (!in_array($windowDays, [self::DEFAULT_WINDOW_DAYS, 30], TRUE)) {
+      throw new InvalidArgumentException('Preparation horizon must be 7 or 30 days.');
+    }
     $user = $this->persistedActiveUser($user);
     $nowUtc = $nowUtc === NULL ? $this->nowUtc() : $this->utc($nowUtc);
-    $windowEnd = $nowUtc->modify('+' . self::DEFAULT_WINDOW_DAYS . ' days');
+    $windowEnd = $nowUtc->modify('+' . $windowDays . ' days');
 
     return $this->readActiveDueBefore($user, $nowUtc, $nowUtc, $windowEnd);
   }

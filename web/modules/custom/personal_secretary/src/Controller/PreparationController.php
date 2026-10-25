@@ -11,6 +11,7 @@ use Drupal\personal_secretary\Service\CurrentUserPreparationService;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /**
  * Renders the derived current-user preparation surface.
@@ -19,17 +20,23 @@ final class PreparationController extends ControllerBase {
 
   public function __construct(
     private readonly CurrentUserPreparationService $currentUserPreparations,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.current_user_preparation'),
+      $container->get('request_stack'),
     );
   }
 
   public function mine(): array {
+    // Read raw input so arrays or forged values safely fall back to seven days.
+    $query = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
+    $windowDays = ($query['days'] ?? NULL) === '30' ? 30 : 7;
+
     try {
-      $model = $this->currentUserPreparations->mine();
+      $model = $this->currentUserPreparations->mine(NULL, $windowDays);
     }
     catch (InvalidArgumentException) {
       $build = [
@@ -63,11 +70,37 @@ final class PreparationController extends ControllerBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-preparation-surface']],
       '#cache' => ['max-age' => 0],
+      'horizon' => [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['ps-preparation-horizon'],
+          'role' => 'group',
+          'aria-label' => (string) $this->t('Preparation horizon'),
+        ],
+        'seven' => [
+          '#type' => 'link',
+          '#title' => $this->t('7 days'),
+          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['days' => 7]]),
+          '#attributes' => [
+            'class' => $windowDays === 7 ? ['button', 'button--primary'] : ['button'],
+          ] + ($windowDays === 7 ? ['aria-current' => 'page'] : []),
+        ],
+        'thirty' => [
+          '#type' => 'link',
+          '#title' => $this->t('30 days'),
+          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['days' => 30]]),
+          '#attributes' => [
+            'class' => $windowDays === 30 ? ['button', 'button--primary'] : ['button'],
+          ] + ($windowDays === 30 ? ['aria-current' => 'page'] : []),
+        ],
+      ],
       'window' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-preparation-window']],
-        '#value' => $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
+        '#value' => $windowDays === 30
+          ? $this->t('Showing active overdue preparations and preparations due in the next 30 days.')
+          : $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
       ],
       'to_prepare' => [
         '#type' => 'container',
@@ -95,7 +128,9 @@ final class PreparationController extends ControllerBase {
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-empty-state']],
         '#value' => $model['items'] === []
-          ? $this->t('No upcoming preparations are assigned to you in the next 7 days.')
+          ? ($windowDays === 30
+            ? $this->t('No upcoming preparations are assigned to you in the next 30 days.')
+            : $this->t('No upcoming preparations are assigned to you in the next 7 days.'))
           : $this->t('Nothing currently needs preparation.'),
       ];
       if ($model['items'] === []) {
@@ -131,7 +166,7 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-empty-state']],
-        '#value' => $this->t('No current preparation has been marked prepared.'),
+        '#value' => $this->t('No preparation shown in this period has been marked prepared.'),
       ];
     }
     else {

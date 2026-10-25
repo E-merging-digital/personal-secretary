@@ -1344,3 +1344,22 @@ msgstr "Date et heure de cette activité"
 
 msgid "This activity happens once, so its effective date is set automatically."
 msgstr "Cette activité n’a lieu qu’une fois : sa date d’effet est définie automatiquement."
+
+# Preparation horizon selector and bounded thirty-day read (#320).
+msgid "7 days"
+msgstr "7 jours"
+
+msgid "30 days"
+msgstr "30 jours"
+
+msgid "Preparation horizon"
+msgstr "Horizon des préparatifs"
+
+msgid "Showing active overdue preparations and preparations due in the next 30 days."
+msgstr "Affichage des préparatifs actifs en retard et de ceux arrivant à échéance dans les 30 prochains jours."
+
+msgid "No upcoming preparations are assigned to you in the next 30 days."
+msgstr "Aucun préparatif à venir ne vous est attribué dans les 30 prochains jours."
+
+msgid "No preparation shown in this period has been marked prepared."
+msgstr "Aucun préparatif affiché pour cette période n’a été marqué comme prêt."
