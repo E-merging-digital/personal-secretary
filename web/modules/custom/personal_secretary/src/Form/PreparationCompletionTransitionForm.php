@@ -4,10 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\HtmlCommand;
+use Drupal\Core\Ajax\InvokeCommand;
+use Drupal\Core\Ajax\ReplaceCommand;
+use Drupal\Core\DependencyInjection\ClassResolverInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Url;
+use Drupal\personal_secretary\Controller\PreparationController;
 use Drupal\personal_secretary\Service\PreparationCompletionService;
 use InvalidArgumentException;
 use RuntimeException;
@@ -22,12 +28,14 @@ final class PreparationCompletionTransitionForm extends FormBase {
   public function __construct(
     private readonly PreparationCompletionService $completionService,
     private readonly RouteMatchInterface $currentRouteMatch,
+    private readonly ClassResolverInterface $classResolver,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.preparation_completion'),
       $container->get('current_route_match'),
+      $container->get('class_resolver'),
     );
   }
 
@@ -93,10 +101,63 @@ final class PreparationCompletionTransitionForm extends FormBase {
       ],
     ];
 
+    if ($returnSurface === 'mine') {
+      // Progressive enhancement: Today and non-JavaScript POST/PRG stay intact.
+      $form['submit']['#ajax'] = [
+        'callback' => '::ajaxTransition',
+        'wrapper' => 'ps-preparation-live',
+        'progress' => ['type' => 'throbber'],
+      ];
+    }
+
     return $form;
   }
 
+  /**
+   * Rebuilds only the authorized current-user lists after an AJAX POST.
+   */
+  public function ajaxTransition(array &$form, FormStateInterface $form_state): AjaxResponse {
+    $response = new AjaxResponse();
+    $result = $form_state->get('preparation_transition_result');
+    if (!is_array($result) || empty($result['ok'])) {
+      $response->addCommand(new HtmlCommand('#ps-preparation-feedback', [
+        '#plain_text' => (string) ($result['message'] ?? $this->t('This preparation action is no longer authorized or valid.')),
+      ]));
+      return $response;
+    }
+
+    // Re-read the domain model with the active identity, including the bounded
+    // ?days=30 query; never reconstruct a row from a browser-provided state.
+    $controller = $this->classResolver->getInstanceFromDefinition(PreparationController::class);
+    $surface = $controller->mine();
+    if (!isset($surface['sections'])) {
+      $response->addCommand(new HtmlCommand('#ps-preparation-feedback', [
+        '#plain_text' => (string) $this->t('This preparation action is no longer authorized or valid.'),
+      ]));
+      return $response;
+    }
+
+    $response->addCommand(new ReplaceCommand('#ps-preparation-live', $surface['sections']));
+    $response->addCommand(new HtmlCommand('#ps-preparation-feedback', [
+      '#plain_text' => (string) $result['message'],
+    ]));
+    $rowSelector = '#' . self::rowId($this->seriesId(), $this->originalOccurrenceKey(), $this->requirementId());
+    // The inverse action is the next keyboard target after a successful move.
+    $response->addCommand(new InvokeCommand($rowSelector . ' .ps-preparation-action-form__submit', 'focus'));
+    return $response;
+  }
+
+  /**
+   * A stable opaque DOM target shared with the current-user list renderer.
+   */
+  public static function rowId(int $seriesId, string $occurrenceKey, int $requirementId): string {
+    return 'ps-preparation-row-' . substr(hash('sha256', $seriesId . "\0" . $occurrenceKey . "\0" . $requirementId), 0, 16);
+  }
+
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $returnSurface = $this->returnSurface();
+    $isAjax = $returnSurface === 'mine' && $this->getRequest()->isXmlHttpRequest();
+
     try {
       if ($this->action() === 'prepared') {
         $created = $this->completionService->markPrepared(
@@ -104,33 +165,48 @@ final class PreparationCompletionTransitionForm extends FormBase {
           $this->originalOccurrenceKey(),
           $this->requirementId(),
         );
-        $this->messenger()->addStatus($created
+        $message = $created
           ? $this->t('Preparation marked prepared.')
-          : $this->t('Preparation was already marked prepared.'));
-        $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($this->returnSurface()));
-        return;
+          : $this->t('Preparation was already marked prepared.');
       }
-
-      if ($this->action() === 'not_prepared') {
+      elseif ($this->action() === 'not_prepared') {
         $deleted = $this->completionService->markNotPrepared(
           $this->seriesId(),
           $this->originalOccurrenceKey(),
           $this->requirementId(),
         );
-        $this->messenger()->addStatus($deleted
+        $message = $deleted
           ? $this->t('Preparation marked not prepared.')
-          : $this->t('Preparation was already not prepared.'));
-        $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($this->returnSurface()));
-        return;
+          : $this->t('Preparation was already not prepared.');
+      }
+      else {
+        throw new NotFoundHttpException('Unknown preparation completion action.');
+      }
+
+      if ($isAjax) {
+        $form_state->set('preparation_transition_result', [
+          'ok' => TRUE,
+          'message' => (string) $message,
+        ]);
+      }
+      else {
+        $this->messenger()->addStatus($message);
+        $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($returnSurface));
       }
     }
     catch (InvalidArgumentException|RuntimeException) {
-      $this->messenger()->addError($this->t('This preparation action is no longer authorized or valid.'));
-      $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($this->returnSurface()));
-      return;
+      $message = $this->t('This preparation action is no longer authorized or valid.');
+      if ($isAjax) {
+        $form_state->set('preparation_transition_result', [
+          'ok' => FALSE,
+          'message' => (string) $message,
+        ]);
+      }
+      else {
+        $this->messenger()->addError($message);
+        $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($returnSurface));
+      }
     }
-
-    throw new NotFoundHttpException('Unknown preparation completion action.');
   }
 
   private function action(): string {

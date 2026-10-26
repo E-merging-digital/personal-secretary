@@ -102,6 +102,16 @@ final class PreparationController extends ControllerBase {
           ? $this->t('Showing active overdue preparations and preparations due in the next 30 days.')
           : $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
       ],
+      'feedback' => [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'ps-preparation-feedback',
+          'class' => ['ps-preparation-feedback'],
+          'role' => 'status',
+          'aria-live' => 'polite',
+          'aria-atomic' => 'true',
+        ],
+      ],
       'to_prepare' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-preparation-section']],
@@ -179,6 +189,20 @@ final class PreparationController extends ControllerBase {
       }
     }
 
+    // Only these two lists are refreshed after an inline completion action.
+    // Horizon navigation and its URL remain in the original document.
+    $build['sections'] = [
+      '#type' => 'container',
+      '#cache' => ['max-age' => 0],
+      '#attributes' => [
+        'id' => 'ps-preparation-live',
+        'class' => ['ps-preparation-live'],
+      ],
+      'to_prepare' => $build['to_prepare'],
+      'prepared' => $build['prepared'],
+    ];
+    unset($build['to_prepare'], $build['prepared']);
+
     return $build;
   }
 
@@ -191,6 +215,11 @@ final class PreparationController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => [
+        'id' => PreparationCompletionTransitionForm::rowId(
+          (int) $item['_completion_series_id'],
+          (string) $item['_completion_original_occurrence_key'],
+          (int) $item['_completion_requirement_id'],
+        ),
         'class' => [
           'ps-preparation-row',
           $prepared ? 'ps-preparation-row--prepared' : 'ps-preparation-row--pending',
