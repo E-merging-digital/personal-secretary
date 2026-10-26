@@ -70,7 +70,7 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic AJAX private preparation');
     $this->assertSession()->elementExists('css', 'a[aria-current="page"][href$="days=30"]');
     $this->assertSame('status', $this->assertSession()->elementExists('css', '#ps-preparation-feedback')->getAttribute('role'));
-    $this->getSession()->executeScript('window.psPreparationAjaxPage = "same-document";');
+    $this->getSession()->executeScript('window.psPreparationAjaxPage = "same-document"; window.psPreparationAjaxErrors = []; window.addEventListener("error", (e) => window.psPreparationAjaxErrors.push(e.message));');
 
     $rowId = $this->rowId('Synthetic AJAX day twenty-one preparation');
     $this->clickAction('Synthetic AJAX day twenty-one preparation', 'Mark prepared');
@@ -137,11 +137,23 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
   }
 
   private function waitForRowState(string $rowId, string $state): void {
-    $this->assertNotNull($this->assertSession()->waitForElement(
+    $element = $this->assertSession()->waitForElement(
       'css',
       '#' . $rowId . '.ps-preparation-row--' . $state,
       10000,
-    ));
+    );
+    if ($element === NULL) {
+      $diagnostic = (string) $this->getSession()->evaluateScript(
+        '(function () { const row = document.getElementById(' . json_encode($rowId, JSON_THROW_ON_ERROR) . ');'
+        . 'return JSON.stringify({ url: location.pathname + location.search, rowClass: row?.className || null,'
+        . 'feedback: document.getElementById("ps-preparation-feedback")?.textContent || null,'
+        . 'message: document.querySelector(".messages--error, .messages--status")?.textContent?.slice(0, 250) || null,'
+        . 'ajaxCount: Object.values(Drupal.ajax?.instances || {}).filter(Boolean).length,'
+        . 'ajaxBusy: Object.values(Drupal.ajax?.instances || {}).filter((item) => item?.ajaxing).length,'
+        . 'pageMarker: window.psPreparationAjaxPage || null, errors: window.psPreparationAjaxErrors || [] }); })()',
+      );
+      $this->fail('Inline preparation state did not update: ' . $diagnostic);
+    }
   }
 
   private function completionRows(): array {
