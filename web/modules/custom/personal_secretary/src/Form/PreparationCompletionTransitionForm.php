@@ -55,6 +55,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
 
     $route = $this->routeForAction($action);
     $this->returnRouteName($returnSurface);
+    $returnOptions = $this->returnOptions($returnSurface);
 
     if ($seriesId <= 0 || $requirementId <= 0 || trim($originalOccurrenceKey) === '') {
       throw new NotFoundHttpException('The requested preparation is unavailable.');
@@ -76,7 +77,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
       'original_occurrence_key' => $originalOccurrenceKey,
       'preparation_requirement' => $requirementId,
       'return_surface' => $returnSurface,
-    ])->toString();
+    ], $returnOptions)->toString();
 
     $form['#attributes']['class'][] = 'ps-preparation-action-form';
     $form['submit'] = [
@@ -106,7 +107,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
         $this->messenger()->addStatus($created
           ? $this->t('Preparation marked prepared.')
           : $this->t('Preparation was already marked prepared.'));
-        $form_state->setRedirect($this->returnRoute());
+        $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($this->returnSurface()));
         return;
       }
 
@@ -119,13 +120,13 @@ final class PreparationCompletionTransitionForm extends FormBase {
         $this->messenger()->addStatus($deleted
           ? $this->t('Preparation marked not prepared.')
           : $this->t('Preparation was already not prepared.'));
-        $form_state->setRedirect($this->returnRoute());
+        $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($this->returnSurface()));
         return;
       }
     }
     catch (InvalidArgumentException|RuntimeException) {
       $this->messenger()->addError($this->t('This preparation action is no longer authorized or valid.'));
-      $form_state->setRedirect($this->returnRoute());
+      $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions($this->returnSurface()));
       return;
     }
 
@@ -190,6 +191,19 @@ final class PreparationCompletionTransitionForm extends FormBase {
       'today' => 'personal_secretary.today',
       default => throw new NotFoundHttpException('Unknown preparation return surface.'),
     };
+  }
+
+  /**
+   * Preserves only the canonical optional horizon for My preparations.
+   *
+   * @return array<string, mixed>
+   *   Route options, without arbitrary request parameters.
+   */
+  private function returnOptions(string $returnSurface): array {
+    $query = $this->getRequest()->query->all();
+    return $returnSurface === 'mine' && ($query['days'] ?? NULL) === '30'
+      ? ['query' => ['days' => 30]]
+      : [];
   }
 
   /**

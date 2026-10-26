@@ -66,21 +66,85 @@ final class PreparationCompletionTest extends BrowserTestBase {
     $req = $requirements->createPreparationRequirement($series, 'Completion main preparation', 3 * 3600, $now->modify('-2 days'));
     $h2Series = $this->series('Completion H2 activity', (int) $h2->id(), (int) $a->id(), $now->modify('+3 hours'));
     $h2Req = $requirements->createPreparationRequirement($h2Series, 'Completion H2 preparation', 4 * 3600, $now->modify('-2 days'));
+    $dayTwentySeries = $this->series('Completion day twenty-one activity', (int) $h1->id(), (int) $a->id(), $now->modify('+21 days'));
+    $requirements->createPreparationRequirement($dayTwentySeries, 'Completion day twenty preparation', 86400, $now->modify('-2 days'));
 
     $before = $this->readMine($u1, $now);
     $item = $this->item($before, 'Completion main preparation');
     $this->assertFalse($item['prepared']);
     $this->assertArrayNotHasKey('Completion H2 preparation', $this->index($before));
+    $this->assertArrayNotHasKey('Completion day twenty preparation', $this->index($before));
+    $dayTwenty = $this->item($this->readMine($u1, $now, 30), 'Completion day twenty preparation');
+    $this->assertFalse($dayTwenty['prepared']);
 
     // Store real unauthorized H2 completion truth; H1 reads must still not expose it.
     $h2Base = $timeline->projectBaseWindow($h2Series, $now, $now->modify('+1 day'))[0];
     $this->syntheticCompletion($h2Series, (int) $h2Base->seriesRevisionId, $h2Base->originalOccurrenceKey, (int) $h2Req->id(), (int) $a->id(), (int) $u1->id());
     $this->assertArrayNotHasKey('Completion H2 preparation', $this->index($this->readMine($u1, $now)));
 
-    // Mark directly from Today through the embedded Form API POST.
+    // Both embedded actions must return to the selected 30-day horizon.
     $taskCount = count($manager->getStorage(PersonalTask::ENTITY_TYPE_ID)->loadMultiple());
     $this->drupalLogin($u1);
-    $this->drupalGet('/personal-secretary/today');
+    $count = $this->completionCount();
+    $this->drupalGet($mine);
+    $this->assertSession()->pageTextNotContains('Completion day twenty preparation');
+    $this->drupalGet($mine, ['query' => ['days' => '30']]);
+    $this->assertSession()->pageTextContains('Completion day twenty preparation');
+    $this->assertSession()->pageTextNotContains('Completion H2 preparation');
+    $this->assertSame($count, $this->completionCount(), 'GET must not create completion rows.');
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Completion day twenty preparation"]]//form[contains(@action, "days=30") and not(contains(@action, "destination"))]');
+    $this->pressPreparationAction('Completion day twenty preparation', 'Mark prepared');
+    $this->assertSession()->addressEquals($mine . '?days=30');
+    $this->assertSession()->pageTextContains('Preparation marked prepared.');
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="Completion day twenty preparation"]]');
+    $this->assertSame($count + 1, $this->completionCount());
+
+    $this->pressPreparationAction('Completion day twenty preparation', 'Mark not prepared');
+    $this->assertSession()->addressEquals($mine . '?days=30');
+    $this->assertSession()->pageTextContains('Preparation marked not prepared.');
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Completion day twenty preparation"]]');
+    $this->assertSame($count, $this->completionCount());
+
+    // A normal domain lock failure takes the same safe 30-day return path.
+    $lockValues = [
+      (int) $dayTwenty['_completion_series_id'],
+      (int) $dayTwenty['_completion_target_revision_id'],
+      (string) $dayTwenty['_completion_original_occurrence_key'],
+      (int) $dayTwenty['_completion_requirement_id'],
+      (int) $dayTwenty['_completion_responsible_person_id'],
+    ];
+    $lockName = 'personal_secretary.preparation_completion.' . hash('sha256', json_encode($lockValues, JSON_THROW_ON_ERROR));
+    $lock = $this->container->get('lock');
+    $this->assertTrue($lock->acquire($lockName, 120.0));
+    try {
+      $this->drupalGet($mine, ['query' => ['days' => '30']]);
+      $this->pressPreparationAction('Completion day twenty preparation', 'Mark prepared');
+      $this->assertSession()->addressEquals($mine . '?days=30');
+      $this->assertSession()->pageTextContains('This preparation action is no longer authorized or valid.');
+      $this->assertSession()->pageTextContains('Completion day twenty preparation');
+      $this->assertSame($count, $this->completionCount());
+    }
+    finally {
+      $lock->release($lockName);
+    }
+
+    // A valid horizon never forwards an unrelated destination override.
+    $this->drupalGet($mine, ['query' => ['days' => '30', 'destination' => '/personal-secretary/today']]);
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Completion day twenty preparation"]]//form[contains(@action, "days=30") and not(contains(@action, "destination"))]');
+    $this->assertSame($count, $this->completionCount());
+
+    // Unknown and array-valued query parameters never reach the POST target.
+    foreach ([['days' => ['30']], ['days' => '-30', 'destination' => '/personal-secretary/today']] as $query) {
+      $this->drupalGet($mine, ['query' => $query]);
+      $this->assertSession()->pageTextNotContains('Completion day twenty preparation');
+      $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--pending")]//form[not(contains(@action, "days=30")) and not(contains(@action, "destination"))]');
+      $this->assertSame($count, $this->completionCount());
+    }
+
+    // Mark directly from Today through the embedded Form API POST. A forged
+    // horizon on Today must neither reach the action nor the return route.
+    $this->drupalGet('/personal-secretary/today', ['query' => ['days' => '30']]);
+    $this->assertSession()->elementExists('xpath', '//form[contains(@class, "ps-preparation-action-form") and not(contains(@action, "days=30"))]');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Completion main preparation');
     $this->assertSession()->buttonExists('Mark prepared');
@@ -226,6 +290,14 @@ final class PreparationCompletionTest extends BrowserTestBase {
     }
   }
 
+  private function pressPreparationAction(string $instruction, string $label): void {
+    $button = $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row")][.//h3[normalize-space()="' . $instruction . '"]]//input[@type="submit" and @value="' . $label . '"]',
+    );
+    $button->press();
+  }
+
   private function series(string $label, int $household, int $person, DateTimeImmutable $start): ActivitySeries {
     $end = $start->modify('+1 hour');
     $series = $this->container->get('personal_secretary.domain_mutation')->createActivitySeries($label, $household, $start, $end, 'FREQ=DAILY;COUNT=1');
@@ -245,11 +317,11 @@ final class PreparationCompletionTest extends BrowserTestBase {
     return $user;
   }
 
-  private function readMine(UserInterface $user, DateTimeImmutable $now): array {
+  private function readMine(UserInterface $user, DateTimeImmutable $now, int $days = 7): array {
     $switcher = $this->container->get('account_switcher');
     $switcher->switchTo($user);
     try {
-      return $this->container->get('personal_secretary.current_user_preparation')->mine($now)['items'];
+      return $this->container->get('personal_secretary.current_user_preparation')->mine($now, $days)['items'];
     }
     finally {
       $switcher->switchBack();
