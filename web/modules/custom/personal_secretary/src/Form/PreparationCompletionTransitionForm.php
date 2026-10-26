@@ -80,12 +80,13 @@ final class PreparationCompletionTransitionForm extends FormBase {
       throw new NotFoundHttpException('The requested preparation is unavailable.', $exception);
     }
 
-    $form['#action'] = Url::fromRoute($route, [
+    $transitionUrl = Url::fromRoute($route, [
       'series' => $seriesId,
       'original_occurrence_key' => $originalOccurrenceKey,
       'preparation_requirement' => $requirementId,
       'return_surface' => $returnSurface,
-    ], $returnOptions)->toString();
+    ], $returnOptions);
+    $form['#action'] = $transitionUrl->toString();
 
     $form['#attributes']['class'][] = 'ps-preparation-action-form';
     $form['submit'] = [
@@ -105,6 +106,10 @@ final class PreparationCompletionTransitionForm extends FormBase {
       // Progressive enhancement: Today and non-JavaScript POST/PRG stay intact.
       $form['submit']['#ajax'] = [
         'callback' => '::ajaxTransition',
+        // Forms rendered inside the mine() controller are not on their own
+        // route. Explicitly submit to the protected transition form route,
+        // never the read-only page controller.
+        'url' => $transitionUrl,
         'wrapper' => 'ps-preparation-live',
         'progress' => ['type' => 'throbber'],
       ];
