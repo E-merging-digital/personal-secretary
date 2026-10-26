@@ -65,7 +65,7 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
     $this->drupalLogin($user);
     $this->getSession()->resizeWindow(390, 844);
     $this->drupalGet($mine, ['query' => ['days' => '30']]);
-    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementExists('css', '#ps-preparation-live');
     $this->assertSession()->pageTextContains('Synthetic AJAX day twenty-one preparation');
     $this->assertSession()->pageTextNotContains('Synthetic AJAX private preparation');
     $this->assertSession()->elementExists('css', 'a[aria-current="page"][href$="days=30"]');
