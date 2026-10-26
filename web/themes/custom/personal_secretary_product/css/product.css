@@ -159,6 +159,10 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
   display:flex; align-items:center; gap:.75rem; border:1px solid var(--ps-line);
   border-radius:.8rem; background:var(--ps-surface); padding:.75rem;
 }
+.ps-task-feedback:not(:empty) { margin:0; color:var(--ps-ink); font-weight:650; }
+.ps-task-row__complete:focus,
+.ps-task-undo__action:focus,
+.ps-task-feedback:focus { outline:3px solid var(--ps-brand-strong); outline-offset:3px; }
 @media (min-width:58rem) {
   .ps-task-row { grid-template-columns:minmax(0,1fr) auto; align-items:center; }
   .ps-task-row__title,.ps-task-row__due { grid-column:1; }
