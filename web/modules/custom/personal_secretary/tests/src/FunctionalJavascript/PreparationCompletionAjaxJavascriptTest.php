@@ -85,8 +85,8 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
     $this->assertSame('dashed', $this->getSession()->evaluateScript(
       'getComputedStyle(document.getElementById("' . $rowId . '")).borderTopStyle',
     ));
-    $this->assertLessThan(1.0, (float) $this->getSession()->evaluateScript(
-      'getComputedStyle(document.querySelector("#' . $rowId . ' > .personal-secretary-preparation-item")).opacity',
+    $this->assertSame('rgb(96, 112, 128)', $this->getSession()->evaluateScript(
+      'getComputedStyle(document.querySelector("#' . $rowId . ' .personal-secretary-preparation-item h3")).color',
     ));
     $this->assertCount(1, $this->completionRows());
 

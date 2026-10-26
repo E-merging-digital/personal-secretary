@@ -250,7 +250,10 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
   border-style:dashed; background:var(--ps-canvas);
 }
 .ps-preparation-row--prepared > .personal-secretary-preparation-item {
-  opacity:.66;
+  background:var(--ps-canvas); border-style:dashed;
+}
+.ps-preparation-row--prepared .personal-secretary-preparation-item h3 {
+  color:var(--ps-muted);
 }
 .ps-preparation-row__state {
   width:max-content; margin:0; padding:.25rem .55rem; border:1px solid var(--ps-line);
