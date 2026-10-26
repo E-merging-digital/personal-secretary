@@ -159,11 +159,49 @@ final class PersonalTaskInlineCompletionAjaxJavascriptTest extends WebDriverTest
       '#ps-task-live ' . $this->rowSelector($id) . ' .ps-task-row__complete',
       10000,
     );
-    $this->assertNotNull($button, 'AJAX reopening must re-read the task and render completion.');
+    if ($button === NULL) {
+      $diagnostic = (string) $this->getSession()->evaluateScript(<<<'JS'
+JSON.stringify({
+  path: location.pathname + location.search,
+  marker: window.psTaskDocumentMarker || null,
+  feedback: document.querySelector('#ps-task-feedback')?.textContent?.trim() || null,
+  undo: !!document.querySelector('.ps-task-undo__action'),
+  rowIds: [...document.querySelectorAll('[data-ps-task-id]')].map((row) => row.dataset.psTaskId),
+  errors: window.psTaskJavascriptErrors || [],
+  responses: window.psTaskAjaxResponses || [],
+  ajaxBusy: Object.values(Drupal.ajax?.instances || {}).filter((value) => value?.ajaxing).length,
+})
+JS);
+      $this->fail('AJAX reopening did not render completion: ' . $diagnostic);
+    }
   }
 
   private function markPage(string $marker): void {
     $this->getSession()->executeScript('window.psTaskDocumentMarker = ' . json_encode($marker, JSON_THROW_ON_ERROR) . ';');
+    $this->getSession()->executeScript(<<<'JS'
+window.psTaskAjaxResponses = [];
+window.psTaskJavascriptErrors = [];
+window.addEventListener('error', (event) => window.psTaskJavascriptErrors.push(event.message));
+if (window.jQuery) {
+  jQuery(document).ajaxComplete((_event, xhr, options) => {
+    let commands = [];
+    try {
+      const body = JSON.parse(xhr.responseText);
+      commands = Array.isArray(body)
+        ? body.map(({command, selector}) => ({command, selector}))
+        : ['unexpected-response'];
+    }
+    catch {
+      commands = ['non-json-response'];
+    }
+    window.psTaskAjaxResponses.push({
+      status: xhr.status,
+      path: options.url?.split('?')[0],
+      commands,
+    });
+  });
+}
+JS);
   }
 
   private function assertPageMarker(string $marker): void {
