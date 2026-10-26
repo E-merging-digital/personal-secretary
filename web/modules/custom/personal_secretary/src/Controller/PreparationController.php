@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Form\FormState;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
 use Drupal\personal_secretary\Service\CurrentUserPreparationService;
@@ -102,6 +103,16 @@ final class PreparationController extends ControllerBase {
           ? $this->t('Showing active overdue preparations and preparations due in the next 30 days.')
           : $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
       ],
+      'feedback' => [
+        '#type' => 'container',
+        '#attributes' => [
+          'id' => 'ps-preparation-feedback',
+          'class' => ['ps-preparation-feedback'],
+          'role' => 'status',
+          'aria-live' => 'polite',
+          'aria-atomic' => 'true',
+        ],
+      ],
       'to_prepare' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-preparation-section']],
@@ -179,6 +190,20 @@ final class PreparationController extends ControllerBase {
       }
     }
 
+    // Only these two lists are refreshed after an inline completion action.
+    // Horizon navigation and its URL remain in the original document.
+    $build['sections'] = [
+      '#type' => 'container',
+      '#cache' => ['max-age' => 0],
+      '#attributes' => [
+        'id' => 'ps-preparation-live',
+        'class' => ['ps-preparation-live'],
+      ],
+      'to_prepare' => $build['to_prepare'],
+      'prepared' => $build['prepared'],
+    ];
+    unset($build['to_prepare'], $build['prepared']);
+
     return $build;
   }
 
@@ -191,6 +216,11 @@ final class PreparationController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => [
+        'id' => PreparationCompletionTransitionForm::rowId(
+          (int) $item['_completion_series_id'],
+          (string) $item['_completion_original_occurrence_key'],
+          (int) $item['_completion_requirement_id'],
+        ),
         'class' => [
           'ps-preparation-row',
           $prepared ? 'ps-preparation-row--prepared' : 'ps-preparation-row--pending',
@@ -244,14 +274,25 @@ final class PreparationController extends ControllerBase {
    * @param array<string, mixed> $item
    */
   private function actionForm(string $action, array $item, string $returnSurface): array {
-    return $this->formBuilder()->getForm(
-      PreparationCompletionTransitionForm::class,
+    $args = [
       $action,
       (int) $item['_completion_series_id'],
       (string) $item['_completion_original_occurrence_key'],
       (int) $item['_completion_requirement_id'],
       $returnSurface,
-    );
+    ];
+
+    // In the AJAX POST, these are *new* action forms for display, not the
+    // submitted form. Keep Drupal FormBuilder from reprocessing the current
+    // form_id/build_id and raising a nested FormAjaxException.
+    if ($this->requestStack->getCurrentRequest()?->isXmlHttpRequest()) {
+      $formState = new FormState();
+      $formState->setUserInput([]);
+      $formState->setBuildInfo(['args' => $args]);
+      return $this->formBuilder()->buildForm(PreparationCompletionTransitionForm::class, $formState);
+    }
+
+    return $this->formBuilder()->getForm(PreparationCompletionTransitionForm::class, ...$args);
   }
 
 }
