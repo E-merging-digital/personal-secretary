@@ -10,6 +10,7 @@ use Drupal\Core\Ajax\InvokeCommand;
 use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\DependencyInjection\ClassResolverInterface;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Url;
@@ -106,10 +107,17 @@ final class PreparationCompletionTransitionForm extends FormBase {
       // Progressive enhancement: Today and non-JavaScript POST/PRG stay intact.
       $form['submit']['#ajax'] = [
         'callback' => '::ajaxTransition',
-        // Forms rendered inside the mine() controller are not on their own
-        // route. Explicitly submit to the protected transition form route,
-        // never the read-only page controller.
+        // Forms rendered inside mine() must submit to the protected
+        // transition form route, not the read-only page controller.
         'url' => $transitionUrl,
+        // An explicit #ajax URL bypasses Drupal's automatic ajax_form query.
+        // Preserve that marker and only the canonical 30-day horizon:
+        // preRenderAjaxForm() replaces URL options with these options.
+        'options' => [
+          'query' => ($returnOptions['query'] ?? []) + [
+            FormBuilderInterface::AJAX_FORM_REQUEST => TRUE,
+          ],
+        ],
         'wrapper' => 'ps-preparation-live',
         'progress' => ['type' => 'throbber'],
       ];
