@@ -70,7 +70,32 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic AJAX private preparation');
     $this->assertSession()->elementExists('css', 'a[aria-current="page"][href$="days=30"]');
     $this->assertSame('status', $this->assertSession()->elementExists('css', '#ps-preparation-feedback')->getAttribute('role'));
-    $this->getSession()->executeScript('window.psPreparationAjaxPage = "same-document"; window.psPreparationAjaxErrors = []; window.addEventListener("error", (e) => window.psPreparationAjaxErrors.push(e.message));');
+    $this->getSession()->executeScript(<<<'JS'
+window.psPreparationAjaxPage = "same-document";
+window.psPreparationAjaxErrors = [];
+window.psPreparationAjaxResponses = [];
+window.addEventListener("error", (event) => window.psPreparationAjaxErrors.push(event.message));
+if (window.jQuery) {
+  jQuery(document).ajaxComplete((_event, xhr, options) => {
+    let commands;
+    try {
+      const payload = JSON.parse(xhr.responseText);
+      commands = Array.isArray(payload)
+        ? payload.map(({ command, selector }) => ({ command, selector }))
+        : ["unexpected-json-shape"];
+    }
+    catch {
+      commands = ["non-json-response"];
+    }
+    window.psPreparationAjaxResponses.push({
+      url: options.url?.split("?")[0],
+      status: xhr.status,
+      contentType: xhr.getResponseHeader("content-type"),
+      commands,
+    });
+  });
+}
+JS);
 
     $rowId = $this->rowId('Synthetic AJAX day twenty-one preparation');
     $this->clickAction('Synthetic AJAX day twenty-one preparation', 'Mark prepared');
@@ -150,7 +175,10 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
         . 'message: document.querySelector(".messages--error, .messages--status")?.textContent?.slice(0, 250) || null,'
         . 'ajaxCount: Object.values(Drupal.ajax?.instances || {}).filter(Boolean).length,'
         . 'ajaxBusy: Object.values(Drupal.ajax?.instances || {}).filter((item) => item?.ajaxing).length,'
-        . 'pageMarker: window.psPreparationAjaxPage || null, errors: window.psPreparationAjaxErrors || [] }); })()',
+        . 'rowClasses: [...document.querySelectorAll(".ps-preparation-row")].map((item) => item.className),'
+        . 'liveContent: document.getElementById("ps-preparation-live")?.textContent?.trim().slice(0, 600) || null,'
+        . 'pageMarker: window.psPreparationAjaxPage || null,'
+        . 'responses: window.psPreparationAjaxResponses || [], errors: window.psPreparationAjaxErrors || [] }); })()',
       );
       $this->fail('Inline preparation state did not update: ' . $diagnostic);
     }
