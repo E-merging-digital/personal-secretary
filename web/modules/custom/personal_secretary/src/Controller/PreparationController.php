@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Form\FormState;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Form\PreparationCompletionTransitionForm;
 use Drupal\personal_secretary\Service\CurrentUserPreparationService;
@@ -273,14 +274,25 @@ final class PreparationController extends ControllerBase {
    * @param array<string, mixed> $item
    */
   private function actionForm(string $action, array $item, string $returnSurface): array {
-    return $this->formBuilder()->getForm(
-      PreparationCompletionTransitionForm::class,
+    $args = [
       $action,
       (int) $item['_completion_series_id'],
       (string) $item['_completion_original_occurrence_key'],
       (int) $item['_completion_requirement_id'],
       $returnSurface,
-    );
+    ];
+
+    // In the AJAX POST, these are *new* action forms for display, not the
+    // submitted form. Keep Drupal FormBuilder from reprocessing the current
+    // form_id/build_id and raising a nested FormAjaxException.
+    if ($this->requestStack->getCurrentRequest()?->isXmlHttpRequest()) {
+      $formState = new FormState();
+      $formState->setUserInput([]);
+      $formState->setBuildInfo(['args' => $args]);
+      return $this->formBuilder()->buildForm(PreparationCompletionTransitionForm::class, $formState);
+    }
+
+    return $this->formBuilder()->getForm(PreparationCompletionTransitionForm::class, ...$args);
   }
 
 }
