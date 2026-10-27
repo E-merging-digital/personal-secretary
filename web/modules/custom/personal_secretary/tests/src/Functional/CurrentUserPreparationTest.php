@@ -499,8 +499,10 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSearchContext($route, 'due now', 30);
     $this->assertSession()->pageTextContains('Preparation marked not prepared.');
-    $this->assertSession()->pageTextContains('Due now preparation');
-    $this->assertSession()->pageTextNotContains('Active overdue preparation');
+    $this->assertSession()->elementExists('css', 'form.ps-preparation-search input[name="q"][value="due now"]');
+    $rows = $this->getSession()->getPage()->findAll('css', '#ps-preparation-live .ps-preparation-row h3');
+    $visibleInstructions = array_map(static fn($row): string => trim($row->getText()), $rows);
+    $this->assertSame(['Due now preparation'], $visibleInstructions, 'Non-JavaScript return must preserve filtered rows.');
     $this->assertSame($countsBefore, $this->domainCounts(), 'A reversible POST must restore completion state.');
 
     $this->drupalLogout();
