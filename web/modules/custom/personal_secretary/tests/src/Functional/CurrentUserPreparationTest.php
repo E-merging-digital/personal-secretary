@@ -7,6 +7,7 @@ namespace Drupal\Tests\personal_secretary\Functional;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
@@ -397,6 +398,111 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
       $this->assertSame($countsBefore, $this->domainCounts(), 'Reading a malformed horizon must not mutate domain data.');
     }
+    // Search only the authorized due-window projection, using a real GET form.
+    $this->drupalGet($route);
+    $this->assertSession()->elementExists('css', 'form.ps-preparation-search[method="get"][role="search"]');
+    $this->assertSession()->elementExists('css', 'label[for="ps-preparation-search-q"]');
+    $this->assertSession()->elementExists(
+      'css',
+      'input#ps-preparation-search-q[type="search"][name="q"][maxlength="100"]',
+    );
+    $this->assertSession()->elementExists(
+      'css',
+      'form.ps-preparation-search input[type="hidden"][name="days"][value="7"]',
+    );
+    $this->assertSession()->buttonExists('Search preparations');
+    $this->getSession()->getPage()->fillField('q', 'dUe nOw');
+    $this->getSession()->getPage()->pressButton('Search preparations');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSearchContext($route, 'dUe nOw', 7);
+    $this->assertSession()->pageTextContains('Due now preparation');
+    $this->assertSession()->pageTextNotContains('Active overdue preparation');
+    $this->assertSession()->pageTextNotContains('All-day preparation');
+    $this->assertSession()->pageTextNotContains('Other person preparation');
+    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
+    $this->assertSession()->linkExists('Clear search');
+    $this->assertSession()->linkByHrefExists($route . '?days=7');
+    $this->assertSession()->linkByHrefExists(Url::fromRoute(
+      'personal_secretary.my_preparations',
+      [],
+      ['query' => ['days' => 30, 'q' => 'dUe nOw']],
+    )->toString());
+    $this->assertSame($countsBefore, $this->domainCounts(), 'A GET search must not mutate preparations.');
+
+    $this->getSession()->getPage()->clickLink('30 days');
+    $this->assertSearchContext($route, 'dUe nOw', 30);
+    $this->assertSession()->pageTextContains('Due now preparation');
+    $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
+    $this->assertSession()->linkByHrefExists($route . '?days=30');
+
+    // A prepared matching activity remains in the Prepared partition.
+    $this->drupalGet($route, ['query' => ['q' => 'aLl-dAy preparation aCtIvItY']]);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('All-day preparation');
+    $this->assertSession()->pageTextNotContains('Due now preparation');
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="All-day preparation"]]',
+    );
+    $this->assertSession()->pageTextContains('Nothing currently needs preparation.');
+
+    // An item due on day 20 appears only when the requested window is 30.
+    $this->drupalGet($route, ['query' => ['days' => '7', 'q' => 'day twenty']]);
+    $this->assertSession()->pageTextContains('No preparations match this search.');
+    $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
+    $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
+    $this->getSession()->getPage()->clickLink('30 days');
+    $this->assertSearchContext($route, 'day twenty', 30);
+    $this->assertSession()->pageTextContains('Preparation due on day twenty');
+    $this->assertSession()->pageTextNotContains('Preparation due on day thirty-one');
+    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
+
+    // Neither an unauthorized label nor display-only metadata can be searched.
+    foreach (['Unauthorized H2', 'Other person', 'Europe/Brussels'] as $excludedSearch) {
+      $this->drupalGet($route, ['query' => ['days' => '30', 'q' => $excludedSearch]]);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->pageTextContains('No preparations match this search.');
+      $this->assertSession()->pageTextNotContains('Preparations are added through activities.');
+      $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
+    }
+
+    // Empty, non-string and excessive queries retain the historical list.
+    foreach ([['q' => '   '], ['q' => ['Due now']], ['q' => str_repeat('x', 101)]] as $invalidSearch) {
+      $this->drupalGet($route, ['query' => $invalidSearch]);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->pageTextContains('Due now preparation');
+      $this->assertSession()->pageTextContains('Active overdue preparation');
+      $this->assertSession()->linkByHrefExists($route . '?days=7');
+      $this->assertSession()->linkByHrefExists($route . '?days=30');
+      $this->assertSession()->linkNotExists('Clear search');
+      $this->assertSession()->pageTextNotContains('No preparations match this search.');
+    }
+
+    // In BrowserTestBase, these protected actions use POST/redirect/GET
+    // without JavaScript; both directions must preserve the active search.
+    $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'due now']]);
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--pending")]'
+      . '[.//h3[normalize-space()="Due now preparation"]]'
+      . '//input[@value="Mark prepared"]',
+    )->click();
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSearchContext($route, 'due now', 30);
+    $this->assertSession()->pageTextContains('Preparation marked prepared.');
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")]'
+      . '[.//h3[normalize-space()="Due now preparation"]]'
+      . '//input[@value="Mark not prepared"]',
+    )->click();
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSearchContext($route, 'due now', 30);
+    $this->assertSession()->pageTextContains('Preparation marked not prepared.');
+    $this->assertSession()->pageTextContains('Due now preparation');
+    $this->assertSession()->pageTextNotContains('Active overdue preparation');
+    $this->assertSame($countsBefore, $this->domainCounts(), 'A reversible POST must restore completion state.');
+
     $this->drupalLogout();
 
     $this->drupalLogin($noGrant);
@@ -480,6 +586,26 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/activities/add');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
     $this->assertSame($countsBefore, $this->domainCounts());
+
+    $this->drupalGet('/fr/personal-secretary/preparations/mine', [
+      'query' => ['days' => '30', 'q' => 'introuvable'],
+    ]);
+    $this->assertSession()->pageTextContains('Rechercher un préparatif');
+    $this->assertSession()->pageTextContains('Aucun préparatif ne correspond à cette recherche.');
+    $this->assertSession()->linkExists('Effacer la recherche');
+    $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
+    $this->assertSame($countsBefore, $this->domainCounts());
+  }
+
+  /**
+   * Asserts the canonical GET query on both search and POST/PRG navigation.
+   */
+  private function assertSearchContext(string $path, string $search, int $days): void {
+    $current = $this->getSession()->getCurrentUrl();
+    $this->assertSame($path, parse_url($current, PHP_URL_PATH));
+    parse_str((string) parse_url($current, PHP_URL_QUERY), $query);
+    $this->assertSame((string) $days, $query['days'] ?? NULL);
+    $this->assertSame($search, $query['q'] ?? NULL);
   }
 
   private function createSeriesWithRule(string $label, int $householdId, int $responsiblePersonId, DateTimeImmutable $start): ActivitySeries {
