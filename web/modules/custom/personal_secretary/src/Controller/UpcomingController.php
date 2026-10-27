@@ -110,28 +110,40 @@ final class UpcomingController extends ControllerBase {
     }
 
     $days = $this->selectedHorizonDays();
+    $query = $this->selectedSearchQuery();
+    // Filter only the already-authorized, horizon-bounded projection.
     $items = $this->upcomingActivities->upcomingForPersonInHouseholds(
       $person,
       $householdIds,
       $days,
     );
+    if ($query !== '') {
+      $items = array_values(array_filter(
+        $items,
+        static fn(array $item): bool => mb_stripos((string) $item['activity_label'], $query) !== FALSE,
+      ));
+    }
+
     $build = $this->windowBuild(
       (string) $this->t('Showing My upcoming activities for the next @days days.', ['@days' => $days]),
     );
-    $build['horizon'] = $this->horizonLinks($days);
+    $build['horizon'] = $this->horizonLinks($days, $query);
+    $build['search'] = $this->searchForm($days, $query);
     $build['add_activity'] = $this->addActivityLink();
 
     if ($items === []) {
       $build['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days]),
+        '#value' => $query !== ''
+          ? $this->t('No upcoming activities match this search.')
+          : $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days]),
       ];
       return $build;
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query);
     return $build;
   }
 
@@ -187,7 +199,7 @@ final class UpcomingController extends ControllerBase {
         '#url' => Url::fromRoute(
           'personal_secretary.my_upcoming',
           [],
-          $this->selectedHorizonDays() === 30 ? ['query' => ['days' => '30']] : [],
+          $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery()),
         ),
         '#attributes' => ['class' => ['ps-occurrence-detail__back']],
       ],
@@ -220,6 +232,7 @@ final class UpcomingController extends ControllerBase {
     bool $includeSelfMutationLinks,
     bool $includeDetailLinks,
     int $days = 7,
+    string $query = '',
   ): array {
     $build = [
       '#type' => 'container',
@@ -249,7 +262,7 @@ final class UpcomingController extends ControllerBase {
 
       $occurrenceActions = [];
       if ($includeDetailLinks) {
-        $occurrenceActions['detail'] = $this->detailLink($responsibilityTarget, $days);
+        $occurrenceActions['detail'] = $this->detailLink($responsibilityTarget, $days, $query);
       }
       if ($includeAdminMutationLinks) {
         $occurrenceActions['responsibility'] = [
@@ -335,14 +348,14 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function detailLink(array $target, int $days): array {
+  private function detailLink(array $target, int $days, string $query): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('View details'),
       '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
         'series' => $target['series_id'],
         'original_occurrence_key' => $target['original_occurrence_key'],
-      ], $days === 30 ? ['query' => ['days' => '30']] : []),
+      ], $this->upcomingUrlOptions($days, $query)),
       '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--primary']],
     ];
   }
@@ -393,7 +406,7 @@ final class UpcomingController extends ControllerBase {
   /**
    * @return array<string, mixed>
    */
-  private function horizonLinks(int $activeDays): array {
+  private function horizonLinks(int $activeDays, string $query): array {
     $links = [
       '#type' => 'container',
       '#attributes' => [
@@ -421,13 +434,113 @@ final class UpcomingController extends ControllerBase {
         '#url' => Url::fromRoute(
           'personal_secretary.my_upcoming',
           [],
-          $days === 30 ? ['query' => ['days' => '30']] : [],
+          $this->upcomingUrlOptions($days, $query),
         ),
         '#attributes' => $attributes,
       ];
     }
 
     return $links;
+  }
+
+  /**
+   * Treat non-scalar or overly long GET input as an empty, safe search.
+   */
+  private function selectedSearchQuery(): string {
+    $raw = $this->requestStack->getCurrentRequest()?->query->all()['q'] ?? '';
+    $query = is_string($raw) ? trim($raw) : '';
+    return mb_strlen($query) <= 100 ? $query : '';
+  }
+
+  /**
+   * Keep the historic seven-day URL canonical when no search is active.
+   *
+   * @return array<string, string>
+   */
+  private function upcomingQuery(int $days, string $query): array {
+    $options = [];
+    if ($days === 30) {
+      $options['days'] = '30';
+    }
+    if ($query !== '') {
+      $options['q'] = $query;
+    }
+    return $options;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function upcomingUrlOptions(int $days, string $query): array {
+    $options = $this->upcomingQuery($days, $query);
+    return $options === [] ? [] : ['query' => $options];
+  }
+
+  /**
+   * A plain GET form requires no JavaScript or state-changing Form API submit.
+   *
+   * @return array<string, mixed>
+   */
+  private function searchForm(int $days, string $query): array {
+    $form = [
+      '#type' => 'html_tag',
+      '#tag' => 'form',
+      '#attributes' => [
+        'method' => 'get',
+        'action' => Url::fromRoute('personal_secretary.my_upcoming')->toString(),
+        'role' => 'search',
+        'class' => ['ps-upcoming-search'],
+      ],
+      'label' => [
+        '#type' => 'html_tag',
+        '#tag' => 'label',
+        '#value' => $this->t('Search for an activity'),
+        '#attributes' => ['for' => 'ps-upcoming-search-q'],
+      ],
+      'query' => [
+        '#type' => 'html_tag',
+        '#tag' => 'input',
+        '#attributes' => [
+          'id' => 'ps-upcoming-search-q',
+          'type' => 'search',
+          'name' => 'q',
+          'value' => $query,
+          'maxlength' => '100',
+          'size' => '32',
+        ],
+      ],
+      'submit' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $this->t('Search activities'),
+        '#attributes' => ['type' => 'submit'],
+      ],
+    ];
+
+    if ($days === 30) {
+      $form['days'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'input',
+        '#attributes' => [
+          'type' => 'hidden',
+          'name' => 'days',
+          'value' => '30',
+        ],
+      ];
+    }
+    if ($query !== '') {
+      $form['clear'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Clear search'),
+        '#url' => Url::fromRoute(
+          'personal_secretary.my_upcoming',
+          [],
+          $this->upcomingUrlOptions($days, ''),
+        ),
+      ];
+    }
+
+    return $form;
   }
 
   private function hasExistingContext(): bool {
