@@ -1376,3 +1376,13 @@ msgstr "Effacer la recherche"
 
 msgid "No upcoming activities match this search."
 msgstr "Aucune activité à venir ne correspond à cette recherche."
+
+# My preparations read-only search (#330).
+msgid "Search for a preparation"
+msgstr "Rechercher un préparatif"
+
+msgid "Search preparations"
+msgstr "Rechercher"
+
+msgid "No preparations match this search."
+msgstr "Aucun préparatif ne correspond à cette recherche."

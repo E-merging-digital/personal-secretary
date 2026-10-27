@@ -64,11 +64,20 @@ final class PreparationCompletionAjaxJavascriptTest extends WebDriverTestBase {
     $mine = '/personal-secretary/preparations/mine';
     $this->drupalLogin($user);
     $this->getSession()->resizeWindow(390, 844);
-    $this->drupalGet($mine, ['query' => ['days' => '30']]);
+    $this->drupalGet($mine, ['query' => ['days' => '7', 'q' => 'DAY TWENTY-ONE']]);
+    $this->assertSession()->pageTextContains('No preparations match this search.');
+    $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
+    $this->assertSession()->elementExists('css', 'form.ps-preparation-search input[value="DAY TWENTY-ONE"]');
+    $thirtyLink = $this->assertSession()->elementExists('css', '.ps-preparation-horizon a[href*="days=30"]');
+    parse_str((string) parse_url($thirtyLink->getAttribute('href'), PHP_URL_QUERY), $thirtyQuery);
+    $this->assertSame('DAY TWENTY-ONE', $thirtyQuery['q'] ?? NULL);
+    $thirtyLink->click();
+    $filteredUrl = $this->getSession()->getCurrentUrl();
     $this->assertSession()->elementExists('css', '#ps-preparation-live');
     $this->assertSession()->pageTextContains('Synthetic AJAX day twenty-one preparation');
+    $this->assertSession()->pageTextNotContains('Synthetic AJAX near preparation');
     $this->assertSession()->pageTextNotContains('Synthetic AJAX private preparation');
-    $this->assertSession()->elementExists('css', 'a[aria-current="page"][href$="days=30"]');
+    $this->assertSession()->elementExists('css', 'a[aria-current="page"][href*="days=30"]');
     $this->assertSame('status', $this->assertSession()->elementExists('css', '#ps-preparation-feedback')->getAttribute('role'));
     $this->getSession()->executeScript(<<<'JS'
 window.psPreparationAjaxPage = "same-document";
@@ -88,7 +97,7 @@ if (window.jQuery) {
       commands = ["non-json-response"];
     }
     window.psPreparationAjaxResponses.push({
-      url: options.url?.split("?")[0],
+      url: options.url,
       status: xhr.status,
       contentType: xhr.getResponseHeader("content-type"),
       commands,
@@ -100,8 +109,20 @@ JS);
     $rowId = $this->rowId('Synthetic AJAX day twenty-one preparation');
     $this->clickAction('Synthetic AJAX day twenty-one preparation', 'Mark prepared');
     $this->waitForRowState($rowId, 'prepared');
-    $this->assertSession()->addressEquals($mine . '?days=30');
+    $this->assertSame($filteredUrl, $this->getSession()->getCurrentUrl());
     $this->assertSame('same-document', $this->getSession()->evaluateScript('window.psPreparationAjaxPage'));
+    $this->assertSession()->elementExists('css', 'form.ps-preparation-search input[value="DAY TWENTY-ONE"]');
+    $this->assertSession()->pageTextNotContains('Synthetic AJAX near preparation');
+    $this->assertTrue((bool) $this->getSession()->evaluateScript(<<<'JS'
+(window.psPreparationAjaxResponses || []).some(({ url, status, commands }) => {
+  const params = new URL(url, location.href).searchParams;
+  return status === 200
+    && params.get("days") === "30"
+    && params.get("q") === "DAY TWENTY-ONE"
+    && params.has("ajax_form")
+    && commands.some(({ selector }) => selector === "#ps-preparation-live");
+})
+JS));
     $this->assertSession()->pageTextContains('Preparation marked prepared.');
     $this->assertSession()->elementExists('css', '#' . $rowId . ' input[value="Mark not prepared"]');
     $this->assertTrue((bool) $this->getSession()->evaluateScript(
@@ -119,7 +140,7 @@ JS);
     $this->waitForRowState($rowId, 'pending');
     $this->assertSession()->pageTextContains('Preparation marked not prepared.');
     $this->assertSession()->elementExists('css', '#' . $rowId . ' input[value="Mark prepared"]');
-    $this->assertSession()->addressEquals($mine . '?days=30');
+    $this->assertSame($filteredUrl, $this->getSession()->getCurrentUrl());
     $this->assertSame('same-document', $this->getSession()->evaluateScript('window.psPreparationAjaxPage'));
     $this->assertCount(0, $this->completionRows());
 

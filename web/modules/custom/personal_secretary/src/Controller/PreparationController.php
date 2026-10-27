@@ -35,6 +35,11 @@ final class PreparationController extends ControllerBase {
     // Read raw input so arrays or forged values safely fall back to seven days.
     $query = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
     $windowDays = ($query['days'] ?? NULL) === '30' ? 30 : 7;
+    $search = $query['q'] ?? '';
+    $search = is_string($search) ? trim($search) : '';
+    if (mb_strlen($search) > 100) {
+      $search = '';
+    }
 
     try {
       $model = $this->currentUserPreparations->mine(NULL, $windowDays);
@@ -58,12 +63,23 @@ final class PreparationController extends ControllerBase {
       return $build;
     }
 
+    // Scope and bound the data through the existing domain read *first*.
+    $items = $model['items'];
+    if ($search !== '') {
+      $items = array_values(array_filter(
+        $items,
+        static fn(array $item): bool =>
+          mb_stripos((string) $item['instruction'], $search) !== FALSE
+          || mb_stripos((string) $item['activity_label'], $search) !== FALSE,
+      ));
+    }
+
     $toPrepare = array_values(array_filter(
-      $model['items'],
+      $items,
       static fn(array $item): bool => ($item['prepared'] ?? FALSE) !== TRUE,
     ));
     $prepared = array_values(array_filter(
-      $model['items'],
+      $items,
       static fn(array $item): bool => ($item['prepared'] ?? FALSE) === TRUE,
     ));
 
@@ -81,7 +97,9 @@ final class PreparationController extends ControllerBase {
         'seven' => [
           '#type' => 'link',
           '#title' => $this->t('7 days'),
-          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['days' => 7]]),
+          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
+            'query' => ['days' => 7] + ($search === '' ? [] : ['q' => $search]),
+          ]),
           '#attributes' => [
             'class' => $windowDays === 7 ? ['button', 'button--primary'] : ['button'],
           ] + ($windowDays === 7 ? ['aria-current' => 'page'] : []),
@@ -89,12 +107,15 @@ final class PreparationController extends ControllerBase {
         'thirty' => [
           '#type' => 'link',
           '#title' => $this->t('30 days'),
-          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['days' => 30]]),
+          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
+            'query' => ['days' => 30] + ($search === '' ? [] : ['q' => $search]),
+          ]),
           '#attributes' => [
             'class' => $windowDays === 30 ? ['button', 'button--primary'] : ['button'],
           ] + ($windowDays === 30 ? ['aria-current' => 'page'] : []),
         ],
       ],
+      'search' => $this->searchForm($windowDays, $search),
       'window' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
@@ -138,13 +159,15 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-empty-state']],
-        '#value' => $model['items'] === []
-          ? ($windowDays === 30
-            ? $this->t('No upcoming preparations are assigned to you in the next 30 days.')
-            : $this->t('No upcoming preparations are assigned to you in the next 7 days.'))
-          : $this->t('Nothing currently needs preparation.'),
+        '#value' => $items === [] && $search !== ''
+          ? $this->t('No preparations match this search.')
+          : ($items === []
+            ? ($windowDays === 30
+              ? $this->t('No upcoming preparations are assigned to you in the next 30 days.')
+              : $this->t('No upcoming preparations are assigned to you in the next 7 days.'))
+            : $this->t('Nothing currently needs preparation.')),
       ];
-      if ($model['items'] === []) {
+      if ($items === [] && $search === '') {
         $build['to_prepare']['explanation'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
@@ -205,6 +228,68 @@ final class PreparationController extends ControllerBase {
     unset($build['to_prepare'], $build['prepared']);
 
     return $build;
+  }
+
+  /**
+   * A read-only GET form, kept outside the AJAX-replaced preparation lists.
+   *
+   * @return array<string, mixed>
+   */
+  private function searchForm(int $days, string $search): array {
+    $form = [
+      '#type' => 'html_tag',
+      '#tag' => 'form',
+      '#attributes' => [
+        'method' => 'get',
+        'action' => Url::fromRoute('personal_secretary.my_preparations')->toString(),
+        'role' => 'search',
+        'class' => ['ps-preparation-search'],
+      ],
+      'label' => [
+        '#type' => 'html_tag',
+        '#tag' => 'label',
+        '#value' => $this->t('Search for a preparation'),
+        '#attributes' => ['for' => 'ps-preparation-search-q'],
+      ],
+      'query' => [
+        '#type' => 'html_tag',
+        '#tag' => 'input',
+        '#attributes' => [
+          'id' => 'ps-preparation-search-q',
+          'type' => 'search',
+          'name' => 'q',
+          'value' => $search,
+          'maxlength' => '100',
+          'size' => '32',
+        ],
+      ],
+      'days' => [
+        '#type' => 'html_tag',
+        '#tag' => 'input',
+        '#attributes' => [
+          'type' => 'hidden',
+          'name' => 'days',
+          'value' => (string) $days,
+        ],
+      ],
+      'submit' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $this->t('Search preparations'),
+        '#attributes' => ['type' => 'submit'],
+      ],
+    ];
+    if ($search !== '') {
+      $form['clear'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Clear search'),
+        '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
+          'query' => ['days' => $days],
+        ]),
+      ];
+    }
+
+    return $form;
   }
 
   /**

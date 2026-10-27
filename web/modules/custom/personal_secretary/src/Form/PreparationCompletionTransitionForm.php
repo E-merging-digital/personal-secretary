@@ -111,7 +111,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
         // transition form route, not the read-only page controller.
         'url' => $transitionUrl,
         // An explicit #ajax URL bypasses Drupal's automatic ajax_form query.
-        // Preserve that marker and only the canonical 30-day horizon:
+        // Preserve that marker plus the bounded horizon and search:
         // preRenderAjaxForm() replaces URL options with these options.
         'options' => [
           'query' => ($returnOptions['query'] ?? []) + [
@@ -139,8 +139,8 @@ final class PreparationCompletionTransitionForm extends FormBase {
       return $response;
     }
 
-    // Re-read the domain model with the active identity, including the bounded
-    // ?days=30 query; never reconstruct a row from a browser-provided state.
+    // Re-read the domain model with the active identity, horizon and search;
+    // never reconstruct a row from a browser-provided state.
     $controller = $this->classResolver->getInstanceFromDefinition(PreparationController::class);
     $surface = $controller->mine();
     if (!isset($surface['sections'])) {
@@ -283,16 +283,34 @@ final class PreparationCompletionTransitionForm extends FormBase {
   }
 
   /**
-   * Preserves only the canonical optional horizon for My preparations.
+   * Preserve only the validated horizon and preparation search on mine().
    *
    * @return array<string, mixed>
    *   Route options, without arbitrary request parameters.
    */
   private function returnOptions(string $returnSurface): array {
-    $query = $this->getRequest()->query->all();
-    return $returnSurface === 'mine' && ($query['days'] ?? NULL) === '30'
-      ? ['query' => ['days' => 30]]
-      : [];
+    if ($returnSurface !== 'mine') {
+      return [];
+    }
+
+    $input = $this->getRequest()->query->all();
+    $search = $input['q'] ?? '';
+    $search = is_string($search) ? trim($search) : '';
+    if (mb_strlen($search) > 100) {
+      $search = '';
+    }
+
+    $query = [];
+    if (($input['days'] ?? NULL) === '30') {
+      $query['days'] = 30;
+    }
+    elseif (($input['days'] ?? NULL) === '7' && $search !== '') {
+      $query['days'] = 7;
+    }
+    if ($search !== '') {
+      $query['q'] = $search;
+    }
+    return $query === [] ? [] : ['query' => $query];
   }
 
   /**
