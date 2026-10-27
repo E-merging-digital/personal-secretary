@@ -304,6 +304,127 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($this->detailUrl($otherHouseholdSeries, $otherHouseholdOccurrence->originalOccurrenceKey));
     $this->assertSession()->statusCodeEquals(404);
 
+    // Search is a standard accessible GET form over the authorized window.
+    $this->drupalGet($myUpcomingUrl);
+    $this->assertSession()->elementExists('css', 'form.ps-upcoming-search[method="get"][role="search"]');
+    $this->assertSession()->elementExists('css', 'label[for="ps-upcoming-search-q"]');
+    $this->assertSession()->elementExists(
+      'css',
+      'input#ps-upcoming-search-q[type="search"][name="q"][maxlength="100"]',
+    );
+    $this->assertSession()->pageTextContains('Search for an activity');
+    $this->assertSession()->buttonExists('Search activities');
+    $this->assertSession()->elementNotExists('css', 'form.ps-upcoming-search input[name="days"]');
+
+    // A real form submission is read-only, case-insensitive and label-only.
+    $this->getSession()->getPage()->fillField('q', 'rUlE a');
+    $this->getSession()->getPage()->pressButton('Search activities');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextNotContains('Override to A activity');
+    $this->assertSession()->pageTextNotContains('Rule B activity');
+    $this->assertSession()->pageTextNotContains('Later A activity');
+    $this->assertSession()->pageTextNotContains('Later B activity');
+    $this->assertSession()->pageTextNotContains('Later other-household activity');
+    $this->assertSession()->pageTextNotContains('Outside horizon A activity');
+
+    $filtered7 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'rUlE a']])->toString();
+    $filtered30 = Url::fromRoute(
+      'personal_secretary.my_upcoming',
+      [],
+      ['query' => ['days' => '30', 'q' => 'rUlE a']],
+    )->toString();
+    $ruleASearchDetail7 = $this->detailUrl(
+      $ruleASeries,
+      $ruleAOccurrence->originalOccurrenceKey,
+      ['q' => 'rUlE a'],
+    );
+    $ruleASearchDetail30 = $this->detailUrl(
+      $ruleASeries,
+      $ruleAOccurrence->originalOccurrenceKey,
+      ['days' => '30', 'q' => 'rUlE a'],
+    );
+    $this->assertSession()->linkByHrefExists($filtered7);
+    $this->assertSession()->linkByHrefExists($filtered30);
+    $this->assertSession()->linkByHrefExists($ruleASearchDetail7);
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+    $this->assertSession()->linkExists('Clear search');
+
+    // Changing horizon and consulting details must retain both parameters.
+    $this->getSession()->getPage()->clickLink('30 days');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextNotContains('Later A activity');
+    $this->assertSession()->elementExists(
+      'css',
+      'form.ps-upcoming-search input[type="hidden"][name="days"][value="30"]',
+    );
+    $this->assertSession()->linkByHrefExists($filtered7);
+    $this->assertSession()->linkByHrefExists($ruleASearchDetail30);
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
+
+    $this->getSession()->getPage()->clickLink('View details');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists($filtered30);
+    $this->drupalGet(Url::fromUserInput($ruleBDetailUrl, [
+      'query' => ['days' => '30', 'q' => 'rUlE a'],
+    ]));
+    $this->assertSession()->statusCodeEquals(404);
+
+    // The same query cannot cross the authorized Person or Household scope.
+    $later30 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'lAtEr']]);
+    $this->drupalGet($later30);
+    $this->assertSession()->pageTextContains('Later A activity');
+    $this->assertSession()->pageTextNotContains('Rule A activity');
+    $this->assertSession()->pageTextNotContains('Later B activity');
+    $this->assertSession()->pageTextNotContains('Later other-household activity');
+    $this->assertSession()->pageTextNotContains('Outside horizon A activity');
+    $this->assertSession()->linkByHrefExists($this->detailUrl(
+      $laterOwnedSeries,
+      $laterOwnedOccurrence->originalOccurrenceKey,
+      ['days' => '30', 'q' => 'lAtEr'],
+    ));
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
+
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'lAtEr']]));
+    $this->assertSession()->pageTextContains('No upcoming activities match this search.');
+    $this->assertSession()->pageTextNotContains('Later A activity');
+    $this->assertSession()->pageTextNotContains('Later B activity');
+    $this->assertSession()->pageTextNotContains('Later other-household activity');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+
+    // Filtering must not search preparatory instructions or expose counts.
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'included A kit']]));
+    $this->assertSession()->pageTextContains('No upcoming activities match this search.');
+    $this->assertSession()->pageTextNotContains('Prepare included A kit');
+    $this->assertSession()->pageTextNotContains('Rule A activity');
+
+    // Empty, malformed and too-long queries restore the historical results.
+    foreach ([['q' => '   '], ['q' => ['Rule A']], ['q' => str_repeat('x', 101)]] as $malformedSearch) {
+      $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => $malformedSearch]));
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->pageTextContains('Rule A activity');
+      $this->assertSession()->pageTextContains('Override to A activity');
+      $this->assertSession()->pageTextNotContains('Rule B activity');
+      $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+      $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
+      $this->assertSession()->linkNotExists('Clear search');
+      $this->assertSession()->pageTextNotContains('No upcoming activities match this search.');
+    }
+
+    // Trimming is reflected in generated links; clearing retains 30 days.
+    $this->drupalGet(Url::fromRoute(
+      'personal_secretary.my_upcoming',
+      [],
+      ['query' => ['days' => '30', 'q' => '  Later  ']],
+    ));
+    $this->assertSession()->linkByHrefExists(Url::fromRoute(
+      'personal_secretary.my_upcoming',
+      [],
+      ['query' => ['days' => '30', 'q' => 'Later']],
+    )->toString());
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
+
     foreach (['31', '-1', 'garbage', ['30']] as $malformed) {
       $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => $malformed]]));
       $this->assertSession()->statusCodeEquals(200);
@@ -364,13 +485,17 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertInstanceOf(ActivitySeries::class, $noneSeries);
   }
 
-  private function detailUrl(ActivitySeries $series, string $originalOccurrenceKey): string {
+  /**
+   * @param array<string, string> $query
+   */
+  private function detailUrl(ActivitySeries $series, string $originalOccurrenceKey, array $query = []): string {
     return Url::fromRoute(
       'personal_secretary.occurrence_detail',
       [
         'series' => (int) $series->id(),
         'original_occurrence_key' => $originalOccurrenceKey,
       ],
+      $query === [] ? [] : ['query' => $query],
     )->toString();
   }
 
@@ -428,6 +553,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Link my account to household member');
     $this->assertSession()->linkByHrefExists('/personal-secretary/account/person');
     $this->assertSession()->elementNotExists('css', '.ps-upcoming-actions__add');
+    $this->assertSession()->elementNotExists('css', 'form.ps-upcoming-search');
 
     foreach ([
       'Rule A activity',
