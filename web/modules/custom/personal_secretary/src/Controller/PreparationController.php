@@ -190,8 +190,21 @@ final class PreparationController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-preparation-list']],
       ];
+      $hasOverdue = in_array(TRUE, array_column($toPrepare, 'overdue'), TRUE);
+      $previousOverdue = NULL;
       foreach ($toPrepare as $delta => $item) {
+        $isOverdue = ($item['overdue'] ?? FALSE) === TRUE;
+        if ($hasOverdue && $previousOverdue !== $isOverdue) {
+          $build['to_prepare']['items']['heading_' . $delta] = [
+            '#type' => 'html_tag',
+            '#tag' => 'h3',
+            '#value' => $isOverdue
+              ? $this->t('Overdue preparations')
+              : $this->t('Upcoming preparations'),
+          ];
+        }
         $build['to_prepare']['items'][$delta] = $this->itemBuild($item, FALSE, 'mine');
+        $previousOverdue = $isOverdue;
       }
     }
 
