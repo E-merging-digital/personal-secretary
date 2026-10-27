@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\InvokeCommand;
+use Drupal\Core\Ajax\ReplaceCommand;
 use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
@@ -18,9 +22,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class PersonalTaskListForm extends FormBase {
 
+  // Core Form API caches rebuilt AJAX forms between authenticated POSTs.
+  // Keep these injected services writable for Drupal's dependency restoration.
   public function __construct(
-    private readonly PersonalTaskQueryService $taskQuery,
-    private readonly PersonalTaskMutationService $taskMutations,
+    protected PersonalTaskQueryService $taskQuery,
+    protected PersonalTaskMutationService $taskMutations,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -83,12 +89,36 @@ final class PersonalTaskListForm extends FormBase {
       ],
     ];
 
-    $reopenTaskId = $this->getRequest()->query->getInt('reopen_task');
+    // Keep the GET/PRG Undo on ordinary pages. AJAX transitions carry their
+    // current Undo target in server FormState, never in a browser-supplied ID.
+    $form['live'] = [
+      '#type' => 'container',
+      '#attributes' => ['id' => 'ps-task-live'],
+    ];
+    $ajaxResult = $form_state->get('task_ajax_result');
+    $form['live']['feedback'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => is_array($ajaxResult) ? (string) ($ajaxResult['message'] ?? '') : '',
+      '#attributes' => [
+        'id' => 'ps-task-feedback',
+        'class' => ['ps-task-feedback'],
+        'role' => 'status',
+        'aria-live' => 'polite',
+        'aria-atomic' => 'true',
+        'tabindex' => '-1',
+      ],
+    ];
+    $ajax = $this->taskAjaxOptions($statusFilter, $titleFilter);
+    $stateUndoId = $form_state->get('task_ajax_undo_task_id');
+    $reopenTaskId = is_int($stateUndoId)
+      ? $stateUndoId
+      : $this->getRequest()->query->getInt('reopen_task');
     if ($reopenTaskId > 0) {
       try {
         $completed = $this->taskMutations->requireCurrentTask($reopenTaskId);
         if ((string) $completed->get('status')->value === PersonalTask::STATUS_COMPLETED) {
-          $form['undo'] = [
+          $form['live']['undo'] = [
             '#type' => 'container',
             '#attributes' => ['class' => ['ps-task-undo']],
             'reopen' => [
@@ -97,6 +127,7 @@ final class PersonalTaskListForm extends FormBase {
               '#name' => 'reopen_task_' . $reopenTaskId,
               '#task_id' => $reopenTaskId,
               '#task_action' => 'reopen',
+              '#ajax' => $ajax,
               '#attributes' => ['class' => ['ps-task-undo__action']],
             ],
           ];
@@ -111,7 +142,7 @@ final class PersonalTaskListForm extends FormBase {
       $items = $this->taskQuery->myTasks($this->statusConstant($statusFilter), $titleFilter);
     }
     catch (InvalidArgumentException) {
-      $form['remediation'] = [
+      $form['live']['remediation'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#value' => $this->t('Link your account to a valid Household member to see My tasks.'),
@@ -120,7 +151,7 @@ final class PersonalTaskListForm extends FormBase {
     }
 
     if ($items === []) {
-      $form['empty'] = [
+      $form['live']['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#value' => $titleFilter !== ''
@@ -135,7 +166,7 @@ final class PersonalTaskListForm extends FormBase {
       return $form;
     }
 
-    $form['items'] = [
+    $form['live']['items'] = [
       '#type' => 'container',
       '#attributes' => [
         'class' => ['ps-task-list'],
@@ -150,7 +181,7 @@ final class PersonalTaskListForm extends FormBase {
         $rowClasses[] = 'ps-task-row--overdue';
       }
 
-      $form['items'][$delta] = [
+      $form['live']['items'][$delta] = [
         '#type' => 'container',
         '#attributes' => [
           'class' => $rowClasses,
@@ -170,7 +201,7 @@ final class PersonalTaskListForm extends FormBase {
       ];
 
       if ($statusFilter !== 'open') {
-        $form['items'][$delta]['status'] = [
+        $form['live']['items'][$delta]['status'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
           '#value' => $item['status'] === PersonalTask::STATUS_COMPLETED
@@ -181,7 +212,7 @@ final class PersonalTaskListForm extends FormBase {
       }
 
       if ((string) $item['due_label'] !== '') {
-        $form['items'][$delta]['due'] = [
+        $form['live']['items'][$delta]['due'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
           '#value' => $item['overdue'] && $item['status'] === PersonalTask::STATUS_OPEN
@@ -195,7 +226,7 @@ final class PersonalTaskListForm extends FormBase {
         continue;
       }
 
-      $form['items'][$delta]['actions'] = [
+      $form['live']['items'][$delta]['actions'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-task-row__actions']],
         'complete' => [
@@ -204,6 +235,7 @@ final class PersonalTaskListForm extends FormBase {
           '#name' => 'complete_task_' . $id,
           '#task_id' => $id,
           '#task_action' => 'complete',
+          '#ajax' => $ajax,
           '#button_type' => 'primary',
           '#attributes' => ['class' => ['ps-task-row__complete']],
         ],
@@ -223,6 +255,48 @@ final class PersonalTaskListForm extends FormBase {
     }
 
     return $form;
+  }
+
+  /**
+   * Replaces only the server-rebuilt task results after an authorized POST.
+   */
+  public function ajaxTaskTransition(array &$form, FormStateInterface $form_state): AjaxResponse {
+    $result = $form_state->get('task_ajax_result');
+    $response = new AjaxResponse();
+    $response->addCommand(new ReplaceCommand('#ps-task-live', $form['live']));
+
+    $focus = '#ps-task-feedback';
+    if (is_array($result) && !empty($result['ok'])) {
+      $taskId = (int) ($result['task_id'] ?? 0);
+      if ($result['action'] === 'complete') {
+        $focus = '#ps-task-live .ps-task-undo__action';
+      }
+      elseif ($result['action'] === 'reopen' && $taskId > 0) {
+        $focus = '#ps-task-live [data-ps-task-id="' . $taskId . '"] .ps-task-row__complete';
+      }
+    }
+    $response->addCommand(new InvokeCommand($focus, 'focus'));
+    return $response;
+  }
+
+  /**
+   * Keeps current status/title filters on the Core Form AJAX POST endpoint.
+   *
+   * @return array<string, mixed>
+   *   Core Form API AJAX button settings.
+   */
+  private function taskAjaxOptions(string $status, string $title): array {
+    return [
+      'callback' => '::ajaxTaskTransition',
+      'url' => Url::fromRoute('personal_secretary.my_tasks'),
+      'options' => [
+        'query' => $this->filterQuery($status, $title) + [
+          FormBuilderInterface::AJAX_FORM_REQUEST => TRUE,
+        ],
+      ],
+      'wrapper' => 'ps-task-live',
+      'progress' => ['type' => 'throbber'],
+    ];
   }
 
   /**
@@ -250,16 +324,26 @@ final class PersonalTaskListForm extends FormBase {
     $trigger = $form_state->getTriggeringElement();
     $taskId = (int) ($trigger['#task_id'] ?? 0);
     $action = (string) ($trigger['#task_action'] ?? '');
+    $isAjax = isset($trigger['#ajax']) && $this->getRequest()->isXmlHttpRequest();
 
     [$status, $title] = $this->readFilters($this->getRequest()->query->all());
     $filterQuery = $this->filterQuery($status, $title);
 
     try {
       if ($action === 'complete') {
-        $this->taskMutations->completeTask($taskId);
-        $this->messenger()->addStatus(
-          $this->t('Task completed. You can reopen it below if this was accidental.'),
-        );
+        $changed = $this->taskMutations->completeTask($taskId);
+        $message = $this->t('Task completed. You can reopen it below if this was accidental.');
+        if ($isAjax) {
+          $this->setAjaxResult($form_state, $changed, $action, $taskId, $changed
+            ? $message
+            : $this->t('This task action is no longer authorized or valid.'));
+          if ($changed) {
+            $form_state->set('task_ajax_undo_task_id', $taskId);
+          }
+          return;
+        }
+
+        $this->messenger()->addStatus($message);
         $form_state->setRedirect(
           'personal_secretary.my_tasks',
           [],
@@ -269,13 +353,27 @@ final class PersonalTaskListForm extends FormBase {
       }
 
       if ($action === 'reopen') {
-        $this->taskMutations->reopenTask($taskId);
-        $this->messenger()->addStatus($this->t('Task reopened.'));
+        $changed = $this->taskMutations->reopenTask($taskId);
+        $message = $this->t('Task reopened.');
+        if ($isAjax) {
+          $this->setAjaxResult($form_state, $changed, $action, $taskId, $changed
+            ? $message
+            : $this->t('This task action is no longer authorized or valid.'));
+          $form_state->set('task_ajax_undo_task_id', 0);
+          return;
+        }
+
+        $this->messenger()->addStatus($message);
         $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
         return;
       }
     }
     catch (InvalidArgumentException) {
+      if ($isAjax) {
+        $this->setAjaxResult($form_state, FALSE, $action, $taskId,
+          $this->t('This task action is no longer authorized or valid.'));
+        return;
+      }
       $this->messenger()->addError(
         $this->t('This task action is no longer authorized or valid.'),
       );
@@ -283,10 +381,34 @@ final class PersonalTaskListForm extends FormBase {
       return;
     }
 
+    if ($isAjax) {
+      $this->setAjaxResult($form_state, FALSE, $action, $taskId,
+        $this->t('This task action is no longer authorized or valid.'));
+      return;
+    }
     $this->messenger()->addError(
       $this->t('This task action is no longer authorized or valid.'),
     );
     $form_state->setRedirect('personal_secretary.my_tasks');
+  }
+
+  /**
+   * Saves an AJAX outcome only after the domain service checked the mutation.
+   */
+  private function setAjaxResult(
+    FormStateInterface $form_state,
+    bool $ok,
+    string $action,
+    int $taskId,
+    \Drupal\Core\StringTranslation\TranslatableMarkup $message,
+  ): void {
+    $form_state->set('task_ajax_result', [
+      'ok' => $ok,
+      'action' => $action,
+      'task_id' => $taskId,
+      'message' => (string) $message,
+    ]);
+    $form_state->setRebuild();
   }
 
   /**
