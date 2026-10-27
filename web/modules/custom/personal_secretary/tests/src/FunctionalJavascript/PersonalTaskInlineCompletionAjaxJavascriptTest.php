@@ -120,6 +120,22 @@ final class PersonalTaskInlineCompletionAjaxJavascriptTest extends WebDriverTest
     // Search is a separate GET/redirect action, not an AJAX mutation.
     $this->getSession()->getPage()->fillField('Search task titles', 'Beta');
     $this->getSession()->getPage()->pressButton('Search tasks');
+    $searchNavigated = $this->getSession()->wait(
+      5000,
+      'location.pathname === "/personal-secretary/tasks/mine" && new URLSearchParams(location.search).get("q") === "Beta"',
+    );
+    if (!$searchNavigated) {
+      $diagnostic = (string) $this->getSession()->evaluateScript(<<<'JS'
+JSON.stringify({
+  path: location.pathname + location.search,
+  submittedSearchValue: document.querySelector('[name="title"]')?.value || null,
+  selectedStatus: document.querySelector('[name="status"]')?.value || null,
+  ajaxResponses: window.psTaskAjaxResponses || [],
+  errors: window.psTaskJavascriptErrors || [],
+})
+JS);
+      $this->fail('Search tasks did not navigate via GET/redirect: ' . $diagnostic);
+    }
     $this->assertSession()->addressEquals($mine . '?status=all&q=Beta');
     $this->assertSession()->pageTextContains('Synthetic AJAX Beta');
     $this->assertSession()->pageTextNotContains('Synthetic AJAX Alpha');
