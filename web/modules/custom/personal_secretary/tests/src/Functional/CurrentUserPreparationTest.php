@@ -341,6 +341,12 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->elementExists('xpath', '//a[@aria-current="page"][contains(@href, "days=7")]');
     $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
     $this->assertSession()->pageTextContains('Active overdue preparation');
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-list")]/h3[normalize-space()="Overdue preparations"]');
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-list")]/h3[normalize-space()="Upcoming preparations"]');
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//h3[normalize-space()="Overdue preparations"]/following-sibling::div[contains(@class, "ps-preparation-row")][.//h3[normalize-space()="Active overdue preparation"]]',
+    );
     $this->assertSession()->pageTextContains('Long lead preparation due inside seven days');
     $this->assertSession()->pageTextContains('Preparation appears after responsibility override');
     $this->assertSession()->pageTextContains('Replacement preparation requirement');
@@ -454,6 +460,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->getSession()->getPage()->clickLink('30 days');
     $this->assertSearchContext($route, 'day twenty', 30);
     $this->assertSession()->pageTextContains('Preparation due on day twenty');
+    $this->assertSession()->elementNotExists('xpath', '//h3[normalize-space()="Overdue preparations"]');
+    $this->assertSession()->elementNotExists('xpath', '//h3[normalize-space()="Upcoming preparations"]');
     $this->assertSession()->pageTextNotContains('Preparation due on day thirty-one');
     $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
 
