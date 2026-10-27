@@ -22,9 +22,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class PersonalTaskListForm extends FormBase {
 
+  // Core Form API caches rebuilt AJAX forms between authenticated POSTs.
+  // Keep these injected services writable for Drupal's dependency restoration.
   public function __construct(
-    private readonly PersonalTaskQueryService $taskQuery,
-    private readonly PersonalTaskMutationService $taskMutations,
+    protected PersonalTaskQueryService $taskQuery,
+    protected PersonalTaskMutationService $taskMutations,
   ) {}
 
   public static function create(ContainerInterface $container): static {
