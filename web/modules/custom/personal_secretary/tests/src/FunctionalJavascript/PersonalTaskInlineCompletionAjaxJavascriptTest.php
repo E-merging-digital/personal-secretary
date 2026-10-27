@@ -146,8 +146,12 @@ JS);
     $this->drupalLogout();
     $this->drupalLogin($unlinkedUser);
     $this->drupalGet($mine);
-    $this->assertSession()->pageTextContains('Link your account to a valid Household member to see My tasks.');
+    // The route may deny access before the form's own remediation renders.
+    // Either safe response must expose no task row, mutation or other household.
+    $this->assertSession()->elementNotExists('css', '#ps-task-live .ps-task-row');
     $this->assertSession()->elementNotExists('css', '.ps-task-row__complete');
+    $this->assertSession()->pageTextNotContains('Synthetic AJAX Alpha');
+    $this->assertSession()->pageTextNotContains('Synthetic AJAX private task');
     $this->assertTaskStatus($alphaId, PersonalTask::STATUS_OPEN);
     $this->assertTaskStatus($privateId, PersonalTask::STATUS_OPEN);
   }
