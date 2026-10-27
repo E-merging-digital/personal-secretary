@@ -374,7 +374,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
 
     // The same query cannot cross the authorized Person or Household scope.
-    $later30 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'lAtEr']]));
+    $later30 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'lAtEr']]);
     $this->drupalGet($later30);
     $this->assertSession()->pageTextContains('Later A activity');
     $this->assertSession()->pageTextNotContains('Rule A activity');
