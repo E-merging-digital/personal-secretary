@@ -344,11 +344,6 @@ final class MyUpcomingTest extends BrowserTestBase {
       $ruleAOccurrence->originalOccurrenceKey,
       ['days' => '30', 'q' => 'rUlE a'],
     );
-    $ruleBSearchDetail30 = $this->detailUrl(
-      $ruleBSeries,
-      $ruleBOccurrence->originalOccurrenceKey,
-      ['days' => '30', 'q' => 'rUlE a'],
-    );
     $this->assertSession()->linkByHrefExists($filtered7);
     $this->assertSession()->linkByHrefExists($filtered30);
     $this->assertSession()->linkByHrefExists($ruleASearchDetail7);
@@ -356,7 +351,8 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Clear search');
 
     // Changing horizon and consulting details must retain both parameters.
-    $this->drupalGet($filtered30);
+    $this->getSession()->getPage()->clickLink('30 days');
+    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextNotContains('Later A activity');
     $this->assertSession()->elementExists(
@@ -367,10 +363,12 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists($ruleASearchDetail30);
     $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
 
-    $this->drupalGet($ruleASearchDetail30);
+    $this->getSession()->getPage()->clickLink('View details');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($filtered30);
-    $this->drupalGet($ruleBSearchDetail30);
+    $this->drupalGet(Url::fromUserInput($ruleBDetailUrl, [
+      'query' => ['days' => '30', 'q' => 'rUlE a'],
+    ]));
     $this->assertSession()->statusCodeEquals(404);
 
     // The same query cannot cross the authorized Person or Household scope.
