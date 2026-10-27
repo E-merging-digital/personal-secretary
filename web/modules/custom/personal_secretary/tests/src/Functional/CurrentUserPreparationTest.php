@@ -415,11 +415,11 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->getSession()->getPage()->pressButton('Search preparations');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSearchContext($route, 'dUe nOw', 7);
+    $this->assertSession()->elementExists('css', 'form.ps-preparation-search input[name="q"][value="dUe nOw"]');
     $this->assertSession()->pageTextContains('Due now preparation');
-    $this->assertSession()->pageTextNotContains('Active overdue preparation');
-    $this->assertSession()->pageTextNotContains('All-day preparation');
-    $this->assertSession()->pageTextNotContains('Other person preparation');
-    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
+    $rows = $this->getSession()->getPage()->findAll('css', '#ps-preparation-live .ps-preparation-row h3');
+    $visibleInstructions = array_map(static fn($row): string => trim($row->getText()), $rows);
+    $this->assertSame(['Due now preparation'], $visibleInstructions, 'Search must filter the displayed preparation rows.');
     $this->assertSession()->linkExists('Clear search');
     $this->assertSession()->linkByHrefExists($route . '?days=7');
     $this->assertSession()->linkByHrefExists(Url::fromRoute(
