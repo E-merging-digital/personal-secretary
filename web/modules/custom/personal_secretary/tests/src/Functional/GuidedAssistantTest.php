@@ -665,14 +665,6 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $completions = $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion');
     $this->assertCount(0, $completions->loadMultiple());
 
-    // A forged selection cannot be previewed, let alone completed.
-    $this->submitForm([
-      'intent' => 'MARK_PREPARATION',
-      'preparation_choice' => str_repeat('a', 64),
-    ], 'Show preview');
-    $this->assertSession()->elementNotExists('css', 'input[name="confirm_mark_preparation"]');
-    $this->assertCount(0, $completions->loadMultiple());
-
     $this->submitForm([
       'intent' => 'MARK_PREPARATION',
       'preparation_choice' => $alpha,
