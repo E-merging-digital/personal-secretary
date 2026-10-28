@@ -649,7 +649,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic forbidden target preparation');
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
 
-    $items = $this->container->get('personal_secretary.current_user_preparation')->mine(NULL, 30)['items'];
+    $items = $this->container->get('personal_secretary.current_user_preparation')->mineForUser($user, NULL, 30)['items'];
     $this->assertCount(2, $items);
     $choices = [];
     foreach ($items as $item) {
@@ -699,7 +699,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/preparations/mine');
     $this->assertCount(1, $completions->loadMultiple(), 'Exactly one local completion is persisted.');
 
-    $after = $this->container->get('personal_secretary.current_user_preparation')->mine(NULL, 30)['items'];
+    $after = $this->container->get('personal_secretary.current_user_preparation')->mineForUser($user, NULL, 30)['items'];
     $states = [];
     foreach ($after as $item) {
       $states[$item['instruction']] = $item['prepared'];
@@ -741,7 +741,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->drupalGet('/fr/personal-secretary/assistant');
     $this->assertSession()->pageTextContains('Marquer un préparatif comme fait');
 
-    $item = $this->container->get('personal_secretary.current_user_preparation')->mine(NULL, 30)['items'][0];
+    $item = $this->container->get('personal_secretary.current_user_preparation')->mineForUser($user, NULL, 30)['items'][0];
     $choice = hash('sha256', implode("\0", [
       (string) $item['_completion_series_id'],
       (string) $item['_completion_target_revision_id'],
