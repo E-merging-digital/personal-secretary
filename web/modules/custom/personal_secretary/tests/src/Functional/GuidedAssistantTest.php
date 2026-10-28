@@ -626,6 +626,142 @@ final class GuidedAssistantTest extends BrowserTestBase {
   }
 
 
+  public function testCompleteExistingTaskRequiresFreshPreviewAndConfirmation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Task Completion Operator');
+    $allowed = $domain->createHousehold('Synthetic completion home', [(int) $person->id()]);
+    $forbidden = $domain->createHousehold('Synthetic completion other home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $today = (new \DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('Y-m-d');
+    $due = (new \DateTimeImmutable($today))->modify('+2 days')->format('Y-m-d');
+    $alpha = $storage->create([
+      'title' => 'Synthetic completion alpha',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_DATE,
+      'due_date' => $due,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $alpha->save();
+    $beta = $storage->create([
+      'title' => 'Synthetic completion beta without deadline',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $beta->save();
+    $other = $storage->create([
+      'title' => 'Synthetic forbidden completion task',
+      'household' => (int) $forbidden->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $other->save();
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Complete an existing task');
+    $this->assertSession()->pageTextContains('Synthetic completion alpha');
+    $this->assertSession()->pageTextContains('Synthetic completion beta without deadline');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden completion task');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+
+    $alphaChoice = hash('sha256', implode("\0", [(string) $alpha->id(), (string) $allowed->id()]));
+    $betaChoice = hash('sha256', implode("\0", [(string) $beta->id(), (string) $allowed->id()]));
+    $this->submitForm([
+      'intent' => 'COMPLETE_TASK',
+      'complete_task_choice' => $alphaChoice,
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Only this task will be completed after confirmation.');
+    $this->assertSession()->pageTextContains('Preview only');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_complete_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($alpha->id())->get('status')->value);
+
+    // A different valid option still requires its own fresh preview.
+    $this->submitForm(['complete_task_choice' => $betaChoice], 'Complete this task');
+    $this->assertSession()->pageTextContains('This task preview is no longer valid.');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($alpha->id())->get('status')->value);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($beta->id())->get('status')->value);
+
+    $this->submitForm([
+      'intent' => 'COMPLETE_TASK',
+      'complete_task_choice' => $alphaChoice,
+    ], 'Show preview');
+    $this->submitForm([], 'Complete this task');
+    $this->assertSession()->addressEquals('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Task completed.');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($alpha->id())->get('status')->value);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($beta->id())->get('status')->value);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($other->id())->get('status')->value);
+    $this->getSession()->reload();
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($alpha->id())->get('status')->value);
+  }
+
+  public function testFrenchTaskCompletionPreviewFailsClosedAfterHouseholdRevocation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic French Task Completion Operator');
+    $allowed = $domain->createHousehold('Synthetic permitted completion home', [(int) $person->id()]);
+    $remaining = $domain->createHousehold('Synthetic remaining completion home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed, $remaining]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $task = $storage->create([
+      'title' => 'Synthetic French completion task',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $task->save();
+    $this->drupalLogin($user);
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Terminer une tâche existante');
+    $choice = hash('sha256', implode("\0", [(string) $task->id(), (string) $allowed->id()]));
+    $this->submitForm([
+      'intent' => 'COMPLETE_TASK',
+      'complete_task_choice' => $choice,
+    ], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Seule cette tâche sera terminée après confirmation.');
+    $this->assertSession()->pageTextContains('Terminer cette tâche');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($task->id())->get('status')->value);
+
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [
+      ['target_id' => (int) $remaining->id()],
+    ]);
+    $user->save();
+    $this->submitForm([], 'Terminer cette tâche');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($task->id())->get('status')->value);
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_complete_existing_task"]');
+  }
+
   public function testPreparationRequiresExactPreviewAndHumanConfirmation(): void {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Synthetic Preparation Operator');
