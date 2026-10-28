@@ -16,6 +16,8 @@ use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Value\ActivityCaptureProposal;
 use Drupal\personal_secretary\Service\ActivityCaptureResolver;
 use Drupal\personal_secretary\Service\CurrentUserActivityCreationService;
+use Drupal\personal_secretary\Service\CurrentUserPreparationService;
+use Drupal\personal_secretary\Service\PreparationCompletionService;
 use Drupal\personal_secretary\Service\ThreeIntentReadProposeService;
 use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use Drupal\personal_secretary\Service\TodayService;
@@ -26,9 +28,11 @@ use RuntimeException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Optional structured assistant, without any write or external provider.
+ * Optional structured assistant with explicit human-confirmed local actions.
  */
 final class GuidedAssistantForm extends FormBase {
+
+  private const MARK_PREPARATION = 'MARK_PREPARATION';
 
   public function __construct(
     protected TodayService $today,
@@ -36,6 +40,8 @@ final class GuidedAssistantForm extends FormBase {
     protected ActivityCaptureResolver $captureResolver,
     protected LanguageManagerInterface $interfaceLanguage,
     protected PersonalTaskMutationService $taskMutations,
+    protected CurrentUserPreparationService $currentUserPreparations,
+    protected PreparationCompletionService $preparationCompletion,
   ) {
   }
 
@@ -46,6 +52,8 @@ final class GuidedAssistantForm extends FormBase {
       $container->get('personal_secretary.activity_capture_resolver'),
       $container->get('language_manager'),
       $container->get('personal_secretary.personal_task_mutation'),
+      $container->get('personal_secretary.current_user_preparation'),
+      $container->get('personal_secretary.preparation_completion'),
     );
   }
 
@@ -60,8 +68,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. The assistant does not interpret free text; only an explicit confirmation can create a task or activity.',
-        'Choisissez une action. L’assistant n’interprète pas de texte libre ; seule une confirmation explicite peut créer une tâche ou une activité.',
+        'Choose an action. The assistant does not interpret free text; creating a task or activity or marking a preparation done requires explicit confirmation.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer une tâche ou une activité ou marquer un préparatif comme fait exige une confirmation explicite.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -92,6 +100,7 @@ final class GuidedAssistantForm extends FormBase {
         ThreeIntentReadProposeService::GET_TOMORROW => $this->tr('View tomorrow', 'Préparer demain'),
         ThreeIntentReadProposeService::PROPOSE_TASK => $this->tr('Prepare a task', 'Préparer une tâche'),
         ThreeIntentReadProposeService::PROPOSE_ACTIVITY => $this->tr('Prepare an activity', 'Préparer une activité'),
+        self::MARK_PREPARATION => $this->tr('Mark a preparation done', 'Marquer un préparatif comme fait'),
       ],
       '#default_value' => ThreeIntentReadProposeService::GET_TODAY,
     ];
@@ -195,6 +204,44 @@ final class GuidedAssistantForm extends FormBase {
       '#default_value' => FALSE,
     ];
 
+    $form['preparation'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-guided-assistant__fields']],
+      '#states' => ['visible' => [':input[name="intent"]' => ['value' => self::MARK_PREPARATION]]],
+    ];
+    try {
+      $choices = $this->preparationChoices();
+      if ($choices === []) {
+        $form['preparation']['empty'] = $this->fact($this->tr(
+          'No pending preparation is due or overdue in the next 30 days.',
+          'Aucun préparatif non fait n’est en retard ou à échéance dans les 30 prochains jours.',
+        ));
+      }
+      else {
+        $options = ['' => $this->tr('Choose a pending preparation', 'Choisir un préparatif à faire')];
+        foreach ($choices as $key => $item) {
+          $options[$key] = $this->preparationLabel($item);
+        }
+        $form['preparation']['preparation_choice'] = [
+          '#type' => 'select',
+          '#title' => $this->tr('Preparation to mark done', 'Préparatif à marquer comme fait'),
+          '#options' => $options,
+          '#default_value' => '',
+        ];
+      }
+    }
+    catch (InvalidArgumentException|RuntimeException) {
+      $form['preparation']['unavailable'] = $this->fact($this->tr(
+        'Preparations are currently unavailable. No change can be made.',
+        'Les préparatifs sont momentanément indisponibles. Aucune modification ne peut être effectuée.',
+      ));
+    }
+    $form['preparation']['all'] = [
+      '#type' => 'link',
+      '#title' => $this->tr('View My preparations', 'Voir Mes préparatifs'),
+      '#url' => Url::fromRoute('personal_secretary.my_preparations'),
+    ];
+
     $form['actions'] = [
       '#type' => 'actions',
       '#attributes' => ['class' => ['ps-guided-assistant__actions']],
@@ -206,6 +253,24 @@ final class GuidedAssistantForm extends FormBase {
     $result = $form_state->get('guided_result');
     if (is_array($result)) {
       $form['result'] = $this->resultBuild($result, $scope);
+      if ($this->preparationReviewContextValid($result, $form_state->get('preparation_review'), $scope)) {
+        $form['preparation_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Mark this preparation as done will save one local completion. Check the exact preparation above before confirming.',
+            'Marquer ce préparatif comme fait enregistrera une seule réalisation locale. Vérifiez le préparatif exact ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_mark_preparation',
+              '#value' => $this->tr('Mark this preparation as done', 'Marquer ce préparatif comme fait'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
       if ($this->taskReviewContextValid($result, $form_state->get('task_review'), $scope)) {
         $form['task_confirmation'] = [
           '#type' => 'container',
@@ -269,6 +334,7 @@ final class GuidedAssistantForm extends FormBase {
     $confirm = $trigger === 'confirm_create_task';
     $confirmActivity = $trigger === 'confirm_create_activity';
     $confirmWeekly = $trigger === 'confirm_create_weekly_activity';
+    $confirmPreparation = $trigger === 'confirm_mark_preparation';
     try {
       $scope = $this->activityCreation->creationScope();
       $today = $this->today->today();
@@ -279,6 +345,7 @@ final class GuidedAssistantForm extends FormBase {
     catch (InvalidArgumentException|RuntimeException) {
       $form_state->set('task_review', NULL);
       $form_state->set('activity_review', NULL);
+      $form_state->set('preparation_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
         'clarifications' => ['authorized_scope_required'], 'saved' => FALSE,
@@ -290,6 +357,50 @@ final class GuidedAssistantForm extends FormBase {
     $capabilities = new ThreeIntentReadProposeService(
       $this->today, $this->activityCreation, $this->captureResolver,
     );
+    if ($confirmPreparation) {
+      $review = $form_state->get('preparation_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== self::MARK_PREPARATION
+        || !$this->preparationReviewContextValid($previous, $review, $scope)
+        || (string) $form_state->getValue('preparation_choice') !== $review['choice']) {
+        $this->rejectPreparationConfirmation($form_state);
+        return;
+      }
+      try {
+        $choices = $this->preparationChoices();
+        $item = $choices[$review['choice']] ?? NULL;
+        if (!is_array($item)
+          || $this->preparationSummary($item) !== $review['summary']
+          || $this->preparationTarget($item) !== $review['target']) {
+          throw new InvalidArgumentException('The reviewed preparation is stale.');
+        }
+        // Revalidate exact current-user eligibility, identity and state.
+        [$seriesId, $occurrenceKey, $requirementId] = $review['target'];
+        $current = $this->preparationCompletion->describeCurrentPreparation(
+          $seriesId, $occurrenceKey, $requirementId,
+        );
+        if ($current['prepared'] || $current['instruction'] !== $review['summary']['instruction']) {
+          throw new InvalidArgumentException('The reviewed preparation is no longer pending.');
+        }
+        // Consume the review before the sole governed domain mutation.
+        $form_state->set('preparation_review', NULL);
+        if (!$this->preparationCompletion->markPrepared(
+          $seriesId, $occurrenceKey, $requirementId,
+        )) {
+          throw new InvalidArgumentException('The preparation was already marked done.');
+        }
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $this->rejectPreparationConfirmation($form_state);
+        return;
+      }
+      $this->messenger()->addStatus($this->tr(
+        'Preparation marked done.', 'Préparatif marqué comme fait.',
+      ));
+      $form_state->setRedirect('personal_secretary.my_preparations');
+      return;
+    }
+
     if ($confirm) {
       $review = $form_state->get('task_review');
       $previous = $form_state->get('guided_result');
@@ -404,6 +515,46 @@ final class GuidedAssistantForm extends FormBase {
     // Preview is always read-only, and supersedes any earlier confirmation.
     $form_state->set('task_review', NULL);
     $form_state->set('activity_review', NULL);
+    $form_state->set('preparation_review', NULL);
+    if ($intent === self::MARK_PREPARATION) {
+      try {
+        $choice = (string) $form_state->getValue('preparation_choice');
+        $choices = $this->preparationChoices();
+        $item = $choices[$choice] ?? NULL;
+        if (!is_array($item)) {
+          throw new InvalidArgumentException('No pending preparation was selected.');
+        }
+        $summary = $this->preparationSummary($item);
+        $review = [
+          'choice' => $choice,
+          'summary' => $summary,
+          'target' => $this->preparationTarget($item),
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'expires_at' => \Drupal::time()->getCurrentTime() + 600,
+        ];
+        $result = [
+          'intent' => self::MARK_PREPARATION,
+          'status' => 'PROPOSAL_READY',
+          'data' => $summary,
+          'clarifications' => [],
+          'saved' => FALSE,
+        ];
+        $form_state->set('preparation_review', $review);
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $result = [
+          'intent' => self::MARK_PREPARATION,
+          'status' => 'NEEDS_CLARIFICATION',
+          'data' => NULL,
+          'clarifications' => ['choose_pending_preparation'],
+          'saved' => FALSE,
+        ];
+      }
+      $this->show($form_state, $result);
+      return;
+    }
     $input = [];
     if ($intent === ThreeIntentReadProposeService::PROPOSE_TASK) {
       $input = $this->taskInput($form_state);
@@ -472,6 +623,90 @@ final class GuidedAssistantForm extends FormBase {
    * @param mixed $review
    * @param array<string, mixed> $scope
    */
+  private function preparationReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    return is_array($result) && is_array($review)
+      && ($result['intent'] ?? NULL) === self::MARK_PREPARATION
+      && ($result['status'] ?? NULL) === 'PROPOSAL_READY'
+      && ($result['saved'] ?? NULL) === FALSE
+      && is_array($review['summary'] ?? NULL)
+      && ($result['data'] ?? NULL) === $review['summary']
+      && is_string($review['choice'] ?? NULL)
+      && $review['choice'] !== ''
+      && is_array($review['target'] ?? NULL)
+      && count($review['target']) === 3
+      && ($review['user_id'] ?? NULL) === (int) $this->currentUser()->id()
+      && ($review['person_id'] ?? NULL) === (int) $scope['current_person']->id()
+      && ($review['household_ids'] ?? NULL) === $this->householdIds($scope)
+      && is_int($review['expires_at'] ?? NULL)
+      && $review['expires_at'] > \Drupal::time()->getCurrentTime()
+      && $review['expires_at'] <= \Drupal::time()->getCurrentTime() + 600;
+  }
+
+  /**
+   * @return array<string, array<string, mixed>>
+   */
+  private function preparationChoices(): array {
+    $choices = [];
+    foreach ($this->currentUserPreparations->mine(NULL, 30)['items'] as $item) {
+      if ($item['prepared']) {
+        continue;
+      }
+      $identity = $this->preparationIdentity($item);
+      $choices[$identity] = $item;
+    }
+    return $choices;
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   */
+  private function preparationIdentity(array $item): string {
+    return hash('sha256', implode("\0", [
+      (string) $item['_completion_series_id'],
+      (string) $item['_completion_target_revision_id'],
+      (string) $item['_completion_original_occurrence_key'],
+      (string) $item['_completion_requirement_id'],
+    ]));
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   */
+  private function preparationLabel(array $item): string {
+    return implode(' — ', [
+      (string) $item['instruction'],
+      (string) $item['activity_label'],
+      (string) ($item['activity_start'] ?: $item['all_day_start_label']),
+      (string) $item['due_time'],
+    ]);
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   * @return array<string, string|int>
+   */
+  private function preparationSummary(array $item): array {
+    return [
+      'instruction' => (string) $item['instruction'],
+      'activity_label' => (string) $item['activity_label'],
+      'activity_start' => (string) ($item['activity_start'] ?: $item['all_day_start_label']),
+      'due_time' => (string) $item['due_time'],
+      'revision_id' => (int) $item['_completion_target_revision_id'],
+    ];
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   * @return array{int, string, int}
+   */
+  private function preparationTarget(array $item): array {
+    return [
+      (int) $item['_completion_series_id'],
+      (string) $item['_completion_original_occurrence_key'],
+      (int) $item['_completion_requirement_id'],
+    ];
+  }
+
   private function taskReviewContextValid(mixed $result, mixed $review, array $scope): bool {
     if (!is_array($result) || !is_array($review)
       || ($result['intent'] ?? NULL) !== ThreeIntentReadProposeService::PROPOSE_TASK
@@ -721,6 +956,17 @@ final class GuidedAssistantForm extends FormBase {
     return $input;
   }
 
+  private function rejectPreparationConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('preparation_review', NULL);
+    $this->show($form_state, [
+      'intent' => self::MARK_PREPARATION,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_preparation_preview_required'],
+      'saved' => FALSE,
+    ]);
+  }
+
   private function rejectTaskConfirmation(FormStateInterface $form_state): void {
     $form_state->set('task_review', NULL);
     $this->show($form_state, [
@@ -774,8 +1020,11 @@ final class GuidedAssistantForm extends FormBase {
       ],
       'notice' => [
         '#type' => 'html_tag', '#tag' => 'p',
-        '#value' => $this->tr('Preview not saved — no task or activity created.',
-          'Aperçu non enregistré — aucune tâche ni activité créée.'),
+        '#value' => ($result['intent'] ?? NULL) === self::MARK_PREPARATION
+          ? $this->tr('Preview only — the preparation has not been marked done.',
+            'Aperçu uniquement — le préparatif n’a pas été marqué comme fait.')
+          : $this->tr('Preview not saved — no task or activity created.',
+            'Aperçu non enregistré — aucune tâche ni activité créée.'),
       ],
     ];
     foreach (($result['clarifications'] ?? []) as $delta => $reason) {
@@ -831,6 +1080,19 @@ final class GuidedAssistantForm extends FormBase {
     }
     elseif ($status === 'PROPOSAL_READY' && is_array($result['data'] ?? NULL)) {
       $data = $result['data'];
+      if (($result['intent'] ?? NULL) === self::MARK_PREPARATION) {
+        $build['preparation'] = $this->fact($this->t('@instruction — @activity — @start — @due', [
+          '@instruction' => (string) $data['instruction'],
+          '@activity' => (string) $data['activity_label'],
+          '@start' => (string) $data['activity_start'],
+          '@due' => (string) $data['due_time'],
+        ]));
+        $build['effect'] = $this->fact($this->tr(
+          'Only this preparation will be marked done after confirmation.',
+          'Seul ce préparatif sera marqué comme fait après confirmation.',
+        ));
+        return $build;
+      }
       $build['proposal'] = $this->fact($this->t('@name', [
         '@name' => (string) ($data['title'] ?? $data['label'] ?? ''),
       ]));
@@ -1043,6 +1305,14 @@ final class GuidedAssistantForm extends FormBase {
       'fresh_activity_preview_required' => $this->tr(
         'The activity preview is no longer valid. Review a new preview before creating an activity.',
         'L’aperçu de l’activité n’est plus valide. Affichez un nouvel aperçu avant de créer une activité.',
+      ),
+      'choose_pending_preparation' => $this->tr(
+        'Choose a pending preparation and show a new preview.',
+        'Choisissez un préparatif à faire et affichez un nouvel aperçu.',
+      ),
+      'fresh_preparation_preview_required' => $this->tr(
+        'This preparation preview is no longer valid. Show a new preview before marking it done.',
+        'Cet aperçu de préparatif n’est plus valide. Affichez un nouvel aperçu avant de le marquer comme fait.',
       ),
       'fresh_task_preview_required' => $this->tr(
         'The task preview is no longer valid. Review a new preview before creating a task.',
