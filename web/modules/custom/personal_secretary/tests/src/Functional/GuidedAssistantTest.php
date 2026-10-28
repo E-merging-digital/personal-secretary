@@ -625,6 +625,156 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
   }
 
+
+  public function testPreparationRequiresExactPreviewAndHumanConfirmation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Preparation Operator');
+    $allowed = $domain->createHousehold('Synthetic preparation home', [(int) $person->id()]);
+    $forbidden = $domain->createHousehold('Synthetic preparation other home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed]);
+    $start = (new \DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new \DateTimeZone('Europe/Brussels'))
+      ->setTime(14, 0)
+      ->modify('+2 days');
+
+    $this->createGuidedPreparation('Synthetic target alpha', (int) $allowed->id(), (int) $person->id(), $start);
+    $this->createGuidedPreparation('Synthetic target beta', (int) $allowed->id(), (int) $person->id(), $start);
+    $this->createGuidedPreparation('Synthetic forbidden target', (int) $forbidden->id(), (int) $person->id(), $start);
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Mark a preparation done');
+    $this->assertSession()->pageTextContains('Synthetic target alpha preparation');
+    $this->assertSession()->pageTextContains('Synthetic target beta preparation');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden target preparation');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
+
+    $items = $this->container->get('personal_secretary.current_user_preparation')->mineForUser($user, NULL, 30)['items'];
+    $this->assertCount(2, $items);
+    $choices = [];
+    foreach ($items as $item) {
+      $choices[$item['instruction']] = hash('sha256', implode("\0", [
+        (string) $item['_completion_series_id'],
+        (string) $item['_completion_target_revision_id'],
+        (string) $item['_completion_original_occurrence_key'],
+        (string) $item['_completion_requirement_id'],
+      ]));
+    }
+    $alpha = $choices['Synthetic target alpha preparation'];
+    $beta = $choices['Synthetic target beta preparation'];
+    $completions = $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion');
+    $this->assertCount(0, $completions->loadMultiple());
+
+    $this->submitForm([
+      'intent' => 'MARK_PREPARATION',
+      'preparation_choice' => $alpha,
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Only this preparation will be marked done after confirmation.');
+    $this->assertSession()->pageTextContains('Preview only');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_mark_preparation"]');
+    $this->assertCount(0, $completions->loadMultiple(), 'Preview alone must not mutate completion.');
+
+    // Changing the target between preview and final POST invalidates the review.
+    $this->submitForm([
+      'preparation_choice' => $beta,
+    ], 'Mark this preparation as done');
+    $this->assertSession()->pageTextContains('This preparation preview is no longer valid.');
+    $this->assertCount(0, $completions->loadMultiple());
+
+    $this->submitForm([
+      'intent' => 'MARK_PREPARATION',
+      'preparation_choice' => $alpha,
+    ], 'Show preview');
+    $this->submitForm([], 'Mark this preparation as done');
+    $this->assertSession()->pageTextContains('Preparation marked done.');
+    $this->assertSession()->addressEquals('/personal-secretary/preparations/mine');
+    $this->assertCount(1, $completions->loadMultiple(), 'Exactly one local completion is persisted.');
+
+    $after = $this->container->get('personal_secretary.current_user_preparation')->mineForUser($user, NULL, 30)['items'];
+    $states = [];
+    foreach ($after as $item) {
+      $states[$item['instruction']] = $item['prepared'];
+    }
+    $this->assertTrue($states['Synthetic target alpha preparation']);
+    $this->assertFalse($states['Synthetic target beta preparation']);
+    $this->assertArrayNotHasKey('Synthetic forbidden target preparation', $states);
+  }
+
+  public function testFrenchPreparationPreviewFailsClosedAfterHouseholdRevocation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic French Preparation Operator');
+    $allowed = $domain->createHousehold('Synthetic first home', [(int) $person->id()]);
+    $other = $domain->createHousehold('Synthetic remaining home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed, $other]);
+    $start = (new \DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new \DateTimeZone('Europe/Brussels'))
+      ->setTime(14, 0)
+      ->modify('+2 days');
+    $this->createGuidedPreparation('Synthetic French target', (int) $allowed->id(), (int) $person->id(), $start);
+    $this->drupalLogin($user);
+
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Marquer un préparatif comme fait');
+
+    $item = $this->container->get('personal_secretary.current_user_preparation')->mineForUser($user, NULL, 30)['items'][0];
+    $choice = hash('sha256', implode("\0", [
+      (string) $item['_completion_series_id'],
+      (string) $item['_completion_target_revision_id'],
+      (string) $item['_completion_original_occurrence_key'],
+      (string) $item['_completion_requirement_id'],
+    ]));
+    $this->submitForm([
+      'intent' => 'MARK_PREPARATION',
+      'preparation_choice' => $choice,
+    ], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Seul ce préparatif sera marqué comme fait après confirmation.');
+    $this->assertSession()->pageTextContains('Marquer ce préparatif comme fait');
+    $this->assertCount(0, $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion')->loadMultiple());
+
+    // Revoke the exact Household after preview; keep another valid Household.
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [
+      ['target_id' => (int) $other->id()],
+    ]);
+    $user->save();
+    $this->submitForm([], 'Marquer ce préparatif comme fait');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_mark_preparation"]');
+    $this->assertCount(0, $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion')->loadMultiple());
+  }
+
+  private function createGuidedPreparation(string $label, int $householdId, int $personId, \DateTimeImmutable $start): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $series = $domain->createActivitySeries(
+      $label . ' activity', $householdId,
+      $start, $start->modify('+1 hour'), 'FREQ=DAILY;COUNT=1',
+    );
+    $this->container->get('personal_secretary.responsibility_mutation')->createResponsibilityRule(
+      $series, $personId,
+      $start, $start->modify('+1 hour'), 'FREQ=DAILY;COUNT=1',
+    );
+    $this->container->get('personal_secretary.preparation_requirement_mutation')->createPreparationRequirement(
+      $series, $label . ' preparation',
+      3600, $start->modify('-10 days'),
+    );
+  }
+
   /**
    * @param object[] $households
    */
