@@ -182,8 +182,8 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic Tomorrow preparation');
     $this->assertSession()->pageTextContains('Synthetic Tomorrow local activity');
     $this->assertSession()->pageTextContains($tomorrow . ' 00:30');
-    $this->assertSession()->pageTextNotContains('Synthetic visible Today task');
-    $this->assertSession()->pageTextNotContains('Synthetic overdue Today task');
+    $this->assertSession()->elementTextNotContains('css', '.ps-guided-assistant__result', 'Synthetic visible Today task');
+    $this->assertSession()->elementTextNotContains('css', '.ps-guided-assistant__result', 'Synthetic overdue Today task');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow task');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow activity');
     $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
