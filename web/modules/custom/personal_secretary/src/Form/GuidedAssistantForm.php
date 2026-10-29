@@ -20,6 +20,7 @@ use Drupal\personal_secretary\Service\CurrentUserPreparationService;
 use Drupal\personal_secretary\Service\PreparationCompletionService;
 use Drupal\personal_secretary\Service\ThreeIntentReadProposeService;
 use Drupal\personal_secretary\Service\PersonalTaskMutationService;
+use Drupal\personal_secretary\Service\PersonalTaskQueryService;
 use Drupal\personal_secretary\Service\TodayService;
 use Drupal\personal_secretary\Value\ActivityCaptureExtraction;
 use Drupal\personal_secretary\Value\ActivityCaptureInput;
@@ -33,6 +34,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class GuidedAssistantForm extends FormBase {
 
   private const MARK_PREPARATION = 'MARK_PREPARATION';
+  private const COMPLETE_TASK = 'COMPLETE_TASK';
 
   public function __construct(
     protected TodayService $today,
@@ -40,6 +42,7 @@ final class GuidedAssistantForm extends FormBase {
     protected ActivityCaptureResolver $captureResolver,
     protected LanguageManagerInterface $interfaceLanguage,
     protected PersonalTaskMutationService $taskMutations,
+    protected PersonalTaskQueryService $taskQuery,
     protected CurrentUserPreparationService $currentUserPreparations,
     protected PreparationCompletionService $preparationCompletion,
   ) {
@@ -52,6 +55,7 @@ final class GuidedAssistantForm extends FormBase {
       $container->get('personal_secretary.activity_capture_resolver'),
       $container->get('language_manager'),
       $container->get('personal_secretary.personal_task_mutation'),
+      $container->get('personal_secretary.personal_task_query'),
       $container->get('personal_secretary.current_user_preparation'),
       $container->get('personal_secretary.preparation_completion'),
     );
@@ -68,8 +72,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. The assistant does not interpret free text; creating a task or activity or marking a preparation done requires explicit confirmation.',
-        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer une tâche ou une activité ou marquer un préparatif comme fait exige une confirmation explicite.',
+        'Choose an action. The assistant does not interpret free text; creating a task or activity, marking a preparation done, or completing a task requires explicit confirmation.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer une tâche ou une activité, marquer un préparatif comme fait ou terminer une tâche exige une confirmation explicite.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -101,6 +105,7 @@ final class GuidedAssistantForm extends FormBase {
         ThreeIntentReadProposeService::PROPOSE_TASK => $this->tr('Prepare a task', 'Préparer une tâche'),
         ThreeIntentReadProposeService::PROPOSE_ACTIVITY => $this->tr('Prepare an activity', 'Préparer une activité'),
         self::MARK_PREPARATION => $this->tr('Mark a preparation done', 'Marquer un préparatif comme fait'),
+        self::COMPLETE_TASK => $this->tr('Complete an existing task', 'Terminer une tâche existante'),
       ],
       '#default_value' => ThreeIntentReadProposeService::GET_TODAY,
     ];
@@ -242,6 +247,44 @@ final class GuidedAssistantForm extends FormBase {
       '#url' => Url::fromRoute('personal_secretary.my_preparations'),
     ];
 
+    $form['complete_task'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-guided-assistant__fields']],
+      '#states' => ['visible' => [':input[name="intent"]' => ['value' => self::COMPLETE_TASK]]],
+    ];
+    try {
+      $choices = $this->taskCompletionChoices($scope);
+      if ($choices === []) {
+        $form['complete_task']['empty'] = $this->fact($this->tr(
+          'You have no open task to complete.',
+          'Vous n’avez aucune tâche ouverte à terminer.',
+        ));
+      }
+      else {
+        $options = ['' => $this->tr('Choose an open task', 'Choisir une tâche ouverte')];
+        foreach ($choices as $key => $item) {
+          $options[$key] = $this->taskCompletionLabel($item);
+        }
+        $form['complete_task']['complete_task_choice'] = [
+          '#type' => 'select',
+          '#title' => $this->tr('Task to complete', 'Tâche à terminer'),
+          '#options' => $options,
+          '#default_value' => '',
+        ];
+      }
+    }
+    catch (InvalidArgumentException|RuntimeException) {
+      $form['complete_task']['unavailable'] = $this->fact($this->tr(
+        'Open tasks are currently unavailable. No change can be made.',
+        'Les tâches ouvertes sont momentanément indisponibles. Aucune modification ne peut être effectuée.',
+      ));
+    }
+    $form['complete_task']['all'] = [
+      '#type' => 'link',
+      '#title' => $this->tr('View My tasks', 'Voir Mes tâches'),
+      '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+    ];
+
     $form['actions'] = [
       '#type' => 'actions',
       '#attributes' => ['class' => ['ps-guided-assistant__actions']],
@@ -253,6 +296,24 @@ final class GuidedAssistantForm extends FormBase {
     $result = $form_state->get('guided_result');
     if (is_array($result)) {
       $form['result'] = $this->resultBuild($result, $scope);
+      if ($this->taskCompletionReviewContextValid($result, $form_state->get('task_completion_review'), $scope)) {
+        $form['task_completion_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Complete this task will save one local status change. Check the exact task above before confirming.',
+            'Terminer cette tâche enregistrera un changement de statut local. Vérifiez la tâche exacte ci-dessus avant de confirmer.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_complete_existing_task',
+              '#value' => $this->tr('Complete this task', 'Terminer cette tâche'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
       if ($this->preparationReviewContextValid($result, $form_state->get('preparation_review'), $scope)) {
         $form['preparation_confirmation'] = [
           '#type' => 'container',
@@ -335,6 +396,7 @@ final class GuidedAssistantForm extends FormBase {
     $confirmActivity = $trigger === 'confirm_create_activity';
     $confirmWeekly = $trigger === 'confirm_create_weekly_activity';
     $confirmPreparation = $trigger === 'confirm_mark_preparation';
+    $confirmExistingTask = $trigger === 'confirm_complete_existing_task';
     try {
       $scope = $this->activityCreation->creationScope();
       $today = $this->today->today();
@@ -346,6 +408,7 @@ final class GuidedAssistantForm extends FormBase {
       $form_state->set('task_review', NULL);
       $form_state->set('activity_review', NULL);
       $form_state->set('preparation_review', NULL);
+      $form_state->set('task_completion_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
         'clarifications' => ['authorized_scope_required'], 'saved' => FALSE,
@@ -357,6 +420,41 @@ final class GuidedAssistantForm extends FormBase {
     $capabilities = new ThreeIntentReadProposeService(
       $this->today, $this->activityCreation, $this->captureResolver,
     );
+    if ($confirmExistingTask) {
+      $review = $form_state->get('task_completion_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== self::COMPLETE_TASK
+        || !$this->taskCompletionReviewContextValid($previous, $review, $scope)
+        || (string) $form_state->getValue('complete_task_choice') !== $review['choice']) {
+        $this->rejectTaskCompletionConfirmation($form_state);
+        return;
+      }
+      try {
+        $choices = $this->taskCompletionChoices($scope);
+        $item = $choices[$review['choice']] ?? NULL;
+        if (!is_array($item)
+          || $this->taskCompletionSummary($item) !== $review['summary']) {
+          throw new InvalidArgumentException('The reviewed task changed.');
+        }
+        $taskId = (int) $review['summary']['id'];
+        // Re-check domain authorization and open status at the write boundary.
+        $this->taskMutations->requireCurrentTask($taskId);
+        $form_state->set('task_completion_review', NULL);
+        if (!$this->taskMutations->completeTask($taskId)) {
+          throw new InvalidArgumentException('The task was already completed.');
+        }
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $this->rejectTaskCompletionConfirmation($form_state);
+        return;
+      }
+      $this->messenger()->addStatus($this->tr(
+        'Task completed.', 'Tâche terminée.',
+      ));
+      $form_state->setRedirect('personal_secretary.my_tasks');
+      return;
+    }
+
     if ($confirmPreparation) {
       $review = $form_state->get('preparation_review');
       $previous = $form_state->get('guided_result');
@@ -516,6 +614,45 @@ final class GuidedAssistantForm extends FormBase {
     $form_state->set('task_review', NULL);
     $form_state->set('activity_review', NULL);
     $form_state->set('preparation_review', NULL);
+    $form_state->set('task_completion_review', NULL);
+    if ($intent === self::COMPLETE_TASK) {
+      try {
+        $choice = (string) $form_state->getValue('complete_task_choice');
+        $choices = $this->taskCompletionChoices($scope);
+        $item = $choices[$choice] ?? NULL;
+        if (!is_array($item)) {
+          throw new InvalidArgumentException('No open task was selected.');
+        }
+        $summary = $this->taskCompletionSummary($item);
+        $review = [
+          'choice' => $choice,
+          'summary' => $summary,
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'expires_at' => \Drupal::time()->getCurrentTime() + 600,
+        ];
+        $result = [
+          'intent' => self::COMPLETE_TASK,
+          'status' => 'PROPOSAL_READY',
+          'data' => $summary,
+          'clarifications' => [],
+          'saved' => FALSE,
+        ];
+        $form_state->set('task_completion_review', $review);
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $result = [
+          'intent' => self::COMPLETE_TASK,
+          'status' => 'NEEDS_CLARIFICATION',
+          'data' => NULL,
+          'clarifications' => ['choose_open_task'],
+          'saved' => FALSE,
+        ];
+      }
+      $this->show($form_state, $result);
+      return;
+    }
     if ($intent === self::MARK_PREPARATION) {
       try {
         $choice = (string) $form_state->getValue('preparation_choice');
@@ -614,6 +751,85 @@ final class GuidedAssistantForm extends FormBase {
       }
     }
     $this->show($form_state, $result);
+  }
+
+  /**
+   * Validate a prior server-held task-completion preview.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function taskCompletionReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    return is_array($result) && is_array($review)
+      && ($result['intent'] ?? NULL) === self::COMPLETE_TASK
+      && ($result['status'] ?? NULL) === 'PROPOSAL_READY'
+      && ($result['saved'] ?? NULL) === FALSE
+      && is_array($review['summary'] ?? NULL)
+      && ($result['data'] ?? NULL) === $review['summary']
+      && is_string($review['choice'] ?? NULL)
+      && $review['choice'] !== ''
+      && ($review['summary']['status'] ?? NULL) === PersonalTask::STATUS_OPEN
+      && is_int($review['summary']['id'] ?? NULL)
+      && $review['summary']['id'] > 0
+      && ($review['user_id'] ?? NULL) === (int) $this->currentUser()->id()
+      && ($review['person_id'] ?? NULL) === (int) $scope['current_person']->id()
+      && ($review['household_ids'] ?? NULL) === $this->householdIds($scope)
+      && is_int($review['expires_at'] ?? NULL)
+      && $review['expires_at'] > \Drupal::time()->getCurrentTime()
+      && $review['expires_at'] <= \Drupal::time()->getCurrentTime() + 600;
+  }
+
+  /**
+   * @param array<string, mixed> $scope
+   *
+   * @return array<string, array<string, mixed>>
+   */
+  private function taskCompletionChoices(array $scope): array {
+    $choices = [];
+    foreach ($this->taskQuery->myOpenTasks() as $item) {
+      $taskId = (int) $item['id'];
+      $task = $this->taskMutations->requireCurrentTask($taskId);
+      $householdId = (int) $task->get('household')->target_id;
+      $household = $scope['households'][$householdId] ?? NULL;
+      if ($taskId <= 0 || $household === NULL) {
+        throw new RuntimeException('Open task does not belong to the current authorized scope.');
+      }
+      $item['_completion_household_id'] = $householdId;
+      $item['_completion_household_label'] = (string) $household->label();
+      $key = hash('sha256', implode("\0", [(string) $taskId, (string) $householdId]));
+      $choices[$key] = $item;
+    }
+    return $choices;
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   */
+  private function taskCompletionLabel(array $item): string {
+    $due = (string) $item['due_label'];
+    return implode(' — ', [
+      (string) $item['title'],
+      (string) $item['_completion_household_label'],
+      $due !== '' ? $due : (string) $this->tr('No deadline', 'Sans échéance'),
+    ]);
+  }
+
+  /**
+   * @param array<string, mixed> $item
+   *
+   * @return array<string, int|string>
+   */
+  private function taskCompletionSummary(array $item): array {
+    return [
+      'id' => (int) $item['id'],
+      'title' => (string) $item['title'],
+      'status' => (string) $item['status'],
+      'due_mode' => (string) $item['due_mode'],
+      'due_label' => (string) $item['due_label'],
+      'household_id' => (int) $item['_completion_household_id'],
+      'household_label' => (string) $item['_completion_household_label'],
+    ];
   }
 
   /**
@@ -956,6 +1172,17 @@ final class GuidedAssistantForm extends FormBase {
     return $input;
   }
 
+  private function rejectTaskCompletionConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('task_completion_review', NULL);
+    $this->show($form_state, [
+      'intent' => self::COMPLETE_TASK,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_task_completion_preview_required'],
+      'saved' => FALSE,
+    ]);
+  }
+
   private function rejectPreparationConfirmation(FormStateInterface $form_state): void {
     $form_state->set('preparation_review', NULL);
     $this->show($form_state, [
@@ -1020,11 +1247,20 @@ final class GuidedAssistantForm extends FormBase {
       ],
       'notice' => [
         '#type' => 'html_tag', '#tag' => 'p',
-        '#value' => ($result['intent'] ?? NULL) === self::MARK_PREPARATION
-          ? $this->tr('Preview only — the preparation has not been marked done.',
-            'Aperçu uniquement — le préparatif n’a pas été marqué comme fait.')
-          : $this->tr('Preview not saved — no task or activity created.',
-            'Aperçu non enregistré — aucune tâche ni activité créée.'),
+        '#value' => match ($result['intent'] ?? NULL) {
+          self::COMPLETE_TASK => $this->tr(
+            'Preview only — the task has not been completed.',
+            'Aperçu uniquement — la tâche n’a pas été terminée.',
+          ),
+          self::MARK_PREPARATION => $this->tr(
+            'Preview only — the preparation has not been marked done.',
+            'Aperçu uniquement — le préparatif n’a pas été marqué comme fait.',
+          ),
+          default => $this->tr(
+            'Preview not saved — no task or activity created.',
+            'Aperçu non enregistré — aucune tâche ni activité créée.',
+          ),
+        },
       ],
     ];
     foreach (($result['clarifications'] ?? []) as $delta => $reason) {
@@ -1080,6 +1316,19 @@ final class GuidedAssistantForm extends FormBase {
     }
     elseif ($status === 'PROPOSAL_READY' && is_array($result['data'] ?? NULL)) {
       $data = $result['data'];
+      if (($result['intent'] ?? NULL) === self::COMPLETE_TASK) {
+        $due = (string) $data['due_label'];
+        $build['task_to_complete'] = $this->fact($this->t('@title — @household — @due', [
+          '@title' => (string) $data['title'],
+          '@household' => (string) $data['household_label'],
+          '@due' => $due !== '' ? $due : $this->tr('No deadline', 'Sans échéance'),
+        ]));
+        $build['effect'] = $this->fact($this->tr(
+          'Only this task will be completed after confirmation. You can reopen it from My tasks.',
+          'Seule cette tâche sera terminée après confirmation. Vous pourrez la rouvrir dans Mes tâches.',
+        ));
+        return $build;
+      }
       if (($result['intent'] ?? NULL) === self::MARK_PREPARATION) {
         $build['preparation'] = $this->fact($this->t('@instruction — @activity — @start — @due', [
           '@instruction' => (string) $data['instruction'],
@@ -1305,6 +1554,14 @@ final class GuidedAssistantForm extends FormBase {
       'fresh_activity_preview_required' => $this->tr(
         'The activity preview is no longer valid. Review a new preview before creating an activity.',
         'L’aperçu de l’activité n’est plus valide. Affichez un nouvel aperçu avant de créer une activité.',
+      ),
+      'choose_open_task' => $this->tr(
+        'Choose an open task and show a new preview.',
+        'Choisissez une tâche ouverte et affichez un nouvel aperçu.',
+      ),
+      'fresh_task_completion_preview_required' => $this->tr(
+        'This task preview is no longer valid. Show a new preview before completing it.',
+        'Cet aperçu de tâche n’est plus valide. Affichez un nouvel aperçu avant de la terminer.',
       ),
       'choose_pending_preparation' => $this->tr(
         'Choose a pending preparation and show a new preview.',
