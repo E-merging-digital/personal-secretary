@@ -895,6 +895,258 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertCount(0, $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion')->loadMultiple());
   }
 
+  public function testEditExistingTaskRequiresExactPreviewAndExplicitSave(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Task Editing Operator');
+    $allowed = $domain->createHousehold('Synthetic editing home', [(int) $person->id()]);
+    $forbidden = $domain->createHousehold('Synthetic editing forbidden home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $alpha = $storage->create([
+      'title' => 'Synthetic original edit title',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_DATE,
+      'due_date' => '2026-11-04',
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $alpha->save();
+    $beta = $storage->create([
+      'title' => 'Synthetic other undated edit',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $beta->save();
+    $other = $storage->create([
+      'title' => 'Synthetic forbidden edit',
+      'household' => (int) $forbidden->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $other->save();
+    $completed = $storage->create([
+      'title' => 'Synthetic completed edit',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_COMPLETED,
+      'completed_at' => $this->container->get('datetime.time')->getCurrentTime(),
+      'completed_by_user' => (int) $user->id(),
+    ]);
+    $completed->save();
+    $alphaChoice = hash('sha256', implode("\0", [(string) $alpha->id(), (string) $allowed->id()]));
+    $betaChoice = hash('sha256', implode("\0", [(string) $beta->id(), (string) $allowed->id()]));
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Edit an existing task');
+    $this->assertSession()->pageTextContains('Synthetic original edit title');
+    $this->assertSession()->pageTextContains('Synthetic other undated edit');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden edit');
+    $this->assertSession()->pageTextNotContains('Synthetic completed edit');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+
+    // No-op is a readable preview but never produces an edit submit button.
+    $this->submitForm([
+      'intent' => 'EDIT_TASK',
+      'edit_task_choice' => $alphaChoice,
+      'edit_task_due_mode' => 'UNCHANGED',
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('Nothing has changed. No save is needed or available.');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_edit_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame('Synthetic original edit title', (string) $storage->load($alpha->id())->get('title')->value);
+
+    // Server-side mode/time validation must not depend on #states JavaScript.
+    $this->submitForm([
+      'intent' => 'EDIT_TASK',
+      'edit_task_choice' => $alphaChoice,
+      'edit_task_title' => 'Synthetic invalid deadline candidate',
+      'edit_task_due_mode' => PersonalTask::DUE_DATE_TIME,
+      'edit_task_due_at' => '2026-03-29 02:30',
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('NEEDS_CLARIFICATION');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_edit_existing_task"]');
+
+    $changes = [
+      'intent' => 'EDIT_TASK',
+      'edit_task_choice' => $alphaChoice,
+      'edit_task_title' => 'Synthetic revised edit title',
+      'edit_task_due_mode' => PersonalTask::DUE_DATE,
+      'edit_task_due_date' => '2026-11-09',
+    ];
+    $this->submitForm($changes, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Before — title: Synthetic original edit title');
+    $this->assertSession()->pageTextContains('After — title: Synthetic revised edit title');
+    $this->assertSession()->pageTextContains('Before — deadline: 2026-11-04');
+    $this->assertSession()->pageTextContains('After — deadline: 2026-11-09');
+    $this->assertSession()->pageTextContains('Preview only — the task has not been changed.');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_edit_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame('2026-11-04', (string) $storage->load($alpha->id())->get('due_date')->value);
+
+    // Changing the task selection between review and POST fails closed.
+    $this->submitForm(['edit_task_choice' => $betaChoice], 'Save this change');
+    $this->assertSession()->pageTextContains('This edit preview is no longer valid.');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_edit_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame('Synthetic original edit title', (string) $storage->load($alpha->id())->get('title')->value);
+
+    // Changing even a single reviewed field also requires a fresh preview.
+    $this->submitForm($changes, 'Show preview');
+    $this->submitForm(['edit_task_title' => 'Synthetic tampered title'], 'Save this change');
+    $this->assertSession()->pageTextContains('This edit preview is no longer valid.');
+    $storage->resetCache();
+    $this->assertSame('Synthetic original edit title', (string) $storage->load($alpha->id())->get('title')->value);
+
+    $this->submitForm($changes, 'Show preview');
+    $this->submitForm([], 'Save this change');
+    $this->assertSession()->addressEquals('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Task updated.');
+    $storage->resetCache();
+    $saved = $storage->load($alpha->id());
+    $this->assertSame('Synthetic revised edit title', (string) $saved->get('title')->value);
+    $this->assertSame('2026-11-09', (string) $saved->get('due_date')->value);
+    $this->assertSame(PersonalTask::DUE_DATE, (string) $saved->get('due_mode')->value);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $saved->get('status')->value);
+    $this->assertSame((int) $allowed->id(), (int) $saved->get('household')->target_id);
+    $this->assertSame((int) $person->id(), (int) $saved->get('assigned_person')->target_id);
+    $this->assertSame('Synthetic other undated edit', (string) $storage->load($beta->id())->get('title')->value);
+    $this->assertSame('Synthetic forbidden edit', (string) $storage->load($other->id())->get('title')->value);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($completed->id())->get('status')->value);
+    $this->getSession()->reload();
+    $storage->resetCache();
+    $this->assertSame('2026-11-09', (string) $storage->load($alpha->id())->get('due_date')->value);
+  }
+
+  public function testEditExistingTaskDetectsConcurrentPersistedChangesAndUserTimezone(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Concurrent Task Operator');
+    $household = $domain->createHousehold('Synthetic time home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$household]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $task = $storage->create([
+      'title' => 'Synthetic timed edit',
+      'household' => (int) $household->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_DATE_TIME,
+      'due_at' => '2026-11-10T08:30:00',
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $task->save();
+    $choice = hash('sha256', implode("\0", [(string) $task->id(), (string) $household->id()]));
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+
+    $changes = [
+      'intent' => 'EDIT_TASK',
+      'edit_task_choice' => $choice,
+      'edit_task_due_mode' => PersonalTask::DUE_DATE_TIME,
+      'edit_task_due_at' => '2026-11-12 14:45',
+    ];
+    $this->submitForm($changes, 'Show preview');
+    $this->assertSession()->pageTextContains('Before — deadline: 2026-11-10 09:30 (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('After — deadline: 2026-11-12 14:45 (Europe/Brussels)');
+    $storage->resetCache();
+    $this->assertSame('2026-11-10T08:30:00', (string) $storage->load($task->id())->get('due_at')->value);
+
+    // A changed persisted UTC instant is rejected even if the title is unchanged.
+    $concurrent = $storage->load($task->id());
+    $concurrent->set('due_at', '2026-11-10T08:31:00');
+    $concurrent->save();
+    $this->submitForm([], 'Save this change');
+    $this->assertSession()->pageTextContains('This edit preview is no longer valid.');
+    $storage->resetCache();
+    $this->assertSame('2026-11-10T08:31:00', (string) $storage->load($task->id())->get('due_at')->value);
+
+    // A new exact preview permits a single date-time edit in the User timezone.
+    $this->submitForm($changes, 'Show preview');
+    $this->submitForm([], 'Save this change');
+    $this->assertSession()->addressEquals('/personal-secretary/tasks/mine');
+    $storage->resetCache();
+    $saved = $storage->load($task->id());
+    $this->assertSame('2026-11-12T13:45:00', (string) $saved->get('due_at')->value);
+    $this->assertSame('', (string) ($saved->get('due_date')->value ?? ''));
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $saved->get('status')->value);
+
+    // An edit can also explicitly clear the existing deadline.
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->submitForm([
+      'intent' => 'EDIT_TASK',
+      'edit_task_choice' => $choice,
+      'edit_task_due_mode' => PersonalTask::DUE_NONE,
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('After — deadline: No deadline');
+    $this->submitForm([], 'Save this change');
+    $storage->resetCache();
+    $cleared = $storage->load($task->id());
+    $this->assertSame(PersonalTask::DUE_NONE, (string) $cleared->get('due_mode')->value);
+    $this->assertSame('', (string) ($cleared->get('due_at')->value ?? ''));
+  }
+
+  public function testFrenchEditTaskStopsOnHouseholdRevocation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic French Edit Operator');
+    $allowed = $domain->createHousehold('Synthetic permitted edit home', [(int) $person->id()]);
+    $remaining = $domain->createHousehold('Synthetic remaining edit home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed, $remaining]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $task = $storage->create([
+      'title' => 'Synthetic French edit title',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_OPEN,
+    ]);
+    $task->save();
+    $this->drupalLogin($user);
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Modifier une tâche existante');
+    $choice = hash('sha256', implode("\0", [(string) $task->id(), (string) $allowed->id()]));
+    $this->submitForm([
+      'intent' => 'EDIT_TASK',
+      'edit_task_choice' => $choice,
+      'edit_task_title' => 'Synthetic French new title',
+      'edit_task_due_mode' => 'UNCHANGED',
+    ], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Avant — intitulé: Synthetic French edit title');
+    $this->assertSession()->pageTextContains('Après — intitulé: Synthetic French new title');
+    $this->assertSession()->pageTextContains('Enregistrer cette modification');
+    $storage->resetCache();
+    $this->assertSame('Synthetic French edit title', (string) $storage->load($task->id())->get('title')->value);
+
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [
+      ['target_id' => (int) $remaining->id()],
+    ]);
+    $user->save();
+    $this->submitForm([], 'Enregistrer cette modification');
+    $storage->resetCache();
+    $this->assertSame('Synthetic French edit title', (string) $storage->load($task->id())->get('title')->value);
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_edit_existing_task"]');
+  }
+
   private function createGuidedPreparation(string $label, int $householdId, int $personId, \DateTimeImmutable $start): void {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $series = $domain->createActivitySeries(
