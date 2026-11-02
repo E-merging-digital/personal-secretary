@@ -1133,7 +1133,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Avant — intitulé: Synthetic French edit title');
     $this->assertSession()->pageTextContains('Après — intitulé: Synthetic French new title');
-    $this->assertSession()->pageTextContains('Enregistrer cette modification');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_edit_existing_task"]');
     $storage->resetCache();
     $this->assertSame('Synthetic French edit title', (string) $storage->load($task->id())->get('title')->value);
 
