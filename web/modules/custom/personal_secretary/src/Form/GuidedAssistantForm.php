@@ -35,6 +35,8 @@ final class GuidedAssistantForm extends FormBase {
 
   private const MARK_PREPARATION = 'MARK_PREPARATION';
   private const COMPLETE_TASK = 'COMPLETE_TASK';
+  private const EDIT_TASK = 'EDIT_TASK';
+  private const KEEP_DUE = 'UNCHANGED';
 
   public function __construct(
     protected TodayService $today,
@@ -72,8 +74,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. The assistant does not interpret free text; creating a task or activity, marking a preparation done, or completing a task requires explicit confirmation.',
-        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer une tâche ou une activité, marquer un préparatif comme fait ou terminer une tâche exige une confirmation explicite.',
+        'Choose an action. The assistant does not interpret free text; creating or editing a task, creating an activity, marking a preparation done, or completing a task requires explicit confirmation.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer ou modifier une tâche, créer une activité, marquer un préparatif comme fait ou terminer une tâche exige une confirmation explicite.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -106,6 +108,7 @@ final class GuidedAssistantForm extends FormBase {
         ThreeIntentReadProposeService::PROPOSE_ACTIVITY => $this->tr('Prepare an activity', 'Préparer une activité'),
         self::MARK_PREPARATION => $this->tr('Mark a preparation done', 'Marquer un préparatif comme fait'),
         self::COMPLETE_TASK => $this->tr('Complete an existing task', 'Terminer une tâche existante'),
+        self::EDIT_TASK => $this->tr('Edit an existing task', 'Modifier une tâche existante'),
       ],
       '#default_value' => ThreeIntentReadProposeService::GET_TODAY,
     ];
@@ -285,6 +288,72 @@ final class GuidedAssistantForm extends FormBase {
       '#url' => Url::fromRoute('personal_secretary.my_tasks'),
     ];
 
+    $form['edit_task'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-guided-assistant__fields']],
+      '#states' => ['visible' => [':input[name="intent"]' => ['value' => self::EDIT_TASK]]],
+    ];
+    try {
+      $choices = $this->taskCompletionChoices($scope);
+      if ($choices === []) {
+        $form['edit_task']['empty'] = $this->fact($this->tr(
+          'You have no open task to edit.',
+          'Vous n’avez aucune tâche ouverte à modifier.',
+        ));
+      }
+      else {
+        $options = ['' => $this->tr('Choose an open task', 'Choisir une tâche ouverte')];
+        foreach ($choices as $key => $item) {
+          $options[$key] = $this->taskCompletionLabel($item);
+        }
+        $form['edit_task']['edit_task_choice'] = [
+          '#type' => 'select',
+          '#title' => $this->tr('Task to edit', 'Tâche à modifier'),
+          '#options' => $options,
+          '#default_value' => '',
+        ];
+        $form['edit_task']['edit_task_title'] = [
+          '#type' => 'textfield',
+          '#title' => $this->tr('New title (leave blank to keep the current title)', 'Nouvel intitulé (laisser vide pour conserver l’actuel)'),
+          '#maxlength' => 255,
+        ];
+        $form['edit_task']['edit_task_due_mode'] = [
+          '#type' => 'select',
+          '#title' => $this->tr('New deadline', 'Nouvelle échéance'),
+          '#options' => [
+            self::KEEP_DUE => $this->tr('Keep current deadline', 'Conserver l’échéance actuelle'),
+            PersonalTask::DUE_NONE => $this->tr('No deadline', 'Sans échéance'),
+            PersonalTask::DUE_DATE => $this->tr('Date', 'Date'),
+            PersonalTask::DUE_DATE_TIME => $this->tr('Date and time', 'Date et heure'),
+          ],
+          '#default_value' => self::KEEP_DUE,
+        ];
+        $form['edit_task']['edit_task_due_date'] = [
+          '#type' => 'date',
+          '#title' => $this->tr('New due date', 'Nouvelle date d’échéance'),
+          '#states' => ['visible' => [':input[name="edit_task_due_mode"]' => ['value' => PersonalTask::DUE_DATE]]],
+        ];
+        $form['edit_task']['edit_task_due_at'] = [
+          '#type' => 'textfield',
+          '#maxlength' => 16,
+          '#title' => $this->tr('New due date and time (YYYY-MM-DD HH:MM)', 'Nouvelle échéance (AAAA-MM-JJ HH:MM)'),
+          '#description' => $this->t('@timezone', ['@timezone' => $this->taskMutations->currentUserTimezoneId()]),
+          '#states' => ['visible' => [':input[name="edit_task_due_mode"]' => ['value' => PersonalTask::DUE_DATE_TIME]]],
+        ];
+      }
+    }
+    catch (InvalidArgumentException|RuntimeException) {
+      $form['edit_task']['unavailable'] = $this->fact($this->tr(
+        'Open tasks are currently unavailable. No change can be made.',
+        'Les tâches ouvertes sont momentanément indisponibles. Aucune modification ne peut être effectuée.',
+      ));
+    }
+    $form['edit_task']['all'] = [
+      '#type' => 'link',
+      '#title' => $this->tr('View My tasks', 'Voir Mes tâches'),
+      '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+    ];
+
     $form['actions'] = [
       '#type' => 'actions',
       '#attributes' => ['class' => ['ps-guided-assistant__actions']],
@@ -296,6 +365,24 @@ final class GuidedAssistantForm extends FormBase {
     $result = $form_state->get('guided_result');
     if (is_array($result)) {
       $form['result'] = $this->resultBuild($result, $scope);
+      if ($this->taskEditReviewContextValid($result, $form_state->get('task_edit_review'), $scope)) {
+        $form['task_edit_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Saving will change only the reviewed task title and/or deadline. Check the exact before/after values above.',
+            'Enregistrer modifiera uniquement l’intitulé et/ou l’échéance de la tâche vérifiée. Contrôlez les valeurs avant/après ci-dessus.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_edit_existing_task',
+              '#value' => $this->tr('Save this change', 'Enregistrer cette modification'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
       if ($this->taskCompletionReviewContextValid($result, $form_state->get('task_completion_review'), $scope)) {
         $form['task_completion_confirmation'] = [
           '#type' => 'container',
@@ -397,6 +484,7 @@ final class GuidedAssistantForm extends FormBase {
     $confirmWeekly = $trigger === 'confirm_create_weekly_activity';
     $confirmPreparation = $trigger === 'confirm_mark_preparation';
     $confirmExistingTask = $trigger === 'confirm_complete_existing_task';
+    $confirmEditTask = $trigger === 'confirm_edit_existing_task';
     try {
       $scope = $this->activityCreation->creationScope();
       $today = $this->today->today();
@@ -409,6 +497,7 @@ final class GuidedAssistantForm extends FormBase {
       $form_state->set('activity_review', NULL);
       $form_state->set('preparation_review', NULL);
       $form_state->set('task_completion_review', NULL);
+      $form_state->set('task_edit_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
         'clarifications' => ['authorized_scope_required'], 'saved' => FALSE,
@@ -420,6 +509,47 @@ final class GuidedAssistantForm extends FormBase {
     $capabilities = new ThreeIntentReadProposeService(
       $this->today, $this->activityCreation, $this->captureResolver,
     );
+    if ($confirmEditTask) {
+      $review = $form_state->get('task_edit_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== self::EDIT_TASK
+        || !$this->taskEditReviewContextValid($previous, $review, $scope)
+        || $this->taskEditFields($form_state) !== $review['fields']
+        || (string) $form_state->getValue('edit_task_choice') !== $review['choice']) {
+        $this->rejectTaskEditConfirmation($form_state);
+        return;
+      }
+      try {
+        $choices = $this->taskCompletionChoices($scope);
+        $item = $choices[$review['choice']] ?? NULL;
+        if (!is_array($item)) {
+          throw new InvalidArgumentException('The reviewed task is no longer eligible.');
+        }
+        $before = $this->taskEditSnapshot($item);
+        if ($before !== $review['before']
+          || $this->taskEditProposal($form_state, $before, $review['timezone']) !== $review['after']) {
+          throw new InvalidArgumentException('The reviewed task or proposal changed.');
+        }
+        // Consume the exact server-side review before the sole governed write.
+        $form_state->set('task_edit_review', NULL);
+        $after = $review['after'];
+        $this->taskMutations->editTask(
+          (int) $before['id'],
+          $after['title'],
+          $after['due_mode'],
+          $after['due_mode'] === PersonalTask::DUE_DATE ? $after['due_date'] : NULL,
+          $after['due_mode'] === PersonalTask::DUE_DATE_TIME ? $after['due_local'] : NULL,
+        );
+      }
+      catch (\Exception) {
+        $this->rejectTaskEditConfirmation($form_state);
+        return;
+      }
+      $this->messenger()->addStatus($this->tr('Task updated.', 'Tâche modifiée.'));
+      $form_state->setRedirect('personal_secretary.my_tasks');
+      return;
+    }
+
     if ($confirmExistingTask) {
       $review = $form_state->get('task_completion_review');
       $previous = $form_state->get('guided_result');
@@ -615,6 +745,54 @@ final class GuidedAssistantForm extends FormBase {
     $form_state->set('activity_review', NULL);
     $form_state->set('preparation_review', NULL);
     $form_state->set('task_completion_review', NULL);
+    $form_state->set('task_edit_review', NULL);
+    if ($intent === self::EDIT_TASK) {
+      try {
+        $choice = (string) $form_state->getValue('edit_task_choice');
+        $choices = $this->taskCompletionChoices($scope);
+        $item = $choices[$choice] ?? NULL;
+        if (!is_array($item)) {
+          throw new InvalidArgumentException('choose_open_task');
+        }
+        $before = $this->taskEditSnapshot($item);
+        $timezone = $this->taskMutations->currentUserTimezoneId();
+        $after = $this->taskEditProposal($form_state, $before, $timezone);
+        $changed = $this->taskEditChanged($before, $after);
+        $result = [
+          'intent' => self::EDIT_TASK,
+          'status' => 'PROPOSAL_READY',
+          'data' => ['before' => $before, 'after' => $after, 'timezone' => $timezone, 'changed' => $changed],
+          'clarifications' => [],
+          'saved' => FALSE,
+        ];
+        if ($changed) {
+          $form_state->set('task_edit_review', [
+            'choice' => $choice,
+            'fields' => $this->taskEditFields($form_state),
+            'before' => $before,
+            'after' => $after,
+            'timezone' => $timezone,
+            'user_id' => (int) $this->currentUser()->id(),
+            'person_id' => (int) $scope['current_person']->id(),
+            'household_ids' => $this->householdIds($scope),
+            'expires_at' => \Drupal::time()->getCurrentTime() + 600,
+          ]);
+        }
+      }
+      catch (\Exception $e) {
+        $reason = in_array($e->getMessage(), ['choose_open_task', 'invalid_edit_title', 'invalid_edit_due_mode', 'invalid_edit_due_date', 'invalid_edit_due_at'], TRUE)
+          ? $e->getMessage() : 'fresh_task_edit_preview_required';
+        $result = [
+          'intent' => self::EDIT_TASK,
+          'status' => 'NEEDS_CLARIFICATION',
+          'data' => NULL,
+          'clarifications' => [$reason],
+          'saved' => FALSE,
+        ];
+      }
+      $this->show($form_state, $result);
+      return;
+    }
     if ($intent === self::COMPLETE_TASK) {
       try {
         $choice = (string) $form_state->getValue('complete_task_choice');
@@ -751,6 +929,171 @@ final class GuidedAssistantForm extends FormBase {
       }
     }
     $this->show($form_state, $result);
+  }
+
+  /**
+   * Compare the full persisted task snapshot, not just its display label.
+   *
+   * @param array<string, mixed> $item
+   * @return array<string, int|string>
+   */
+  private function taskEditSnapshot(array $item): array {
+    $task = $this->taskMutations->requireCurrentTask((int) $item['id']);
+    if ((string) $task->get('status')->value !== PersonalTask::STATUS_OPEN) {
+      throw new InvalidArgumentException('Task is no longer open.');
+    }
+    return [
+      'id' => (int) $task->id(),
+      'title' => (string) $task->get('title')->value,
+      'status' => (string) $task->get('status')->value,
+      'household_id' => (int) $task->get('household')->target_id,
+      'person_id' => (int) $task->get('assigned_person')->target_id,
+      'household_label' => (string) $item['_completion_household_label'],
+      'due_mode' => (string) $task->get('due_mode')->value,
+      'due_date' => (string) ($task->get('due_date')->value ?? ''),
+      'due_at' => (string) ($task->get('due_at')->value ?? ''),
+      'due_label' => (string) $item['due_label'],
+    ];
+  }
+
+  /**
+   * Pure read-only proposal following the existing PersonalTask due conventions.
+   *
+   * @param array<string, int|string> $before
+   * @return array<string, string>
+   */
+  private function taskEditProposal(FormStateInterface $form_state, array $before, string $timezone): array {
+    $titleInput = trim((string) $form_state->getValue('edit_task_title'));
+    if (mb_strlen($titleInput) > 255) {
+      throw new InvalidArgumentException('invalid_edit_title');
+    }
+    $title = $titleInput === '' ? (string) $before['title'] : $titleInput;
+    if ($title === '' || mb_strlen($title) > 255) {
+      throw new InvalidArgumentException('invalid_edit_title');
+    }
+
+    $chosenMode = (string) $form_state->getValue('edit_task_due_mode');
+    if (!in_array($chosenMode, [self::KEEP_DUE, PersonalTask::DUE_NONE, PersonalTask::DUE_DATE, PersonalTask::DUE_DATE_TIME], TRUE)) {
+      throw new InvalidArgumentException('invalid_edit_due_mode');
+    }
+    $mode = $chosenMode === self::KEEP_DUE ? (string) $before['due_mode'] : $chosenMode;
+    $date = '';
+    $at = '';
+    $local = '';
+    if ($chosenMode === self::KEEP_DUE) {
+      $date = (string) $before['due_date'];
+      $at = (string) $before['due_at'];
+      if ($mode === PersonalTask::DUE_DATE_TIME) {
+        $utc = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s', $at, new DateTimeZone('UTC'));
+        if (!$utc instanceof DateTimeImmutable || $utc->format('Y-m-d\TH:i:s') !== $at) {
+          throw new InvalidArgumentException('invalid_edit_due_at');
+        }
+        $local = $utc->setTimezone(new DateTimeZone($timezone))->format('Y-m-d H:i');
+      }
+    }
+    elseif ($mode === PersonalTask::DUE_DATE) {
+      $date = trim((string) $form_state->getValue('edit_task_due_date'));
+      if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+        throw new InvalidArgumentException('invalid_edit_due_date');
+      }
+      $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
+      if (!$parsed instanceof DateTimeImmutable || $parsed->format('Y-m-d') !== $date) {
+        throw new InvalidArgumentException('invalid_edit_due_date');
+      }
+    }
+    elseif ($mode === PersonalTask::DUE_DATE_TIME) {
+      $local = trim((string) $form_state->getValue('edit_task_due_at'));
+      if (preg_match('/^\d{4}-\d{2}-\d{2} (?:[01]\d|2[0-3]):[0-5]\d$/', $local) !== 1) {
+        throw new InvalidArgumentException('invalid_edit_due_at');
+      }
+      $parsed = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $local, new DateTimeZone($timezone));
+      if (!$parsed instanceof DateTimeImmutable || $parsed->format('Y-m-d H:i') !== $local) {
+        throw new InvalidArgumentException('invalid_edit_due_at');
+      }
+      $at = $parsed->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s');
+    }
+    elseif ($mode !== PersonalTask::DUE_NONE) {
+      throw new InvalidArgumentException('invalid_edit_due_mode');
+    }
+
+    // editTask() accepts a local date/time. Never let a title-only edit
+    // silently shift the original UTC instant during an ambiguous DST hour.
+    if ($chosenMode === self::KEEP_DUE && $mode === PersonalTask::DUE_DATE_TIME
+      && $title !== $before['title']) {
+      $roundTrip = DateTimeImmutable::createFromFormat('!Y-m-d H:i', $local, new DateTimeZone($timezone));
+      if (!$roundTrip instanceof DateTimeImmutable
+        || $roundTrip->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s') !== $at) {
+        throw new InvalidArgumentException('invalid_edit_due_at');
+      }
+    }
+    return [
+      'title' => $title,
+      'due_mode' => $mode,
+      'due_date' => $date,
+      'due_at' => $at,
+      'due_local' => $local,
+    ];
+  }
+
+  /**
+   * @param array<string, int|string> $before
+   * @param array<string, string> $after
+   */
+  private function taskEditChanged(array $before, array $after): bool {
+    foreach (['title', 'due_mode', 'due_date', 'due_at'] as $field) {
+      if ($before[$field] !== $after[$field]) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function taskEditFields(FormStateInterface $form_state): array {
+    $fields = [];
+    foreach (['intent', 'edit_task_choice', 'edit_task_title', 'edit_task_due_mode', 'edit_task_due_date', 'edit_task_due_at'] as $name) {
+      $fields[$name] = trim((string) $form_state->getValue($name));
+    }
+    return $fields;
+  }
+
+  /**
+   * Only the unexpired, current server-side proposal can show or use WRITE.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function taskEditReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    return is_array($result) && is_array($review)
+      && ($result['intent'] ?? NULL) === self::EDIT_TASK
+      && ($result['status'] ?? NULL) === 'PROPOSAL_READY'
+      && ($result['saved'] ?? NULL) === FALSE
+      && ($result['data'] ?? NULL) === [
+        'before' => $review['before'] ?? NULL,
+        'after' => $review['after'] ?? NULL,
+        'timezone' => $review['timezone'] ?? NULL,
+        'changed' => TRUE,
+      ]
+      && is_array($review['before'] ?? NULL)
+      && is_array($review['after'] ?? NULL)
+      && ($review['before']['status'] ?? NULL) === PersonalTask::STATUS_OPEN
+      && ($review['before']['id'] ?? 0) > 0
+      && $this->taskEditChanged($review['before'], $review['after'])
+      && is_array($review['fields'] ?? NULL)
+      && is_string($review['choice'] ?? NULL)
+      && $review['choice'] !== ''
+      && ($review['user_id'] ?? NULL) === (int) $this->currentUser()->id()
+      && ($review['person_id'] ?? NULL) === (int) $scope['current_person']->id()
+      && ($review['household_ids'] ?? NULL) === $this->householdIds($scope)
+      && ($review['timezone'] ?? NULL) === $this->taskMutations->currentUserTimezoneId()
+      && isset($scope['households'][(int) ($review['before']['household_id'] ?? 0)])
+      && $review['before']['household_label'] === (string) $scope['households'][(int) $review['before']['household_id']]->label()
+      && is_int($review['expires_at'] ?? NULL)
+      && $review['expires_at'] > \Drupal::time()->getCurrentTime()
+      && $review['expires_at'] <= \Drupal::time()->getCurrentTime() + 600;
   }
 
   /**
@@ -1172,6 +1515,17 @@ final class GuidedAssistantForm extends FormBase {
     return $input;
   }
 
+  private function rejectTaskEditConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('task_edit_review', NULL);
+    $this->show($form_state, [
+      'intent' => self::EDIT_TASK,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_task_edit_preview_required'],
+      'saved' => FALSE,
+    ]);
+  }
+
   private function rejectTaskCompletionConfirmation(FormStateInterface $form_state): void {
     $form_state->set('task_completion_review', NULL);
     $this->show($form_state, [
@@ -1248,6 +1602,10 @@ final class GuidedAssistantForm extends FormBase {
       'notice' => [
         '#type' => 'html_tag', '#tag' => 'p',
         '#value' => match ($result['intent'] ?? NULL) {
+          self::EDIT_TASK => $this->tr(
+            'Preview only — the task has not been changed.',
+            'Aperçu uniquement — la tâche n’a pas été modifiée.',
+          ),
           self::COMPLETE_TASK => $this->tr(
             'Preview only — the task has not been completed.',
             'Aperçu uniquement — la tâche n’a pas été terminée.',
@@ -1316,6 +1674,44 @@ final class GuidedAssistantForm extends FormBase {
     }
     elseif ($status === 'PROPOSAL_READY' && is_array($result['data'] ?? NULL)) {
       $data = $result['data'];
+      if (($result['intent'] ?? NULL) === self::EDIT_TASK) {
+        $before = $data['before'];
+        $after = $data['after'];
+        $timezone = (string) $data['timezone'];
+        $oldDue = $this->taskEditDueLabel($before['due_mode'], $before['due_date'], $before['due_at'], $timezone);
+        $newDue = $this->taskEditDueLabel($after['due_mode'], $after['due_date'], $after['due_at'], $timezone);
+        $build['task_to_edit'] = $this->fact($this->t('@label: @title — @household', [
+          '@label' => $this->tr('Task', 'Tâche'),
+          '@title' => (string) $before['title'],
+          '@household' => (string) $before['household_label'],
+        ]));
+        $build['before_title'] = $this->fact($this->t('@label: @value', [
+          '@label' => $this->tr('Before — title', 'Avant — intitulé'),
+          '@value' => (string) $before['title'],
+        ]));
+        $build['after_title'] = $this->fact($this->t('@label: @value', [
+          '@label' => $this->tr('After — title', 'Après — intitulé'),
+          '@value' => (string) $after['title'],
+        ]));
+        $build['before_due'] = $this->fact($this->t('@label: @value', [
+          '@label' => $this->tr('Before — deadline', 'Avant — échéance'),
+          '@value' => $oldDue,
+        ]));
+        $build['after_due'] = $this->fact($this->t('@label: @value', [
+          '@label' => $this->tr('After — deadline', 'Après — échéance'),
+          '@value' => $newDue,
+        ]));
+        $build['effect'] = $this->fact($data['changed']
+          ? $this->tr(
+            'Only the title and/or deadline shown above will change after a separate confirmation. The task remains open and in the same Household.',
+            'Seuls l’intitulé et/ou l’échéance présentés ci-dessus changeront après une confirmation distincte. La tâche reste ouverte dans le même foyer.',
+          )
+          : $this->tr(
+            'Nothing has changed. No save is needed or available.',
+            'Aucune modification. Aucun enregistrement n’est nécessaire ni proposé.',
+          ));
+        return $build;
+      }
       if (($result['intent'] ?? NULL) === self::COMPLETE_TASK) {
         $due = (string) $data['due_label'];
         $build['task_to_complete'] = $this->fact($this->t('@title — @household — @due', [
@@ -1418,6 +1814,23 @@ final class GuidedAssistantForm extends FormBase {
     return $build;
   }
 
+
+  /**
+   * Formats canonical stored due values in the Drupal User timezone.
+   */
+  private function taskEditDueLabel(string $mode, string $date, string $at, string $timezone): string {
+    if ($mode === PersonalTask::DUE_NONE) {
+      return (string) $this->tr('No deadline', 'Sans échéance');
+    }
+    if ($mode === PersonalTask::DUE_DATE) {
+      return $date;
+    }
+    $utc = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s', $at, new DateTimeZone('UTC'));
+    if (!$utc instanceof DateTimeImmutable) {
+      return (string) $this->tr('Unavailable', 'Indisponible');
+    }
+    return $utc->setTimezone(new DateTimeZone($timezone))->format('Y-m-d H:i') . ' (' . $timezone . ')';
+  }
 
   /**
    * Read-only briefing composed solely from the authorized GET_TODAY snapshot.
@@ -1554,6 +1967,26 @@ final class GuidedAssistantForm extends FormBase {
       'fresh_activity_preview_required' => $this->tr(
         'The activity preview is no longer valid. Review a new preview before creating an activity.',
         'L’aperçu de l’activité n’est plus valide. Affichez un nouvel aperçu avant de créer une activité.',
+      ),
+      'invalid_edit_title' => $this->tr(
+        'Enter a new title of at most 255 characters, or leave it blank.',
+        'Indiquez un nouvel intitulé de 255 caractères maximum ou laissez ce champ vide.',
+      ),
+      'invalid_edit_due_mode' => $this->tr(
+        'Choose a valid deadline mode.',
+        'Choisissez un mode d’échéance valide.',
+      ),
+      'invalid_edit_due_date' => $this->tr(
+        'Enter a valid due date (YYYY-MM-DD).',
+        'Indiquez une date d’échéance valide (AAAA-MM-JJ).',
+      ),
+      'invalid_edit_due_at' => $this->tr(
+        'Enter a valid date and time in your timezone (YYYY-MM-DD HH:MM).',
+        'Indiquez une date et heure valides dans votre fuseau (AAAA-MM-JJ HH:MM).',
+      ),
+      'fresh_task_edit_preview_required' => $this->tr(
+        'This edit preview is no longer valid. Show a new preview before saving.',
+        'Cet aperçu de modification n’est plus valide. Affichez un nouvel aperçu avant d’enregistrer.',
       ),
       'choose_open_task' => $this->tr(
         'Choose an open task and show a new preview.',
