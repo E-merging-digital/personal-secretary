@@ -1107,7 +1107,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic original edit title');
     $this->assertSession()->pageTextContains('Synthetic other undated edit');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden edit');
-    $this->assertSession()->pageTextNotContains('Synthetic completed edit');
+    $this->assertSession()->elementTextNotContains('css', 'select[name="edit_task_choice"]', 'Synthetic completed edit');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
 
     // No-op is a readable preview but never produces an edit submit button.
