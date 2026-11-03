@@ -34,6 +34,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class GuidedAssistantForm extends FormBase {
 
   private const MARK_PREPARATION = 'MARK_PREPARATION';
+  private const UNMARK_PREPARATION = 'UNMARK_PREPARATION';
   private const COMPLETE_TASK = 'COMPLETE_TASK';
   private const EDIT_TASK = 'EDIT_TASK';
   private const KEEP_DUE = 'UNCHANGED';
@@ -74,8 +75,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. The assistant does not interpret free text; creating or editing a task, creating an activity, marking a preparation done, or completing a task requires explicit confirmation.',
-        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer ou modifier une tâche, créer une activité, marquer un préparatif comme fait ou terminer une tâche exige une confirmation explicite.',
+        'Choose an action. The assistant does not interpret free text; creating or editing a task, creating an activity, changing a preparation status, or completing a task requires explicit confirmation.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer ou modifier une tâche, créer une activité, changer le statut d’un préparatif ou terminer une tâche exige une confirmation explicite.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -107,6 +108,7 @@ final class GuidedAssistantForm extends FormBase {
         ThreeIntentReadProposeService::PROPOSE_TASK => $this->tr('Prepare a task', 'Préparer une tâche'),
         ThreeIntentReadProposeService::PROPOSE_ACTIVITY => $this->tr('Prepare an activity', 'Préparer une activité'),
         self::MARK_PREPARATION => $this->tr('Mark a preparation done', 'Marquer un préparatif comme fait'),
+        self::UNMARK_PREPARATION => $this->tr('Mark a preparation not done', 'Remettre un préparatif à faire'),
         self::COMPLETE_TASK => $this->tr('Complete an existing task', 'Terminer une tâche existante'),
         self::EDIT_TASK => $this->tr('Edit an existing task', 'Modifier une tâche existante'),
       ],
@@ -245,6 +247,44 @@ final class GuidedAssistantForm extends FormBase {
       ));
     }
     $form['preparation']['all'] = [
+      '#type' => 'link',
+      '#title' => $this->tr('View My preparations', 'Voir Mes préparatifs'),
+      '#url' => Url::fromRoute('personal_secretary.my_preparations'),
+    ];
+
+    $form['unprepare'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-guided-assistant__fields']],
+      '#states' => ['visible' => [':input[name="intent"]' => ['value' => self::UNMARK_PREPARATION]]],
+    ];
+    try {
+      $choices = $this->preparationChoices(TRUE);
+      if ($choices === []) {
+        $form['unprepare']['empty'] = $this->fact($this->tr(
+          'No completed preparation is available in the next 30 days.',
+          'Aucun préparatif déjà fait n’est disponible dans les 30 prochains jours.',
+        ));
+      }
+      else {
+        $options = ['' => $this->tr('Choose a completed preparation', 'Choisir un préparatif déjà fait')];
+        foreach ($choices as $key => $item) {
+          $options[$key] = $this->preparationLabel($item);
+        }
+        $form['unprepare']['unprepare_choice'] = [
+          '#type' => 'select',
+          '#title' => $this->tr('Preparation to mark not done', 'Préparatif à remettre à faire'),
+          '#options' => $options,
+          '#default_value' => '',
+        ];
+      }
+    }
+    catch (InvalidArgumentException|RuntimeException) {
+      $form['unprepare']['unavailable'] = $this->fact($this->tr(
+        'Preparations are currently unavailable. No change can be made.',
+        'Les préparatifs sont momentanément indisponibles. Aucune modification ne peut être effectuée.',
+      ));
+    }
+    $form['unprepare']['all'] = [
       '#type' => 'link',
       '#title' => $this->tr('View My preparations', 'Voir Mes préparatifs'),
       '#url' => Url::fromRoute('personal_secretary.my_preparations'),
@@ -402,18 +442,26 @@ final class GuidedAssistantForm extends FormBase {
         ];
       }
       if ($this->preparationReviewContextValid($result, $form_state->get('preparation_review'), $scope)) {
+        $unprepare = $result['intent'] === self::UNMARK_PREPARATION;
         $form['preparation_confirmation'] = [
           '#type' => 'container',
-          'notice' => $this->fact($this->tr(
-            'Mark this preparation as done will save one local completion. Check the exact preparation above before confirming.',
-            'Marquer ce préparatif comme fait enregistrera une seule réalisation locale. Vérifiez le préparatif exact ci-dessus avant de confirmer.',
-          )),
+          'notice' => $this->fact($unprepare
+            ? $this->tr(
+              'Only the reviewed preparation will be marked not done. Check its exact details above before confirming.',
+              'Seul le préparatif vérifié sera remis à faire. Contrôlez ses détails ci-dessus avant de confirmer.',
+            )
+            : $this->tr(
+              'Mark this preparation as done will save one local completion. Check the exact preparation above before confirming.',
+              'Marquer ce préparatif comme fait enregistrera une seule réalisation locale. Vérifiez le préparatif exact ci-dessus avant de confirmer.',
+            )),
           'actions' => [
             '#type' => 'actions',
             'confirm' => [
               '#type' => 'submit',
-              '#name' => 'confirm_mark_preparation',
-              '#value' => $this->tr('Mark this preparation as done', 'Marquer ce préparatif comme fait'),
+              '#name' => $unprepare ? 'confirm_unmark_preparation' : 'confirm_mark_preparation',
+              '#value' => $unprepare
+                ? $this->tr('Mark this preparation not done', 'Remettre à faire')
+                : $this->tr('Mark this preparation as done', 'Marquer ce préparatif comme fait'),
               '#button_type' => 'primary',
             ],
           ],
@@ -483,6 +531,7 @@ final class GuidedAssistantForm extends FormBase {
     $confirmActivity = $trigger === 'confirm_create_activity';
     $confirmWeekly = $trigger === 'confirm_create_weekly_activity';
     $confirmPreparation = $trigger === 'confirm_mark_preparation';
+    $confirmUnprepare = $trigger === 'confirm_unmark_preparation';
     $confirmExistingTask = $trigger === 'confirm_complete_existing_task';
     $confirmEditTask = $trigger === 'confirm_edit_existing_task';
     try {
@@ -585,46 +634,50 @@ final class GuidedAssistantForm extends FormBase {
       return;
     }
 
-    if ($confirmPreparation) {
+    if ($confirmPreparation || $confirmUnprepare) {
+      $expectedIntent = $confirmUnprepare ? self::UNMARK_PREPARATION : self::MARK_PREPARATION;
+      $choiceField = $confirmUnprepare ? 'unprepare_choice' : 'preparation_choice';
       $review = $form_state->get('preparation_review');
       $previous = $form_state->get('guided_result');
-      if ($intent !== self::MARK_PREPARATION
+      if ($intent !== $expectedIntent
         || !$this->preparationReviewContextValid($previous, $review, $scope)
-        || (string) $form_state->getValue('preparation_choice') !== $review['choice']) {
-        $this->rejectPreparationConfirmation($form_state);
+        || (string) $form_state->getValue($choiceField) !== $review['choice']) {
+        $this->rejectPreparationConfirmation($form_state, $expectedIntent);
         return;
       }
       try {
-        $choices = $this->preparationChoices();
+        $choices = $this->preparationChoices($confirmUnprepare);
         $item = $choices[$review['choice']] ?? NULL;
         if (!is_array($item)
           || $this->preparationSummary($item) !== $review['summary']
           || $this->preparationTarget($item) !== $review['target']) {
           throw new InvalidArgumentException('The reviewed preparation is stale.');
         }
-        // Revalidate exact current-user eligibility, identity and state.
+        // Revalidate exact current-user eligibility, revision, identity and state.
         [$seriesId, $occurrenceKey, $requirementId] = $review['target'];
         $current = $this->preparationCompletion->describeCurrentPreparation(
           $seriesId, $occurrenceKey, $requirementId,
         );
-        if ($current['prepared'] || $current['instruction'] !== $review['summary']['instruction']) {
-          throw new InvalidArgumentException('The reviewed preparation is no longer pending.');
+        if ($current['prepared'] !== $confirmUnprepare
+          || $current['instruction'] !== $review['summary']['instruction']) {
+          throw new InvalidArgumentException('The reviewed preparation state changed.');
         }
         // Consume the review before the sole governed domain mutation.
         $form_state->set('preparation_review', NULL);
-        if (!$this->preparationCompletion->markPrepared(
-          $seriesId, $occurrenceKey, $requirementId,
-        )) {
-          throw new InvalidArgumentException('The preparation was already marked done.');
+        $changed = $confirmUnprepare
+          ? $this->preparationCompletion->markNotPrepared($seriesId, $occurrenceKey, $requirementId)
+          : $this->preparationCompletion->markPrepared($seriesId, $occurrenceKey, $requirementId);
+        if (!$changed) {
+          throw new InvalidArgumentException('The preparation state changed before saving.');
         }
       }
       catch (InvalidArgumentException|RuntimeException) {
-        $this->rejectPreparationConfirmation($form_state);
+        $this->rejectPreparationConfirmation($form_state, $expectedIntent);
         return;
       }
-      $this->messenger()->addStatus($this->tr(
-        'Preparation marked done.', 'Préparatif marqué comme fait.',
-      ));
+      $this->messenger()->addStatus($confirmUnprepare
+        ? $this->tr('Preparation marked not done.', 'Préparatif remis à faire.')
+        : $this->tr('Preparation marked done.', 'Préparatif marqué comme fait.'));
       $form_state->setRedirect('personal_secretary.my_preparations');
       return;
     }
@@ -831,16 +884,18 @@ final class GuidedAssistantForm extends FormBase {
       $this->show($form_state, $result);
       return;
     }
-    if ($intent === self::MARK_PREPARATION) {
+    if (in_array($intent, [self::MARK_PREPARATION, self::UNMARK_PREPARATION], TRUE)) {
+      $unprepare = $intent === self::UNMARK_PREPARATION;
       try {
-        $choice = (string) $form_state->getValue('preparation_choice');
-        $choices = $this->preparationChoices();
+        $choice = (string) $form_state->getValue($unprepare ? 'unprepare_choice' : 'preparation_choice');
+        $choices = $this->preparationChoices($unprepare);
         $item = $choices[$choice] ?? NULL;
         if (!is_array($item)) {
-          throw new InvalidArgumentException('No pending preparation was selected.');
+          throw new InvalidArgumentException('No eligible preparation was selected.');
         }
         $summary = $this->preparationSummary($item);
         $review = [
+          'intent' => $intent,
           'choice' => $choice,
           'summary' => $summary,
           'target' => $this->preparationTarget($item),
@@ -850,7 +905,7 @@ final class GuidedAssistantForm extends FormBase {
           'expires_at' => \Drupal::time()->getCurrentTime() + 600,
         ];
         $result = [
-          'intent' => self::MARK_PREPARATION,
+          'intent' => $intent,
           'status' => 'PROPOSAL_READY',
           'data' => $summary,
           'clarifications' => [],
@@ -860,10 +915,10 @@ final class GuidedAssistantForm extends FormBase {
       }
       catch (InvalidArgumentException|RuntimeException) {
         $result = [
-          'intent' => self::MARK_PREPARATION,
+          'intent' => $intent,
           'status' => 'NEEDS_CLARIFICATION',
           'data' => NULL,
-          'clarifications' => ['choose_pending_preparation'],
+          'clarifications' => [$unprepare ? 'choose_prepared_preparation' : 'choose_pending_preparation'],
           'saved' => FALSE,
         ];
       }
@@ -1184,11 +1239,13 @@ final class GuidedAssistantForm extends FormBase {
    */
   private function preparationReviewContextValid(mixed $result, mixed $review, array $scope): bool {
     return is_array($result) && is_array($review)
-      && ($result['intent'] ?? NULL) === self::MARK_PREPARATION
+      && in_array($result['intent'] ?? NULL, [self::MARK_PREPARATION, self::UNMARK_PREPARATION], TRUE)
+      && ($review['intent'] ?? NULL) === $result['intent']
       && ($result['status'] ?? NULL) === 'PROPOSAL_READY'
       && ($result['saved'] ?? NULL) === FALSE
       && is_array($review['summary'] ?? NULL)
       && ($result['data'] ?? NULL) === $review['summary']
+      && ($review['summary']['prepared'] ?? NULL) === ($review['intent'] === self::UNMARK_PREPARATION)
       && is_string($review['choice'] ?? NULL)
       && $review['choice'] !== ''
       && is_array($review['target'] ?? NULL)
@@ -1204,10 +1261,10 @@ final class GuidedAssistantForm extends FormBase {
   /**
    * @return array<string, array<string, mixed>>
    */
-  private function preparationChoices(): array {
+  private function preparationChoices(bool $prepared = FALSE): array {
     $choices = [];
     foreach ($this->currentUserPreparations->mine(NULL, 30)['items'] as $item) {
-      if ($item['prepared']) {
+      if ((bool) $item['prepared'] !== $prepared) {
         continue;
       }
       $identity = $this->preparationIdentity($item);
@@ -1242,7 +1299,7 @@ final class GuidedAssistantForm extends FormBase {
 
   /**
    * @param array<string, mixed> $item
-   * @return array<string, string|int>
+   * @return array<string, string|int|bool>
    */
   private function preparationSummary(array $item): array {
     return [
@@ -1251,6 +1308,7 @@ final class GuidedAssistantForm extends FormBase {
       'activity_start' => (string) ($item['activity_start'] ?: $item['all_day_start_label']),
       'due_time' => (string) $item['due_time'],
       'revision_id' => (int) $item['_completion_target_revision_id'],
+      'prepared' => (bool) $item['prepared'],
     ];
   }
 
@@ -1537,13 +1595,14 @@ final class GuidedAssistantForm extends FormBase {
     ]);
   }
 
-  private function rejectPreparationConfirmation(FormStateInterface $form_state): void {
+  private function rejectPreparationConfirmation(FormStateInterface $form_state, string $intent): void {
     $form_state->set('preparation_review', NULL);
     $this->show($form_state, [
-      'intent' => self::MARK_PREPARATION,
+      'intent' => $intent,
       'status' => 'NEEDS_CLARIFICATION',
       'data' => NULL,
-      'clarifications' => ['fresh_preparation_preview_required'],
+      'clarifications' => [$intent === self::UNMARK_PREPARATION
+        ? 'fresh_unprepare_preview_required' : 'fresh_preparation_preview_required'],
       'saved' => FALSE,
     ]);
   }
@@ -1613,6 +1672,10 @@ final class GuidedAssistantForm extends FormBase {
           self::MARK_PREPARATION => $this->tr(
             'Preview only — the preparation has not been marked done.',
             'Aperçu uniquement — le préparatif n’a pas été marqué comme fait.',
+          ),
+          self::UNMARK_PREPARATION => $this->tr(
+            'Preview only — the preparation is still marked done.',
+            'Aperçu uniquement — le préparatif est toujours marqué comme fait.',
           ),
           default => $this->tr(
             'Preview not saved — no task or activity created.',
@@ -1725,17 +1788,27 @@ final class GuidedAssistantForm extends FormBase {
         ));
         return $build;
       }
-      if (($result['intent'] ?? NULL) === self::MARK_PREPARATION) {
+      if (in_array($result['intent'] ?? NULL, [self::MARK_PREPARATION, self::UNMARK_PREPARATION], TRUE)) {
+        $unprepare = $result['intent'] === self::UNMARK_PREPARATION;
         $build['preparation'] = $this->fact($this->t('@instruction — @activity — @start — @due', [
           '@instruction' => (string) $data['instruction'],
           '@activity' => (string) $data['activity_label'],
           '@start' => (string) $data['activity_start'],
           '@due' => (string) $data['due_time'],
         ]));
-        $build['effect'] = $this->fact($this->tr(
-          'Only this preparation will be marked done after confirmation.',
-          'Seul ce préparatif sera marqué comme fait après confirmation.',
-        ));
+        if ($unprepare) {
+          $build['before_state'] = $this->fact($this->tr('Current state: Done', 'État actuel : Fait'));
+          $build['after_state'] = $this->fact($this->tr('After confirmation: Not done', 'Après confirmation : À faire'));
+        }
+        $build['effect'] = $this->fact($unprepare
+          ? $this->tr(
+            'Only this preparation will be marked not done after confirmation; applicable reminders may become active again.',
+            'Seul ce préparatif sera remis à faire après confirmation ; les rappels applicables peuvent redevenir actifs.',
+          )
+          : $this->tr(
+            'Only this preparation will be marked done after confirmation.',
+            'Seul ce préparatif sera marqué comme fait après confirmation.',
+          ));
         return $build;
       }
       $build['proposal'] = $this->fact($this->t('@name', [
@@ -1999,6 +2072,14 @@ final class GuidedAssistantForm extends FormBase {
       'choose_pending_preparation' => $this->tr(
         'Choose a pending preparation and show a new preview.',
         'Choisissez un préparatif à faire et affichez un nouvel aperçu.',
+      ),
+      'choose_prepared_preparation' => $this->tr(
+        'Choose a completed preparation and show a new preview.',
+        'Choisissez un préparatif déjà fait et affichez un nouvel aperçu.',
+      ),
+      'fresh_unprepare_preview_required' => $this->tr(
+        'This preparation preview is no longer valid. Show a new preview before marking it not done.',
+        'Cet aperçu de préparatif n’est plus valide. Affichez un nouvel aperçu avant de le remettre à faire.',
       ),
       'fresh_preparation_preview_required' => $this->tr(
         'This preparation preview is no longer valid. Show a new preview before marking it done.',

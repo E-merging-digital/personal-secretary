@@ -762,6 +762,109 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->elementNotExists('css', 'input[name="confirm_complete_existing_task"]');
   }
 
+  public function testMarkCompletedPreparationNotDoneUsesExactReview(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Unprepare Operator');
+    $allowed = $domain->createHousehold('Synthetic unprepare home', [(int) $person->id()]);
+    $outside = $domain->createHousehold('Synthetic unprepare other home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed]);
+    $otherUser = $this->productUser($person, [$outside]);
+    $start = (new \DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new \DateTimeZone('Europe/Brussels'))
+      ->setTime(14, 0)->modify('+2 days');
+
+    foreach (['Synthetic done alpha', 'Synthetic done beta', 'Synthetic pending gamma'] as $label) {
+      $this->createGuidedPreparation($label, (int) $allowed->id(), (int) $person->id(), $start);
+    }
+    $this->createGuidedPreparation('Synthetic forbidden done', (int) $outside->id(), (int) $person->id(), $start);
+
+    $service = $this->container->get('personal_secretary.current_user_preparation');
+    $items = $service->mineForUser($user, NULL, 30)['items'];
+    $choices = [];
+    $seriesIds = [];
+    foreach ($items as $item) {
+      $seriesIds[$item['instruction']] = (int) $item['_completion_series_id'];
+      $choices[$item['instruction']] = hash('sha256', implode("\0", [
+        (string) $item['_completion_series_id'],
+        (string) $item['_completion_target_revision_id'],
+        (string) $item['_completion_original_occurrence_key'],
+        (string) $item['_completion_requirement_id'],
+      ]));
+      if ($item['instruction'] !== 'Synthetic pending gamma preparation') {
+        $this->seedSyntheticPreparationCompletion($item, (int) $person->id(), (int) $user->id());
+      }
+    }
+    $forbidden = $service->mineForUser($otherUser, NULL, 30)['items'][0];
+    $this->seedSyntheticPreparationCompletion($forbidden, (int) $person->id(), (int) $otherUser->id());
+    $alpha = $choices['Synthetic done alpha preparation'];
+    $beta = $choices['Synthetic done beta preparation'];
+    $gamma = $choices['Synthetic pending gamma preparation'];
+    $storage = $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion');
+    $this->assertCount(3, $storage->loadMultiple());
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Mark a preparation not done');
+    $this->assertSession()->elementExists('css', 'select[name="unprepare_choice"] option[value="' . $alpha . '"]');
+    $this->assertSession()->elementExists('css', 'select[name="unprepare_choice"] option[value="' . $beta . '"]');
+    $this->assertSession()->elementNotExists('css', 'select[name="unprepare_choice"] option[value="' . $gamma . '"]');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden done preparation');
+
+    $this->submitForm([
+      'intent' => 'UNMARK_PREPARATION',
+      'unprepare_choice' => $alpha,
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('Current state: Done');
+    $this->assertSession()->pageTextContains('After confirmation: Not done');
+    $this->assertSession()->pageTextContains('applicable reminders may become active again');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_unmark_preparation"]');
+    $this->assertCount(3, $storage->loadMultiple(), 'Preview must not delete a completion.');
+
+    // A different selection cannot consume the reviewed target.
+    $this->submitForm(['unprepare_choice' => $beta], 'Mark this preparation not done');
+    $this->assertSession()->pageTextContains('This preparation preview is no longer valid.');
+    $this->assertCount(3, $storage->loadMultiple());
+
+    $this->submitForm([
+      'intent' => 'UNMARK_PREPARATION',
+      'unprepare_choice' => $alpha,
+    ], 'Show preview');
+    $this->submitForm([], 'Mark this preparation not done');
+    $this->assertSession()->pageTextContains('Preparation marked not done.');
+    $this->assertSession()->addressEquals('/personal-secretary/preparations/mine');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_unmark_preparation"]');
+    $this->assertCount(2, $storage->loadMultiple(), 'Exactly one completion must be removed.');
+
+    $after = [];
+    foreach ($service->mineForUser($user, NULL, 30)['items'] as $item) {
+      $after[$item['instruction']] = $item['prepared'];
+    }
+    $this->assertFalse($after['Synthetic done alpha preparation']);
+    $this->assertTrue($after['Synthetic done beta preparation']);
+    $this->assertFalse($after['Synthetic pending gamma preparation']);
+    $this->assertArrayNotHasKey('Synthetic forbidden done preparation', $after);
+
+    // Concurrent change after preview is rejected, with no second deletion.
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->submitForm([
+      'intent' => 'UNMARK_PREPARATION',
+      'unprepare_choice' => $beta,
+    ], 'Show preview');
+    foreach ($storage->loadMultiple() as $completion) {
+      if ((int) $completion->get('series')->target_id === (int) $seriesIds['Synthetic done beta preparation']) {
+        $completion->delete();
+      }
+    }
+    $this->assertCount(1, $storage->loadMultiple());
+    $this->submitForm([], 'Mark this preparation not done');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_unmark_preparation"]');
+    $this->assertCount(1, $storage->loadMultiple());
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('No completed preparation is available in the next 30 days.');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
+    $this->assertSession()->elementNotExists('css', 'select[name="unprepare_choice"]');
+  }
+
   public function testPreparationRequiresExactPreviewAndHumanConfirmation(): void {
     $domain = $this->container->get('personal_secretary.domain_mutation');
     $person = $domain->createPerson('Synthetic Preparation Operator');
@@ -835,6 +938,64 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertTrue($states['Synthetic target alpha preparation']);
     $this->assertFalse($states['Synthetic target beta preparation']);
     $this->assertArrayNotHasKey('Synthetic forbidden target preparation', $states);
+  }
+
+  public function testFrenchUnpreparePreviewStopsAfterHouseholdRevocation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic French Unprepare Operator');
+    $allowed = $domain->createHousehold('Synthetic French unprepare home', [(int) $person->id()]);
+    $other = $domain->createHousehold('Synthetic French remaining home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed, $other]);
+    $start = (new \DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new \DateTimeZone('Europe/Brussels'))
+      ->setTime(14, 0)->modify('+2 days');
+    $this->createGuidedPreparation('Synthetic French done', (int) $allowed->id(), (int) $person->id(), $start);
+    $item = $this->container->get('personal_secretary.current_user_preparation')
+      ->mineForUser($user, NULL, 30)['items'][0];
+    $this->seedSyntheticPreparationCompletion($item, (int) $person->id(), (int) $user->id());
+    $choice = hash('sha256', implode("\0", [
+      (string) $item['_completion_series_id'],
+      (string) $item['_completion_target_revision_id'],
+      (string) $item['_completion_original_occurrence_key'],
+      (string) $item['_completion_requirement_id'],
+    ]));
+    $completions = $this->container->get('entity_type.manager')->getStorage('personal_sec_prep_completion');
+    $this->drupalLogin($user);
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Remettre un préparatif à faire');
+    $this->submitForm([
+      'intent' => 'UNMARK_PREPARATION',
+      'unprepare_choice' => $choice,
+    ], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('État actuel : Fait');
+    $this->assertSession()->pageTextContains('Après confirmation : À faire');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_unmark_preparation"]');
+    $this->assertCount(1, $completions->loadMultiple());
+
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [
+      ['target_id' => (int) $other->id()],
+    ]);
+    $user->save();
+    $this->submitForm([], 'Remettre à faire');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_unmark_preparation"]');
+    $this->assertCount(1, $completions->loadMultiple(), 'Revoked preparation must stay done.');
   }
 
   public function testFrenchPreparationPreviewFailsClosedAfterHouseholdRevocation(): void {
@@ -1145,6 +1306,26 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $storage->resetCache();
     $this->assertSame('Synthetic French edit title', (string) $storage->load($task->id())->get('title')->value);
     $this->assertSession()->elementNotExists('css', 'input[name="confirm_edit_existing_task"]');
+  }
+
+  /**
+   * Seeds a synthetic completion to exercise the inverse domain mutation.
+   *
+   * @param array<string, mixed> $item
+   *   An item from the authorized synthetic preparation query.
+   */
+  private function seedSyntheticPreparationCompletion(array $item, int $personId, int $userId): void {
+    $this->container->get('entity_type.manager')
+      ->getStorage('personal_sec_prep_completion')
+      ->create([
+        'series' => ['target_id' => (int) $item['_completion_series_id']],
+        'target_revision_id' => (int) $item['_completion_target_revision_id'],
+        'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
+        'preparation_requirement' => ['target_id' => (int) $item['_completion_requirement_id']],
+        'responsible_person' => ['target_id' => $personId],
+        'prepared_at' => $this->container->get('datetime.time')->getCurrentTime(),
+        'prepared_by_user' => ['target_id' => $userId],
+      ])->save();
   }
 
   private function createGuidedPreparation(string $label, int $householdId, int $personId, \DateTimeImmutable $start): void {
