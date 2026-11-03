@@ -1107,7 +1107,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic original edit title');
     $this->assertSession()->pageTextContains('Synthetic other undated edit');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden edit');
-    $this->assertSession()->pageTextNotContains('Synthetic completed edit');
+    $this->assertSession()->elementTextNotContains('css', 'select[name="edit_task_choice"]', 'Synthetic completed edit');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
 
     // No-op is a readable preview but never produces an edit submit button.
@@ -1306,6 +1306,225 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $storage->resetCache();
     $this->assertSame('Synthetic French edit title', (string) $storage->load($task->id())->get('title')->value);
     $this->assertSession()->elementNotExists('css', 'input[name="confirm_edit_existing_task"]');
+  }
+
+  public function testReopenCompletedTaskRequiresExactPreviewAndOneConfirmation(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Reopen Operator');
+    $otherPerson = $domain->createPerson('Synthetic Other Assignee');
+    $allowed = $domain->createHousehold('Synthetic reopen home', [(int) $person->id(), (int) $otherPerson->id()]);
+    $forbidden = $domain->createHousehold('Synthetic foreign reopen home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $completedAt = $this->container->get('datetime.time')->getCurrentTime();
+    $makeTask = static function (string $title, int $householdId, int $personId, string $status, string $dueMode) use ($storage, $completedAt, $user): PersonalTask {
+      $fields = [
+        'title' => $title,
+        'household' => $householdId,
+        'assigned_person' => $personId,
+        'due_mode' => $dueMode,
+        'status' => $status,
+      ];
+      if ($dueMode === PersonalTask::DUE_DATE) {
+        $fields['due_date'] = '2026-11-04';
+      }
+      if ($status === PersonalTask::STATUS_COMPLETED) {
+        $fields['completed_at'] = $completedAt;
+        $fields['completed_by_user'] = (int) $user->id();
+      }
+      $task = $storage->create($fields);
+      $task->save();
+      return $task;
+    };
+    $alpha = $makeTask('Synthetic reopen alpha', (int) $allowed->id(), (int) $person->id(), PersonalTask::STATUS_COMPLETED, PersonalTask::DUE_DATE);
+    $beta = $makeTask('Synthetic reopen beta no deadline', (int) $allowed->id(), (int) $person->id(), PersonalTask::STATUS_COMPLETED, PersonalTask::DUE_NONE);
+    $open = $makeTask('Synthetic still-open reopen candidate', (int) $allowed->id(), (int) $person->id(), PersonalTask::STATUS_OPEN, PersonalTask::DUE_NONE);
+    $foreign = $makeTask('Synthetic foreign completed task', (int) $forbidden->id(), (int) $person->id(), PersonalTask::STATUS_COMPLETED, PersonalTask::DUE_NONE);
+    $otherAssignee = $makeTask('Synthetic other-person completed task', (int) $allowed->id(), (int) $otherPerson->id(), PersonalTask::STATUS_COMPLETED, PersonalTask::DUE_NONE);
+    $choice = static fn(PersonalTask $task, int $householdId): string => hash('sha256', implode("\0", [(string) $task->id(), (string) $householdId]));
+    $alphaChoice = $choice($alpha, (int) $allowed->id());
+    $betaChoice = $choice($beta, (int) $allowed->id());
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Reopen a completed task');
+    $this->assertSession()->elementExists('css', 'select[name="reopen_task_choice"] option[value="' . $alphaChoice . '"]');
+    $this->assertSession()->elementExists('css', 'select[name="reopen_task_choice"] option[value="' . $betaChoice . '"]');
+    $this->assertSession()->elementNotExists('css', 'select[name="reopen_task_choice"] option[value="' . $choice($open, (int) $allowed->id()) . '"]');
+    $this->assertSession()->elementNotExists('css', 'select[name="reopen_task_choice"] option[value="' . $choice($foreign, (int) $forbidden->id()) . '"]');
+    $this->assertSession()->elementNotExists('css', 'select[name="reopen_task_choice"] option[value="' . $choice($otherAssignee, (int) $allowed->id()) . '"]');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_reopen_existing_task"]');
+
+    $this->submitForm([
+      'intent' => 'REOPEN_TASK',
+      'reopen_task_choice' => $alphaChoice,
+    ], 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('Synthetic reopen alpha — Synthetic reopen home — 2026-11-04');
+    $this->assertSession()->pageTextContains('Current status: Completed');
+    $this->assertSession()->pageTextContains('After confirmation: Open');
+    $this->assertSession()->pageTextContains('completed_at');
+    $this->assertSession()->pageTextContains('completed_by_user');
+    $this->assertSession()->pageTextContains('Preview only — the task is still completed.');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_reopen_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($alpha->id())->get('status')->value);
+
+    // Even another eligible task cannot replace the server-reviewed target.
+    $this->submitForm(['reopen_task_choice' => $betaChoice], 'Reopen this task');
+    $this->assertSession()->pageTextContains('This reopen preview is no longer valid.');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_reopen_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($alpha->id())->get('status')->value);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($beta->id())->get('status')->value);
+
+    $this->submitForm(['intent' => 'REOPEN_TASK', 'reopen_task_choice' => $alphaChoice], 'Show preview');
+    $this->submitForm([], 'Reopen this task');
+    $this->assertSession()->addressEquals('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Task reopened.');
+    $storage->resetCache();
+    $saved = $storage->load($alpha->id());
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $saved->get('status')->value);
+    $this->assertSame('', (string) ($saved->get('completed_at')->value ?? ''));
+    $this->assertNull($saved->get('completed_by_user')->target_id);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($beta->id())->get('status')->value);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($foreign->id())->get('status')->value);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($otherAssignee->id())->get('status')->value);
+    $this->getSession()->reload();
+    $this->drupalGet('/personal-secretary/assistant');
+    $this->assertSession()->elementNotExists('css', 'select[name="reopen_task_choice"] option[value="' . $alphaChoice . '"]');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_reopen_existing_task"]');
+  }
+
+  public function testReopenCompletedTaskRejectsPersistedChangesAndAlreadyOpenStatus(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic Reopen Concurrent Operator');
+    $household = $domain->createHousehold('Synthetic concurrent reopen home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$household]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $originalCompletion = $this->container->get('datetime.time')->getCurrentTime();
+    $task = $storage->create([
+      'title' => 'Synthetic concurrent reopen task',
+      'household' => (int) $household->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_DATE_TIME,
+      'due_at' => '2026-11-10T08:30:00',
+      'status' => PersonalTask::STATUS_COMPLETED,
+      'completed_at' => $originalCompletion,
+      'completed_by_user' => (int) $user->id(),
+    ]);
+    $task->save();
+    $choice = hash('sha256', implode("\0", [(string) $task->id(), (string) $household->id()]));
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/assistant');
+    $preview = ['intent' => 'REOPEN_TASK', 'reopen_task_choice' => $choice];
+    $this->submitForm($preview, 'Show preview');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_reopen_existing_task"]');
+    $storage->resetCache();
+
+    // An unchanged display label is insufficient: compare the UTC due value.
+    $concurrent = $storage->load($task->id());
+    $concurrent->set('due_at', '2026-11-10T08:31:00');
+    $concurrent->save();
+    $this->submitForm([], 'Reopen this task');
+    $this->assertSession()->pageTextContains('This reopen preview is no longer valid.');
+    $storage->resetCache();
+    $current = $storage->load($task->id());
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $current->get('status')->value);
+    $this->assertSame('2026-11-10T08:31:00', (string) $current->get('due_at')->value);
+
+    // A changed completion timestamp also invalidates the exact snapshot.
+    $this->submitForm($preview, 'Show preview');
+    $storage->resetCache();
+    $concurrent = $storage->load($task->id());
+    $concurrent->set('completed_at', $originalCompletion + 60);
+    $concurrent->save();
+    $this->submitForm([], 'Reopen this task');
+    $this->assertSession()->pageTextContains('This reopen preview is no longer valid.');
+    $storage->resetCache();
+    $this->assertSame($originalCompletion + 60, (int) $storage->load($task->id())->get('completed_at')->value);
+
+    // A concurrent reopening leaves no second mutation or usable confirmation.
+    $this->submitForm($preview, 'Show preview');
+    $storage->resetCache();
+    $concurrent = $storage->load($task->id());
+    $concurrent->set('status', PersonalTask::STATUS_OPEN);
+    $concurrent->set('completed_at', NULL);
+    $concurrent->set('completed_by_user', NULL);
+    $concurrent->save();
+    $this->submitForm([], 'Reopen this task');
+    $this->assertSession()->pageTextContains('This reopen preview is no longer valid.');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_reopen_existing_task"]');
+    $storage->resetCache();
+    $current = $storage->load($task->id());
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $current->get('status')->value);
+    $this->assertSame('', (string) ($current->get('completed_at')->value ?? ''));
+  }
+
+  public function testFrenchReopenPreviewStopsAfterRevocationAndShowsHonestEmptyState(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Synthetic French Reopen Operator');
+    $allowed = $domain->createHousehold('Synthetic French reopen home', [(int) $person->id()]);
+    $remaining = $domain->createHousehold('Synthetic remaining reopen home', [(int) $person->id()]);
+    $user = $this->productUser($person, [$allowed, $remaining]);
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $completedAt = $this->container->get('datetime.time')->getCurrentTime();
+    $task = $storage->create([
+      'title' => 'Synthetic French completed reopen task',
+      'household' => (int) $allowed->id(),
+      'assigned_person' => (int) $person->id(),
+      'due_mode' => PersonalTask::DUE_NONE,
+      'status' => PersonalTask::STATUS_COMPLETED,
+      'completed_at' => $completedAt,
+      'completed_by_user' => (int) $user->id(),
+    ]);
+    $task->save();
+    $this->drupalLogin($user);
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Rouvrir une tâche terminée');
+    $choice = hash('sha256', implode("\0", [(string) $task->id(), (string) $allowed->id()]));
+    $this->submitForm(['intent' => 'REOPEN_TASK', 'reopen_task_choice' => $choice], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('État actuel : Terminé');
+    $this->assertSession()->pageTextContains('Après confirmation : Ouvert');
+    $this->assertSession()->pageTextContains('La date de clôture');
+    $this->assertSession()->elementExists('css', 'input[name="confirm_reopen_existing_task"]');
+    $storage->resetCache();
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($task->id())->get('status')->value);
+
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [
+      ['target_id' => (int) $remaining->id()],
+    ]);
+    $user->save();
+    $this->submitForm([], 'Rouvrir cette tâche');
+    $this->assertSession()->elementNotExists('css', 'input[name="confirm_reopen_existing_task"]');
+    $storage->resetCache();
+    $unchanged = $storage->load($task->id());
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $unchanged->get('status')->value);
+    $this->assertSame($completedAt, (int) $unchanged->get('completed_at')->value);
+
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->pageTextContains('Vous n’avez aucune tâche terminée à rouvrir.');
+    $this->assertSession()->elementNotExists('css', 'select[name="reopen_task_choice"]');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine');
   }
 
   /**

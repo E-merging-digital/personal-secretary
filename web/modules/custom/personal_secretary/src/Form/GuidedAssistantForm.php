@@ -36,6 +36,7 @@ final class GuidedAssistantForm extends FormBase {
   private const MARK_PREPARATION = 'MARK_PREPARATION';
   private const UNMARK_PREPARATION = 'UNMARK_PREPARATION';
   private const COMPLETE_TASK = 'COMPLETE_TASK';
+  private const REOPEN_TASK = 'REOPEN_TASK';
   private const EDIT_TASK = 'EDIT_TASK';
   private const KEEP_DUE = 'UNCHANGED';
 
@@ -75,8 +76,8 @@ final class GuidedAssistantForm extends FormBase {
       '#type' => 'html_tag', '#tag' => 'p',
       '#attributes' => ['class' => ['ps-guided-assistant__intro']],
       '#value' => $this->tr(
-        'Choose an action. The assistant does not interpret free text; creating or editing a task, creating an activity, changing a preparation status, or completing a task requires explicit confirmation.',
-        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer ou modifier une tâche, créer une activité, changer le statut d’un préparatif ou terminer une tâche exige une confirmation explicite.',
+        'Choose an action. The assistant does not interpret free text; creating, editing, completing or reopening a task, creating an activity or changing a preparation status requires explicit confirmation.',
+        'Choisissez une action. L’assistant n’interprète pas de texte libre ; créer, modifier, terminer ou rouvrir une tâche, créer une activité ou changer le statut d’un préparatif exige une confirmation explicite.',
       ),
     ];
     $form['back'] = $this->backLink();
@@ -110,6 +111,7 @@ final class GuidedAssistantForm extends FormBase {
         self::MARK_PREPARATION => $this->tr('Mark a preparation done', 'Marquer un préparatif comme fait'),
         self::UNMARK_PREPARATION => $this->tr('Mark a preparation not done', 'Remettre un préparatif à faire'),
         self::COMPLETE_TASK => $this->tr('Complete an existing task', 'Terminer une tâche existante'),
+        self::REOPEN_TASK => $this->tr('Reopen a completed task', 'Rouvrir une tâche terminée'),
         self::EDIT_TASK => $this->tr('Edit an existing task', 'Modifier une tâche existante'),
       ],
       '#default_value' => ThreeIntentReadProposeService::GET_TODAY,
@@ -328,6 +330,44 @@ final class GuidedAssistantForm extends FormBase {
       '#url' => Url::fromRoute('personal_secretary.my_tasks'),
     ];
 
+    $form['reopen_task'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-guided-assistant__fields']],
+      '#states' => ['visible' => [':input[name="intent"]' => ['value' => self::REOPEN_TASK]]],
+    ];
+    try {
+      $choices = $this->taskCompletionChoices($scope, PersonalTask::STATUS_COMPLETED);
+      if ($choices === []) {
+        $form['reopen_task']['empty'] = $this->fact($this->tr(
+          'You have no completed task to reopen.',
+          'Vous n’avez aucune tâche terminée à rouvrir.',
+        ));
+      }
+      else {
+        $options = ['' => $this->tr('Choose a completed task', 'Choisir une tâche terminée')];
+        foreach ($choices as $key => $item) {
+          $options[$key] = $this->taskCompletionLabel($item);
+        }
+        $form['reopen_task']['reopen_task_choice'] = [
+          '#type' => 'select',
+          '#title' => $this->tr('Task to reopen', 'Tâche à rouvrir'),
+          '#options' => $options,
+          '#default_value' => '',
+        ];
+      }
+    }
+    catch (InvalidArgumentException|RuntimeException) {
+      $form['reopen_task']['unavailable'] = $this->fact($this->tr(
+        'Completed tasks are currently unavailable. No change can be made.',
+        'Les tâches terminées sont momentanément indisponibles. Aucune modification ne peut être effectuée.',
+      ));
+    }
+    $form['reopen_task']['all'] = [
+      '#type' => 'link',
+      '#title' => $this->tr('View My tasks', 'Voir Mes tâches'),
+      '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+    ];
+
     $form['edit_task'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-guided-assistant__fields']],
@@ -418,6 +458,24 @@ final class GuidedAssistantForm extends FormBase {
               '#type' => 'submit',
               '#name' => 'confirm_edit_existing_task',
               '#value' => $this->tr('Save this change', 'Enregistrer cette modification'),
+              '#button_type' => 'primary',
+            ],
+          ],
+        ];
+      }
+      if ($this->taskReopenReviewContextValid($result, $form_state->get('task_reopen_review'), $scope)) {
+        $form['task_reopen_confirmation'] = [
+          '#type' => 'container',
+          'notice' => $this->fact($this->tr(
+            'Reopening will change only the reviewed task to Open and clear its completion fields. Check the exact task above.',
+            'La réouverture remettra uniquement la tâche vérifiée à Ouvert et effacera ses champs de clôture. Vérifiez la tâche exacte ci-dessus.',
+          )),
+          'actions' => [
+            '#type' => 'actions',
+            'confirm' => [
+              '#type' => 'submit',
+              '#name' => 'confirm_reopen_existing_task',
+              '#value' => $this->tr('Reopen this task', 'Rouvrir cette tâche'),
               '#button_type' => 'primary',
             ],
           ],
@@ -533,6 +591,7 @@ final class GuidedAssistantForm extends FormBase {
     $confirmPreparation = $trigger === 'confirm_mark_preparation';
     $confirmUnprepare = $trigger === 'confirm_unmark_preparation';
     $confirmExistingTask = $trigger === 'confirm_complete_existing_task';
+    $confirmReopenTask = $trigger === 'confirm_reopen_existing_task';
     $confirmEditTask = $trigger === 'confirm_edit_existing_task';
     try {
       $scope = $this->activityCreation->creationScope();
@@ -546,6 +605,7 @@ final class GuidedAssistantForm extends FormBase {
       $form_state->set('activity_review', NULL);
       $form_state->set('preparation_review', NULL);
       $form_state->set('task_completion_review', NULL);
+      $form_state->set('task_reopen_review', NULL);
       $form_state->set('task_edit_review', NULL);
       $this->show($form_state, [
         'status' => 'ACCESS_DENIED', 'data' => NULL,
@@ -595,6 +655,37 @@ final class GuidedAssistantForm extends FormBase {
         return;
       }
       $this->messenger()->addStatus($this->tr('Task updated.', 'Tâche modifiée.'));
+      $form_state->setRedirect('personal_secretary.my_tasks');
+      return;
+    }
+
+    if ($confirmReopenTask) {
+      $review = $form_state->get('task_reopen_review');
+      $previous = $form_state->get('guided_result');
+      if ($intent !== self::REOPEN_TASK
+        || !$this->taskReopenReviewContextValid($previous, $review, $scope)
+        || (string) $form_state->getValue('reopen_task_choice') !== $review['choice']) {
+        $this->rejectTaskReopenConfirmation($form_state);
+        return;
+      }
+      try {
+        $choices = $this->taskCompletionChoices($scope, PersonalTask::STATUS_COMPLETED);
+        $item = $choices[$review['choice']] ?? NULL;
+        if (!is_array($item)
+          || $this->taskReopenSnapshot($item) !== $review['snapshot']) {
+          throw new InvalidArgumentException('The reviewed completed task changed.');
+        }
+        // Consume the review before exactly one governed domain write.
+        $form_state->set('task_reopen_review', NULL);
+        if (!$this->taskMutations->reopenTask((int) $review['snapshot']['id'])) {
+          throw new InvalidArgumentException('The task was already reopened.');
+        }
+      }
+      catch (\Exception) {
+        $this->rejectTaskReopenConfirmation($form_state);
+        return;
+      }
+      $this->messenger()->addStatus($this->tr('Task reopened.', 'Tâche rouverte.'));
       $form_state->setRedirect('personal_secretary.my_tasks');
       return;
     }
@@ -798,6 +889,7 @@ final class GuidedAssistantForm extends FormBase {
     $form_state->set('activity_review', NULL);
     $form_state->set('preparation_review', NULL);
     $form_state->set('task_completion_review', NULL);
+    $form_state->set('task_reopen_review', NULL);
     $form_state->set('task_edit_review', NULL);
     if ($intent === self::EDIT_TASK) {
       try {
@@ -840,6 +932,44 @@ final class GuidedAssistantForm extends FormBase {
           'status' => 'NEEDS_CLARIFICATION',
           'data' => NULL,
           'clarifications' => [$reason],
+          'saved' => FALSE,
+        ];
+      }
+      $this->show($form_state, $result);
+      return;
+    }
+    if ($intent === self::REOPEN_TASK) {
+      try {
+        $choice = (string) $form_state->getValue('reopen_task_choice');
+        $choices = $this->taskCompletionChoices($scope, PersonalTask::STATUS_COMPLETED);
+        $item = $choices[$choice] ?? NULL;
+        if (!is_array($item)) {
+          throw new InvalidArgumentException('No completed task was selected.');
+        }
+        $snapshot = $this->taskReopenSnapshot($item);
+        $review = [
+          'choice' => $choice,
+          'snapshot' => $snapshot,
+          'user_id' => (int) $this->currentUser()->id(),
+          'person_id' => (int) $scope['current_person']->id(),
+          'household_ids' => $this->householdIds($scope),
+          'expires_at' => \Drupal::time()->getCurrentTime() + 600,
+        ];
+        $result = [
+          'intent' => self::REOPEN_TASK,
+          'status' => 'PROPOSAL_READY',
+          'data' => $snapshot,
+          'clarifications' => [],
+          'saved' => FALSE,
+        ];
+        $form_state->set('task_reopen_review', $review);
+      }
+      catch (InvalidArgumentException|RuntimeException) {
+        $result = [
+          'intent' => self::REOPEN_TASK,
+          'status' => 'NEEDS_CLARIFICATION',
+          'data' => NULL,
+          'clarifications' => ['choose_completed_task'],
           'saved' => FALSE,
         ];
       }
@@ -984,6 +1114,33 @@ final class GuidedAssistantForm extends FormBase {
       }
     }
     $this->show($form_state, $result);
+  }
+
+  /**
+   * Exact persisted fields that must remain unchanged until reopening.
+   *
+   * @param array<string, mixed> $item
+   * @return array<string, int|string>
+   */
+  private function taskReopenSnapshot(array $item): array {
+    $task = $this->taskMutations->requireCurrentTask((int) $item['id']);
+    if ((string) $task->get('status')->value !== PersonalTask::STATUS_COMPLETED) {
+      throw new InvalidArgumentException('Task is no longer completed.');
+    }
+    return [
+      'id' => (int) $task->id(),
+      'title' => (string) $task->get('title')->value,
+      'status' => (string) $task->get('status')->value,
+      'household_id' => (int) $task->get('household')->target_id,
+      'person_id' => (int) $task->get('assigned_person')->target_id,
+      'household_label' => (string) $item['_completion_household_label'],
+      'due_mode' => (string) $task->get('due_mode')->value,
+      'due_date' => (string) ($task->get('due_date')->value ?? ''),
+      'due_at' => (string) ($task->get('due_at')->value ?? ''),
+      'due_label' => (string) $item['due_label'],
+      'completed_at' => (string) ($task->get('completed_at')->value ?? ''),
+      'completed_by_user' => (int) ($task->get('completed_by_user')->target_id ?? 0),
+    ];
   }
 
   /**
@@ -1152,6 +1309,36 @@ final class GuidedAssistantForm extends FormBase {
   }
 
   /**
+   * Only a live, exact, server-held review can enable the reopen action.
+   *
+   * @param mixed $result
+   * @param mixed $review
+   * @param array<string, mixed> $scope
+   */
+  private function taskReopenReviewContextValid(mixed $result, mixed $review, array $scope): bool {
+    return is_array($result) && is_array($review)
+      && ($result['intent'] ?? NULL) === self::REOPEN_TASK
+      && ($result['status'] ?? NULL) === 'PROPOSAL_READY'
+      && ($result['saved'] ?? NULL) === FALSE
+      && is_array($review['snapshot'] ?? NULL)
+      && ($result['data'] ?? NULL) === $review['snapshot']
+      && is_string($review['choice'] ?? NULL)
+      && $review['choice'] !== ''
+      && ($review['snapshot']['status'] ?? NULL) === PersonalTask::STATUS_COMPLETED
+      && is_int($review['snapshot']['id'] ?? NULL)
+      && $review['snapshot']['id'] > 0
+      && ($review['user_id'] ?? NULL) === (int) $this->currentUser()->id()
+      && ($review['person_id'] ?? NULL) === (int) $scope['current_person']->id()
+      && ($review['snapshot']['person_id'] ?? NULL) === $review['person_id']
+      && ($review['household_ids'] ?? NULL) === $this->householdIds($scope)
+      && isset($scope['households'][(int) ($review['snapshot']['household_id'] ?? 0)])
+      && ($review['snapshot']['household_label'] ?? NULL) === (string) $scope['households'][(int) $review['snapshot']['household_id']]->label()
+      && is_int($review['expires_at'] ?? NULL)
+      && $review['expires_at'] > \Drupal::time()->getCurrentTime()
+      && $review['expires_at'] <= \Drupal::time()->getCurrentTime() + 600;
+  }
+
+  /**
    * Validate a prior server-held task-completion preview.
    *
    * @param mixed $result
@@ -1183,15 +1370,20 @@ final class GuidedAssistantForm extends FormBase {
    *
    * @return array<string, array<string, mixed>>
    */
-  private function taskCompletionChoices(array $scope): array {
+  private function taskCompletionChoices(array $scope, string $status = PersonalTask::STATUS_OPEN): array {
+    if (!in_array($status, [PersonalTask::STATUS_OPEN, PersonalTask::STATUS_COMPLETED], TRUE)) {
+      throw new InvalidArgumentException('Unsupported assistant task status.');
+    }
     $choices = [];
-    foreach ($this->taskQuery->myOpenTasks() as $item) {
+    foreach ($this->taskQuery->myTasks($status) as $item) {
       $taskId = (int) $item['id'];
       $task = $this->taskMutations->requireCurrentTask($taskId);
       $householdId = (int) $task->get('household')->target_id;
       $household = $scope['households'][$householdId] ?? NULL;
-      if ($taskId <= 0 || $household === NULL) {
-        throw new RuntimeException('Open task does not belong to the current authorized scope.');
+      if ($taskId <= 0 || $household === NULL
+        || (string) $item['status'] !== $status
+        || (string) $task->get('status')->value !== $status) {
+        throw new RuntimeException('Task does not belong to the current authorized status and scope.');
       }
       $item['_completion_household_id'] = $householdId;
       $item['_completion_household_label'] = (string) $household->label();
@@ -1584,6 +1776,17 @@ final class GuidedAssistantForm extends FormBase {
     ]);
   }
 
+  private function rejectTaskReopenConfirmation(FormStateInterface $form_state): void {
+    $form_state->set('task_reopen_review', NULL);
+    $this->show($form_state, [
+      'intent' => self::REOPEN_TASK,
+      'status' => 'NEEDS_CLARIFICATION',
+      'data' => NULL,
+      'clarifications' => ['fresh_task_reopen_preview_required'],
+      'saved' => FALSE,
+    ]);
+  }
+
   private function rejectTaskCompletionConfirmation(FormStateInterface $form_state): void {
     $form_state->set('task_completion_review', NULL);
     $this->show($form_state, [
@@ -1668,6 +1871,10 @@ final class GuidedAssistantForm extends FormBase {
           self::COMPLETE_TASK => $this->tr(
             'Preview only — the task has not been completed.',
             'Aperçu uniquement — la tâche n’a pas été terminée.',
+          ),
+          self::REOPEN_TASK => $this->tr(
+            'Preview only — the task is still completed.',
+            'Aperçu uniquement — la tâche est toujours terminée.',
           ),
           self::MARK_PREPARATION => $this->tr(
             'Preview only — the preparation has not been marked done.',
@@ -1773,6 +1980,21 @@ final class GuidedAssistantForm extends FormBase {
             'Nothing has changed. No save is needed or available.',
             'Aucune modification. Aucun enregistrement n’est nécessaire ni proposé.',
           ));
+        return $build;
+      }
+      if (($result['intent'] ?? NULL) === self::REOPEN_TASK) {
+        $due = (string) $data['due_label'];
+        $build['task_to_reopen'] = $this->fact($this->t('@title — @household — @due', [
+          '@title' => (string) $data['title'],
+          '@household' => (string) $data['household_label'],
+          '@due' => $due !== '' ? $due : $this->tr('No deadline', 'Sans échéance'),
+        ]));
+        $build['before_state'] = $this->fact($this->tr('Current status: Completed', 'État actuel : Terminé'));
+        $build['after_state'] = $this->fact($this->tr('After confirmation: Open', 'Après confirmation : Ouvert'));
+        $build['effect'] = $this->fact($this->tr(
+          'Only this task will be reopened after separate confirmation. The completion date (completed_at) and completion author (completed_by_user) will be cleared.',
+          'Seule cette tâche sera rouverte après une confirmation distincte. La date de clôture (completed_at) et son auteur (completed_by_user) seront effacés.',
+        ));
         return $build;
       }
       if (($result['intent'] ?? NULL) === self::COMPLETE_TASK) {
@@ -2060,6 +2282,14 @@ final class GuidedAssistantForm extends FormBase {
       'fresh_task_edit_preview_required' => $this->tr(
         'This edit preview is no longer valid. Show a new preview before saving.',
         'Cet aperçu de modification n’est plus valide. Affichez un nouvel aperçu avant d’enregistrer.',
+      ),
+      'choose_completed_task' => $this->tr(
+        'Choose a completed task and show a new preview.',
+        'Choisissez une tâche terminée et affichez un nouvel aperçu.',
+      ),
+      'fresh_task_reopen_preview_required' => $this->tr(
+        'This reopen preview is no longer valid. Show a new preview before reopening.',
+        'Cet aperçu de réouverture n’est plus valide. Affichez un nouvel aperçu avant de rouvrir.',
       ),
       'choose_open_task' => $this->tr(
         'Choose an open task and show a new preview.',
