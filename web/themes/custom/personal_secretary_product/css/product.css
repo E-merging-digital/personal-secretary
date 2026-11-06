@@ -137,6 +137,8 @@ body { background: var(--ps-canvas); color: var(--ps-ink); }
   display:inline-flex; align-items:center; min-height:44px; padding:.55rem .8rem;
   border-radius:.7rem; background:var(--ps-brand); color:#fff; font-weight:700; text-decoration:none;
 }
+.ps-task-groups { display:grid; gap:1.5rem; }
+.ps-task-group__heading { margin:0 0 .75rem; font-size:1.15rem; color:var(--ps-ink); }
 .ps-task-list { display:grid; gap:.75rem; }
 .ps-task-row {
   display:grid; gap:.65rem; border:1px solid var(--ps-line); border-radius:.9rem;
