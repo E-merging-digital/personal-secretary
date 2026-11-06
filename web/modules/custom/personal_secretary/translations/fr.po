@@ -1393,3 +1393,10 @@ msgstr "Préparatifs en retard"
 
 msgid "Upcoming preparations"
 msgstr "Préparatifs à venir"
+
+# My tasks open-view urgency grouping (#349).
+msgid "Overdue tasks"
+msgstr "Tâches en retard"
+
+msgid "Other open tasks"
+msgstr "Autres tâches ouvertes"

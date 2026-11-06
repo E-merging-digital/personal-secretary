@@ -166,13 +166,52 @@ final class PersonalTaskListForm extends FormBase {
       return $form;
     }
 
+    // Group only when both categories are visible in the open view.
+    $hasOverdue = FALSE;
+    $hasOther = FALSE;
+    if ($statusFilter === 'open') {
+      foreach ($items as $item) {
+        if ($item['overdue']) {
+          $hasOverdue = TRUE;
+        }
+        else {
+          $hasOther = TRUE;
+        }
+      }
+    }
+    $groupOpenTasks = $hasOverdue && $hasOther;
     $form['live']['items'] = [
       '#type' => 'container',
-      '#attributes' => [
-        'class' => ['ps-task-list'],
-        'role' => 'list',
-      ],
+      '#attributes' => $groupOpenTasks
+        ? ['class' => ['ps-task-groups']]
+        : ['class' => ['ps-task-list'], 'role' => 'list'],
     ];
+    if ($groupOpenTasks) {
+      foreach ([
+        'overdue' => $this->t('Overdue tasks'),
+        'other' => $this->t('Other open tasks'),
+      ] as $group => $title) {
+        $headingId = 'ps-task-' . $group . '-heading';
+        $form['live']['items'][$group] = [
+          '#type' => 'container',
+          '#attributes' => [
+            'class' => ['ps-task-group', 'ps-task-group--' . $group],
+            'role' => 'group',
+            'aria-labelledby' => $headingId,
+          ],
+          'heading' => [
+            '#type' => 'html_tag',
+            '#tag' => 'h2',
+            '#value' => $title,
+            '#attributes' => ['id' => $headingId, 'class' => ['ps-task-group__heading']],
+          ],
+          'list' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['ps-task-list'], 'role' => 'list'],
+          ],
+        ];
+      }
+    }
 
     foreach ($items as $delta => $item) {
       $id = (int) $item['id'];
@@ -181,7 +220,7 @@ final class PersonalTaskListForm extends FormBase {
         $rowClasses[] = 'ps-task-row--overdue';
       }
 
-      $form['live']['items'][$delta] = [
+      $row = [
         '#type' => 'container',
         '#attributes' => [
           'class' => $rowClasses,
@@ -201,7 +240,7 @@ final class PersonalTaskListForm extends FormBase {
       ];
 
       if ($statusFilter !== 'open') {
-        $form['live']['items'][$delta]['status'] = [
+        $row['status'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
           '#value' => $item['status'] === PersonalTask::STATUS_COMPLETED
@@ -212,7 +251,7 @@ final class PersonalTaskListForm extends FormBase {
       }
 
       if ((string) $item['due_label'] !== '') {
-        $form['live']['items'][$delta]['due'] = [
+        $row['due'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
           '#value' => $item['overdue'] && $item['status'] === PersonalTask::STATUS_OPEN
@@ -222,36 +261,42 @@ final class PersonalTaskListForm extends FormBase {
         ];
       }
 
-      if ($item['status'] !== PersonalTask::STATUS_OPEN) {
-        continue;
+      if ($item['status'] === PersonalTask::STATUS_OPEN) {
+        $row['actions'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['ps-task-row__actions']],
+          'complete' => [
+            '#type' => 'submit',
+            '#value' => $this->t('Mark complete'),
+            '#name' => 'complete_task_' . $id,
+            '#task_id' => $id,
+            '#task_action' => 'complete',
+            '#ajax' => $ajax,
+            '#button_type' => 'primary',
+            '#attributes' => ['class' => ['ps-task-row__complete']],
+          ],
+          'edit' => [
+            '#type' => 'link',
+            '#title' => $this->t('Edit'),
+            '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id]),
+            '#attributes' => ['class' => ['ps-task-row__edit']],
+          ],
+          'delete' => [
+            '#type' => 'link',
+            '#title' => $this->t('Delete'),
+            '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => $id]),
+            '#attributes' => ['class' => ['ps-task-row__delete']],
+          ],
+        ];
       }
 
-      $form['live']['items'][$delta]['actions'] = [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['ps-task-row__actions']],
-        'complete' => [
-          '#type' => 'submit',
-          '#value' => $this->t('Mark complete'),
-          '#name' => 'complete_task_' . $id,
-          '#task_id' => $id,
-          '#task_action' => 'complete',
-          '#ajax' => $ajax,
-          '#button_type' => 'primary',
-          '#attributes' => ['class' => ['ps-task-row__complete']],
-        ],
-        'edit' => [
-          '#type' => 'link',
-          '#title' => $this->t('Edit'),
-          '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id]),
-          '#attributes' => ['class' => ['ps-task-row__edit']],
-        ],
-        'delete' => [
-          '#type' => 'link',
-          '#title' => $this->t('Delete'),
-          '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => $id]),
-          '#attributes' => ['class' => ['ps-task-row__delete']],
-        ],
-      ];
+      if ($groupOpenTasks) {
+        $group = $item['overdue'] ? 'overdue' : 'other';
+        $form['live']['items'][$group]['list'][$delta] = $row;
+      }
+      else {
+        $form['live']['items'][$delta] = $row;
+      }
     }
 
     return $form;

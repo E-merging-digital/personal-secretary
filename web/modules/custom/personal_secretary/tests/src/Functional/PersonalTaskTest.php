@@ -444,14 +444,35 @@ final class PersonalTaskTest extends BrowserTestBase {
       ),
       'The default open view retains smart overdue/due/undated ordering.',
     );
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', 'h2.ps-task-group__heading'));
+    $this->assertSession()->pageTextContains('Overdue tasks');
+    $this->assertSession()->pageTextContains('Other open tasks');
+    $this->assertSession()->elementExists('css', '[role="group"][aria-labelledby="ps-task-overdue-heading"] #ps-task-overdue-heading');
+    $this->assertSession()->elementExists('css', '[role="group"][aria-labelledby="ps-task-other-heading"] #ps-task-other-heading');
+    $this->assertSame(
+      [(int) $overdue->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '.ps-task-group--overdue [role="list"] [data-ps-task-id]'),
+      ),
+    );
+    $this->assertSame(
+      [(int) $future->id(), (int) $undated->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '.ps-task-group--other [role="list"] [data-ps-task-id]'),
+      ),
+    );
 
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
+    $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
     $this->assertSession()->linkExists('Synthetic archive 100%_ marker');
     $this->assertSession()->pageTextContains('Completed');
     $this->assertSession()->pageTextNotContains('Synthetic overdue task');
     $this->assertSession()->buttonNotExists('Mark complete');
 
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all']]);
+    $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
     $this->assertCount(5, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
     $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
     $this->assertSession()->pageTextContains('Open');
@@ -504,6 +525,10 @@ final class PersonalTaskTest extends BrowserTestBase {
     );
     $this->assertSession()->pageTextContains('Synthetic future task');
     $this->assertSession()->pageTextNotContains('Synthetic overdue task');
+    $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['q' => 'Synthetic overdue']]);
+    $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
     $this->clickLink('Clear filters');
     $this->assertSession()->addressMatches('#/personal-secretary/tasks/mine$#');
     $this->assertSession()->pageTextContains('Synthetic overdue task');
@@ -590,6 +615,13 @@ final class PersonalTaskTest extends BrowserTestBase {
     $person = $domain->createPerson('Synthetic bilingual history person');
     $household = $domain->createHousehold('Synthetic bilingual history household', [(int) $person->id()]);
     $user = $this->taskUser($person->id(), [$household->id()]);
+    $mutations = $this->container->get('personal_secretary.personal_task_mutation');
+    $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic bilingual overdue task', (int) $household->id(), PersonalTask::DUE_DATE, '2020-01-01',
+    ));
+    $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic bilingual future task', (int) $household->id(), PersonalTask::DUE_DATE, '2099-01-01',
+    ));
     $this->drupalLogin($user);
 
     $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
@@ -598,6 +630,9 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Filtrer les tâches par statut');
     $this->assertSession()->pageTextContains('Aucune tâche terminée.');
     $this->assertSession()->linkExists('Effacer les filtres');
+    $this->drupalGet('/fr/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Tâches en retard');
+    $this->assertSession()->pageTextContains('Autres tâches ouvertes');
 
     $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->assertSession()->statusCodeEquals(200);
@@ -605,6 +640,9 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Task status filter');
     $this->assertSession()->pageTextContains('No completed tasks.');
     $this->assertSession()->linkExists('Clear filters');
+    $this->drupalGet('/en/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Overdue tasks');
+    $this->assertSession()->pageTextContains('Other open tasks');
   }
 
   private function taskUser(int|string|null $personId, array $householdIds): UserInterface {
