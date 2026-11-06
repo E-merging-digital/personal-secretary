@@ -113,6 +113,8 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalLogin($multiple);
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->elementExists('css', 'select[name="household_id"]');
+    $this->assertSession()->pageTextContains('Household for this activity');
+    $this->assertSession()->pageTextContains('The activity will belong to the selected household.');
     $this->assertSession()->elementExists('css', 'select[name="household_id"] option[value="' . $h1->id() . '"]');
     $this->assertSession()->elementExists('css', 'select[name="household_id"] option[value="' . $h3->id() . '"]');
     $this->assertSession()->elementNotExists('css', 'select[name="household_id"] option[value="' . $h2->id() . '"]');
@@ -146,6 +148,7 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists('css', 'select[name="responsible_person_id"]');
+    $this->assertSession()->pageTextNotContains('The activity will belong to the selected household.');
   }
 
   public function testOrdinaryWeeklyAndOneOffCreationReuseExistingSemantics(): void {

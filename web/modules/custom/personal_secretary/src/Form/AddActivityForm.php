@@ -106,10 +106,13 @@ final class AddActivityForm extends FormBase {
     else {
       $form['household_id'] = [
         '#type' => 'select',
-        '#title' => $this->t('Household'),
+        '#title' => $isAdministrator ? $this->t('Household') : $this->t('Household for this activity'),
         '#options' => $households,
         '#required' => TRUE,
       ];
+      if (!$isAdministrator) {
+        $form['household_id']['#description'] = $this->t('The activity will belong to the selected household.');
+      }
       if (count($households) === 1) {
         $form['household_id']['#default_value'] = (string) array_key_first($households);
       }
