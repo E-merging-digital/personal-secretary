@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Entity\CalendarAccountConnection;
 use Drupal\personal_secretary\Entity\ExternalEventShadow;
@@ -303,6 +304,145 @@ final class TodayViewTest extends BrowserTestBase {
     foreach (['Today route task', 'Today authorized UTC activity', 'Today cross-midnight activity', 'Today responsibility to current', 'Today due preparation', 'Today active overdue preparation'] as $leakedText) {
       $this->assertSession()->pageTextNotContains($leakedText);
     }
+  }
+
+  public function testTodayTasksSeparateUrgencyOnlyWhenBothGroupsExist(): void {
+    $this->installUserReferenceField(CurrentPersonResolver::FIELD_NAME, 'personal_secretary_person', 1, 'Personal Secretary person');
+    $this->installUserReferenceField(HouseholdAuthorizationService::FIELD_NAME, 'personal_secretary_household', FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED, 'Personal Secretary households');
+
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $mutations = $this->container->get('personal_secretary.personal_task_mutation');
+    $person = $domain->createPerson('Synthetic Today urgency person');
+    $otherPerson = $domain->createPerson('Synthetic Today private urgency person');
+    $household = $domain->createHousehold('Synthetic Today urgency household', [(int) $person->id()]);
+    $otherHousehold = $domain->createHousehold('Synthetic Today private urgency household', [(int) $otherPerson->id()]);
+    $user = $this->drupalCreateUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
+    $this->assertInstanceOf(UserInterface::class, $user);
+    $user->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
+    $user->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $household->id()]]);
+    $user->set('timezone', 'Europe/Brussels');
+    $user->save();
+    $foreignUser = $this->drupalCreateUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
+    $this->assertInstanceOf(UserInterface::class, $foreignUser);
+    $foreignUser->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $otherPerson->id()]);
+    $foreignUser->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $otherHousehold->id()]]);
+    $foreignUser->save();
+
+    $this->drupalLogin($user);
+    $url = '/personal-secretary/today';
+    $this->drupalGet($url);
+    $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
+
+    $nowUtc = new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime());
+    $window = $this->container->get('personal_secretary.today')->windowFor($user, $nowUtc);
+    $olderDate = $window['local_start']->modify('-2 days')->format('Y-m-d');
+    $overdueDate = $window['local_start']->modify('-1 day')->format('Y-m-d');
+    $tomorrowDate = $window['local_start']->modify('+1 day')->format('Y-m-d');
+    $switcher = $this->container->get('account_switcher');
+    $switcher->switchTo($user);
+    try {
+      $oldest = $mutations->createTask('Synthetic Today oldest overdue', (int) $household->id(), PersonalTask::DUE_DATE, $olderDate);
+      $recent = $mutations->createTask('Synthetic Today recent overdue', (int) $household->id(), PersonalTask::DUE_DATE, $overdueDate);
+      $mutations->createTask('Synthetic Today future excluded', (int) $household->id(), PersonalTask::DUE_DATE, $tomorrowDate);
+    }
+    finally {
+      $switcher->switchBack();
+    }
+    $switcher->switchTo($foreignUser);
+    try {
+      $mutations->createTask('Synthetic Today private excluded', (int) $otherHousehold->id(), PersonalTask::DUE_DATE, $overdueDate);
+    }
+    finally {
+      $switcher->switchBack();
+    }
+
+    // A single non-empty group keeps the original flat rendering.
+    $this->drupalGet($url);
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-card'));
+
+    $switcher->switchTo($user);
+    try {
+      $firstToday = $mutations->createTask('Synthetic Today first due', (int) $household->id(), PersonalTask::DUE_DATE, $window['local_date']);
+      $secondToday = $mutations->createTask('Synthetic Today second due', (int) $household->id(), PersonalTask::DUE_DATE, $window['local_date']);
+    }
+    finally {
+      $switcher->switchBack();
+    }
+    $this->drupalGet($url);
+    $groups = $this->getSession()->getPage()->findAll('css', '.ps-task-groups > .ps-task-group');
+    $this->assertCount(2, $groups);
+    $this->assertSame('Overdue tasks', trim($groups[0]->find('css', 'h3.ps-task-group__heading')->getText()));
+    $this->assertSame('Due today', trim($groups[1]->find('css', 'h3.ps-task-group__heading')->getText()));
+    $this->assertSame(['Synthetic Today oldest overdue', 'Synthetic Today recent overdue'], array_map(
+      static fn ($node): string => trim($node->getText()), $groups[0]->findAll('css', '.ps-task-card strong'),
+    ));
+    $this->assertSame(['Synthetic Today first due', 'Synthetic Today second due'], array_map(
+      static fn ($node): string => trim($node->getText()), $groups[1]->findAll('css', '.ps-task-card strong'),
+    ));
+    $this->assertSession()->pageTextNotContains('Synthetic Today private excluded');
+    $this->assertSession()->pageTextNotContains('Synthetic Today future excluded');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $oldest->id());
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $firstToday->id());
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/add');
+
+    $this->submitForm([], 'Mark complete');
+    $this->assertSession()->buttonExists('Reopen task');
+    $this->assertSession()->pageTextNotContains('Synthetic Today oldest overdue');
+    $taskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $taskStorage->resetCache([(int) $oldest->id()]);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $taskStorage->load($oldest->id())->get('status')->value);
+    $this->submitForm([], 'Reopen task');
+    $this->assertSession()->pageTextContains('Synthetic Today oldest overdue');
+
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
+    $this->config('system.site')->set('default_langcode', 'fr')->save();
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0, 'language-user' => 1, 'language-selected' => 2,
+      ])
+      ->save();
+    $this->container->get('language_manager')->reset();
+    $this->drupalGet('/fr/personal-secretary/today');
+    $this->assertSession()->pageTextContains('Tâches en retard');
+    $this->assertSession()->pageTextContains('À faire aujourd’hui');
+    $this->drupalGet('/en/personal-secretary/today');
+    $this->assertSession()->pageTextContains('Overdue tasks');
+    $this->assertSession()->pageTextContains('Due today');
+
+    $switcher->switchTo($user);
+    try {
+      $this->assertTrue($mutations->completeTask((int) $oldest->id()));
+      $this->assertTrue($mutations->completeTask((int) $recent->id()));
+    }
+    finally {
+      $switcher->switchBack();
+    }
+    $this->drupalGet('/en/personal-secretary/today');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-card'));
+    $switcher->switchTo($user);
+    try {
+      $this->assertTrue($mutations->completeTask((int) $firstToday->id()));
+      $this->assertTrue($mutations->completeTask((int) $secondToday->id()));
+    }
+    finally {
+      $switcher->switchBack();
+    }
+    $this->drupalGet('/en/personal-secretary/today');
+    $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
   }
 
   private function createSeriesWithRule(string $label, int $householdId, int $responsiblePersonId, DateTimeImmutable $start, DateTimeImmutable $end): ActivitySeries {

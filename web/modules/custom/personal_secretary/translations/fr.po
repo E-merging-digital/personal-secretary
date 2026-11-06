@@ -1404,3 +1404,7 @@ msgstr "Autres tâches ouvertes"
 # Read-only completed task history (#351).
 msgid "Completed: @completed"
 msgstr "Terminée le : @completed"
+
+# Today open-task urgency groups (#353).
+msgid "Due today"
+msgstr "À faire aujourd’hui"
