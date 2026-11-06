@@ -70,7 +70,7 @@ final class MyUpcomingTest extends BrowserTestBase {
       'Same day A activity',
       (int) $household->id(),
       (int) $personA->id(),
-      $nowLocal->modify('+1 day')->setTime(15, 0),
+      $nowLocal->modify('+1 day')->setTime(10, 0),
     );
     $preparationMutations->createPreparationRequirement(
       $ruleASeries,
