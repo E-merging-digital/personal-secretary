@@ -588,6 +588,89 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(403);
   }
 
+  public function testCompletedHistoryIsRecentFirstWithLocalTimeAndStableTies(): void {
+    $this->installUserPersonFieldViaEntityApi();
+    $this->installHouseholdAuthorizationFieldViaEntityApi();
+
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $mutations = $this->container->get('personal_secretary.personal_task_mutation');
+    $person = $domain->createPerson('Synthetic recent history person');
+    $otherPerson = $domain->createPerson('Synthetic private history person');
+    $household = $domain->createHousehold('Synthetic recent history household', [(int) $person->id()]);
+    $foreignHousehold = $domain->createHousehold('Synthetic private history household', [(int) $otherPerson->id()]);
+    $user = $this->taskUser($person->id(), [$household->id()]);
+    $user->set('timezone', 'Europe/Brussels');
+    $user->save();
+    $otherUser = $this->taskUser($otherPerson->id(), [$foreignHousehold->id()]);
+
+    $oldestUndated = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic oldest undated history', (int) $household->id(), PersonalTask::DUE_NONE,
+    ));
+    $latestUndated = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic latest undated history', (int) $household->id(), PersonalTask::DUE_NONE,
+    ));
+    $latestDated = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic latest dated history', (int) $household->id(), PersonalTask::DUE_DATE, '2026-04-01',
+    ));
+    $olderDated = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic older dated history', (int) $household->id(), PersonalTask::DUE_DATE, '2026-04-01',
+    ));
+    $foreign = $this->asUser($otherUser, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic private completed history', (int) $foreignHousehold->id(), PersonalTask::DUE_NONE,
+    ));
+
+    $times = [
+      (int) $oldestUndated->id() => (new DateTimeImmutable('2026-03-28T12:00:00+00:00'))->getTimestamp(),
+      (int) $latestUndated->id() => (new DateTimeImmutable('2026-03-29T01:30:00+00:00'))->getTimestamp(),
+      (int) $latestDated->id() => (new DateTimeImmutable('2026-03-29T01:30:00+00:00'))->getTimestamp(),
+      (int) $olderDated->id() => (new DateTimeImmutable('2026-03-28T15:00:00+00:00'))->getTimestamp(),
+    ];
+    $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    foreach ($times as $id => $timestamp) {
+      $this->assertTrue($this->asUser($user, fn (): bool => $mutations->completeTask($id)));
+      $storage->resetCache([$id]);
+      $saved = $storage->load($id);
+      $this->assertInstanceOf(PersonalTask::class, $saved);
+      // Synthetic fixed instants prove historical ordering without changing the clock.
+      $saved->set('completed_at', $timestamp);
+      $saved->save();
+    }
+    $this->assertTrue($this->asUser($otherUser, fn (): bool => $mutations->completeTask((int) $foreign->id())));
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSame(
+      [(int) $latestDated->id(), (int) $latestUndated->id(), (int) $olderDated->id(), (int) $oldestUndated->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+      ),
+      'Completion time descends first; ties use descending task ID, independent of due dates.',
+    );
+    $this->assertCount(4, $this->getSession()->getPage()->findAll('css', '.ps-task-row__status'));
+    $this->assertSession()->pageTextContains('Completed: 2026-03-29 03:30');
+    $this->assertSession()->pageTextContains('Completed: 2026-03-28 16:00');
+    $this->assertSession()->pageTextContains('Completed: 2026-03-28 13:00');
+    $this->assertSession()->pageTextNotContains('Synthetic private completed history');
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed', 'q' => 'undated history']]);
+    $this->assertSame(
+      [(int) $latestUndated->id(), (int) $oldestUndated->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+      ),
+    );
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all']]);
+    $this->assertCount(4, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
+    $this->assertSession()->pageTextNotContains('Completed: 2026-03-29');
+    $this->drupalGet('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('No open tasks.');
+    $this->assertSession()->pageTextNotContains('Completed:');
+    $this->assertSession()->pageTextNotContains('Synthetic private completed history');
+  }
+
   public function testTaskHistoryControlsAreBilingual(): void {
     $this->installUserPersonFieldViaEntityApi();
     $this->installHouseholdAuthorizationFieldViaEntityApi();
@@ -640,6 +723,16 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Task status filter');
     $this->assertSession()->pageTextContains('No completed tasks.');
     $this->assertSession()->linkExists('Clear filters');
+
+    $completed = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic bilingual completed history', (int) $household->id(), PersonalTask::DUE_NONE,
+    ));
+    $this->assertTrue($this->asUser($user, fn (): bool => $mutations->completeTask((int) $completed->id())));
+    $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
+    $this->assertSession()->pageTextContains('Terminée le :');
+    $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
+    $this->assertSession()->pageTextContains('Completed:');
+
     $this->drupalGet('/en/personal-secretary/tasks/mine');
     $this->assertSession()->pageTextContains('Overdue tasks');
     $this->assertSession()->pageTextContains('Other open tasks');
