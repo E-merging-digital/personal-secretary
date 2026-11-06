@@ -134,9 +134,30 @@ final class TodayController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-today-stack']],
       ];
+      $overdueCount = count(array_filter($today['tasks'], static fn(array $item): bool => (bool) $item['overdue']));
+      $showGroups = $overdueCount > 0 && $overdueCount < count($today['tasks']);
+      if ($showGroups) {
+        $build['tasks']['items']['#attributes']['class'] = ['ps-task-groups'];
+        foreach (['overdue' => $this->t('Overdue tasks'), 'today' => $this->t('Due today')] as $key => $title) {
+          $build['tasks']['items'][$key] = [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['ps-task-group']],
+            'heading' => [
+              '#type' => 'html_tag',
+              '#tag' => 'h3',
+              '#attributes' => ['class' => ['ps-task-group__heading']],
+              '#value' => $title,
+            ],
+            'items' => [
+              '#type' => 'container',
+              '#attributes' => ['class' => ['ps-today-stack']],
+            ],
+          ];
+        }
+      }
       foreach ($today['tasks'] as $delta => $item) {
         $id = (int) $item['id'];
-        $build['tasks']['items'][$delta] = [
+        $row = [
           '#type' => 'container',
           '#attributes' => ['class' => ['ps-card', 'ps-task-card']],
           'title' => [
@@ -164,6 +185,12 @@ final class TodayController extends ControllerBase {
           ],
           'complete' => $this->formBuilder()->getForm(TodayTaskTransitionForm::class, 'complete', $id),
         ];
+        if ($showGroups) {
+          $build['tasks']['items'][$item['overdue'] ? 'overdue' : 'today']['items'][$delta] = $row;
+        }
+        else {
+          $build['tasks']['items'][$delta] = $row;
+        }
       }
     }
 
