@@ -111,6 +111,12 @@ final class TodayViewTest extends BrowserTestBase {
       $overdueSeries = $this->createSeriesWithRule('Today overdue preparation related activity', (int) $h1->id(), (int) $person->id(), $overdueActivityStart, $overdueActivityStart->modify('+1 hour'));
       $preparationMutations->createPreparationRequirement($overdueSeries, 'Today active overdue preparation', $overdueActivityStart->getTimestamp() - $overdueAt->getTimestamp(), $effectiveFrom);
 
+      // A still-upcoming deadline in the same local day exercises mixed urgency.
+      $laterDueAt = $window['utc_end']->modify('-1 minute');
+      $laterActivityStart = $window['utc_end']->modify('+8 hours');
+      $laterSeries = $this->createSeriesWithRule('Today later preparation related activity', (int) $h1->id(), (int) $person->id(), $laterActivityStart, $laterActivityStart->modify('+1 hour'));
+      $preparationMutations->createPreparationRequirement($laterSeries, 'Today later preparation', $laterActivityStart->getTimestamp() - $laterDueAt->getTimestamp(), $effectiveFrom);
+
       $futureDueAt = $window['utc_end']->modify('+1 hour');
       $futureActivityStart = $window['utc_end']->modify('+6 hours');
       $futureSeries = $this->createSeriesWithRule('Today future preparation related activity', (int) $h1->id(), (int) $person->id(), $futureActivityStart, $futureActivityStart->modify('+1 hour'));
@@ -194,11 +200,13 @@ final class TodayViewTest extends BrowserTestBase {
       $preparationItems = $this->preparationsByInstruction($model['preparations']);
       $this->assertArrayHasKey('Today due preparation', $preparationItems);
       $this->assertArrayHasKey('Today active overdue preparation', $preparationItems);
+      $this->assertArrayHasKey('Today later preparation', $preparationItems);
       $this->assertArrayNotHasKey('Today future preparation excluded', $preparationItems);
       $this->assertArrayNotHasKey('Today started preparation excluded', $preparationItems);
       $this->assertArrayNotHasKey('Today unauthorized H2 preparation', $preparationItems);
       $this->assertSame($dueTodayAt < $nowUtc, $preparationItems['Today due preparation']['overdue']);
       $this->assertTrue($preparationItems['Today active overdue preparation']['overdue']);
+      $this->assertSame($laterDueAt < $nowUtc, $preparationItems['Today later preparation']['overdue']);
       $this->assertSame('Europe/Brussels', $preparationItems['Today due preparation']['display_timezone']);
 
       $taskTitles = array_map(static fn(array $task): string => (string) $task['title'], $model['tasks']);
@@ -223,6 +231,26 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $dueToday->id());
     $this->assertSession()->pageTextContains('Today due preparation');
     $this->assertSession()->pageTextContains('Today active overdue preparation');
+    $this->assertSession()->pageTextContains('Today later preparation');
+    $preparationGroups = $this->getSession()->getPage()->findAll(
+      'css',
+      '.ps-today-section--preparations .ps-task-group',
+    );
+    // At the last minute of a civil day, even the final deadline is already
+    // overdue; the single-group presentation remains correct.
+    if ($laterDueAt >= $nowUtc) {
+      $this->assertCount(2, $preparationGroups);
+      $this->assertSame('Overdue preparations', trim(($preparationGroups[0]->find('css', 'h3')?->getText() ?? '')));
+      $this->assertSame('Due today', trim(($preparationGroups[1]->find('css', 'h3')?->getText() ?? '')));
+      $this->assertStringContainsString('Today active overdue preparation', $preparationGroups[0]->getText());
+      $this->assertStringContainsString('Today due preparation', $preparationGroups[0]->getText());
+      $this->assertStringNotContainsString('Today later preparation', $preparationGroups[0]->getText());
+      $this->assertStringContainsString('Today later preparation', $preparationGroups[1]->getText());
+      $this->assertStringNotContainsString('Today active overdue preparation', $preparationGroups[1]->getText());
+    }
+    else {
+      $this->assertCount(0, $preparationGroups);
+    }
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
     $this->assertSession()->pageTextContains('Today cross-midnight activity');
     $this->assertSession()->pageTextContains('Today responsibility to current');
@@ -301,7 +329,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
     $this->drupalGet($todayUrl . '?reopen_task=' . $taskId);
     $this->assertSession()->buttonNotExists('Reopen task');
-    foreach (['Today route task', 'Today authorized UTC activity', 'Today cross-midnight activity', 'Today responsibility to current', 'Today due preparation', 'Today active overdue preparation'] as $leakedText) {
+    foreach (['Today route task', 'Today authorized UTC activity', 'Today cross-midnight activity', 'Today responsibility to current', 'Today due preparation', 'Today active overdue preparation', 'Today later preparation'] as $leakedText) {
       $this->assertSession()->pageTextNotContains($leakedText);
     }
   }
