@@ -72,18 +72,12 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Authorized Household H1');
     // Exactly one scoped Household, despite other globally existing contexts.
-    $this->assertSession()->fieldValueEquals('household_id', (string) $h1->id());
+    $this->assertSession()->elementExists('css', '.form-item-household-context');
+    $this->assertSession()->elementNotExists('css', 'select[name="household_id"]');
+    $this->assertSession()->elementNotExists('css', 'input[name="household_id"]');
     $this->assertSession()->pageTextNotContains('Unauthorized Household H2');
     $this->assertSession()->pageTextContains('Authorized H1 Member');
     $this->assertSession()->pageTextNotContains('Unauthorized H2 Person');
-    $this->assertSession()->elementExists(
-      'css',
-      'select[name="household_id"] option[value="' . $h1->id() . '"]',
-    );
-    $this->assertSession()->elementNotExists(
-      'css',
-      'select[name="household_id"] option[value="' . $h2->id() . '"]',
-    );
     $this->assertSession()->elementExists(
       'css',
       'input[name="concerned_person_ids[' . $h1Member->id() . ']"]',
@@ -111,6 +105,17 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $this->drupalGet('/personal-secretary/activities/1/occurrences/synthetic-key/reschedule');
     $this->assertSession()->statusCodeEquals(404);
+
+    // Multiple eligible households still require an explicit scoped choice.
+    $h3 = $domain->createHousehold('Authorized Household H3', [(int) $current->id()]);
+    $multiple = $this->createScopedUser($current, [(int) $h1->id(), (int) $h3->id()], TRUE);
+    $this->drupalLogout();
+    $this->drupalLogin($multiple);
+    $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->elementExists('css', 'select[name="household_id"]');
+    $this->assertSession()->elementExists('css', 'select[name="household_id"] option[value="' . $h1->id() . '"]');
+    $this->assertSession()->elementExists('css', 'select[name="household_id"] option[value="' . $h3->id() . '"]');
+    $this->assertSession()->elementNotExists('css', 'select[name="household_id"] option[value="' . $h2->id() . '"]');
 
     $notMember = $this->createScopedUser(
       $current,
@@ -165,7 +170,8 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $weeklyDate = $nowLocal->modify('+2 days')->format('Y-m-d');
     $this->drupalGet('/personal-secretary/activities/add');
-    $this->assertSession()->fieldValueEquals('household_id', (string) $household->id());
+    $this->assertSession()->pageTextContains('Creation Household');
+    $this->assertSession()->elementNotExists('css', 'select[name="household_id"]');
     // Ordinary users retain their current Person, not an admin select.
     // This hidden value is intentionally forged. It is not mutation authority.
     $hiddenResponsible = $this->getSession()
@@ -182,7 +188,6 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $hiddenResponsible->setValue((string) $concerned->id());
 
     $this->submitForm([
-      'household_id' => (string) $household->id(),
       'activity_type' => 'weekly',
       'time_mode' => ActivitySeries::TIME_MODE_TIMED,
       'concerned_person_ids[' . $concerned->id() . ']' => (string) $concerned->id(),
@@ -222,7 +227,6 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $hiddenResponsible->setValue((string) $concerned->id());
 
     $this->submitForm([
-      'household_id' => (string) $household->id(),
       'activity_type' => 'one_off',
       'time_mode' => ActivitySeries::TIME_MODE_TIMED,
       'activity_label' => 'Authorized one-off creation',

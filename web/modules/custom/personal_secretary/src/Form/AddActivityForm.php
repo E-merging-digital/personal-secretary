@@ -89,14 +89,30 @@ final class AddActivityForm extends FormBase {
     $timezones = TimeZoneFormHelper::getOptionsList();
     $defaultTimezone = $this->currentUserTimezone->effectiveTimezone();
 
-    $form['household_id'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Household'),
-      '#options' => $households,
-      '#required' => TRUE,
-    ];
-    if (count($households) === 1) {
-      $form['household_id']['#default_value'] = (string) array_key_first($households);
+    if (!$isAdministrator && count($households) === 1) {
+      // The authorized scope is fixed; avoid asking the user to select it.
+      $form['household_context'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Household'),
+        '#markup' => $this->t('@household', [
+          '@household' => (string) reset($households),
+        ]),
+      ];
+      $form['household_id'] = [
+        '#type' => 'value',
+        '#value' => (string) array_key_first($households),
+      ];
+    }
+    else {
+      $form['household_id'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Household'),
+        '#options' => $households,
+        '#required' => TRUE,
+      ];
+      if (count($households) === 1) {
+        $form['household_id']['#default_value'] = (string) array_key_first($households);
+      }
     }
 
     $form['activity_type'] = [
