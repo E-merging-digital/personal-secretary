@@ -66,6 +66,12 @@ final class MyUpcomingTest extends BrowserTestBase {
       (int) $personA->id(),
       $nowLocal->modify('+1 day')->setTime(9, 0),
     );
+    $this->createSeriesWithRule(
+      'Same day A activity',
+      (int) $household->id(),
+      (int) $personA->id(),
+      $nowLocal->modify('+1 day')->setTime(10, 0),
+    );
     $preparationMutations->createPreparationRequirement(
       $ruleASeries,
       'Prepare included A kit',
@@ -255,7 +261,16 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($myUpcomingUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextContains('Same day A activity');
     $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+    // Two occurrences on the same civil day share one heading; a later day gets another.
+    $cards = $this->getSession()->getPage()->findAll('css', '.ps-upcoming-list > .ps-upcoming-list__item');
+    $this->assertCount(3, $cards);
+    $this->assertNotNull($cards[0]->find('css', 'h3.ps-upcoming-day-heading'));
+    $this->assertNull($cards[1]->find('css', 'h3.ps-upcoming-day-heading'));
+    $this->assertNotNull($cards[2]->find('css', 'h3.ps-upcoming-day-heading'));
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-upcoming-day-heading'));
+
     $this->assertSession()->elementExists('css', '.ps-upcoming-horizon a[aria-current="page"]');
     $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
     $this->assertSession()->pageTextNotContains('Later A activity');
@@ -287,6 +302,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 30 days.');
     $this->assertSession()->pageTextContains('Later A activity');
+    $this->assertCount(3, $this->getSession()->getPage()->findAll('css', '.ps-upcoming-day-heading'));
     $this->assertSession()->pageTextNotContains('Later B activity');
     $this->assertSession()->pageTextNotContains('Later other-household activity');
     $this->assertSession()->pageTextNotContains('Outside horizon A activity');
@@ -321,6 +337,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->getSession()->getPage()->pressButton('Search activities');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-upcoming-day-heading'));
     $this->assertSession()->pageTextNotContains('Override to A activity');
     $this->assertSession()->pageTextNotContains('Rule B activity');
     $this->assertSession()->pageTextNotContains('Later A activity');
@@ -557,6 +574,7 @@ final class MyUpcomingTest extends BrowserTestBase {
 
     foreach ([
       'Rule A activity',
+      'Same day A activity',
       'Rule B activity',
       'Override to A activity',
       'Override away from A activity',

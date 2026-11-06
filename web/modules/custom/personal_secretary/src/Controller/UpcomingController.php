@@ -143,7 +143,7 @@ final class UpcomingController extends ControllerBase {
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query, TRUE);
     return $build;
   }
 
@@ -233,7 +233,18 @@ final class UpcomingController extends ControllerBase {
     bool $includeDetailLinks,
     int $days = 7,
     string $query = '',
+    bool $groupByDay = FALSE,
   ): array {
+    // Reuse the authorized projection; only order and label its visible cards.
+    $dayKey = static fn(array $item): string => !empty($item['all_day'])
+      ? (string) $item['all_day_start_date']
+      : substr((string) $item['display_start_iso'], 0, 10);
+    if ($groupByDay) {
+      // PHP 8's stable sort preserves the projection order within each day.
+      usort($items, static fn(array $left, array $right): int => strcmp($dayKey($left), $dayKey($right)));
+    }
+    $previousDay = NULL;
+
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-upcoming-list'], 'role' => 'list'],
@@ -254,6 +265,18 @@ final class UpcomingController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-upcoming-list__item'], 'role' => 'listitem'],
       ];
+      if ($groupByDay) {
+        $currentDay = $dayKey($item);
+        if ($currentDay !== $previousDay) {
+          $build[$delta]['day_heading'] = [
+            '#type' => 'html_tag',
+            '#tag' => 'h3',
+            '#attributes' => ['class' => ['ps-upcoming-day-heading']],
+            '#value' => $allDay ? $item['all_day_start_label'] : $item['display_start_date'],
+          ];
+          $previousDay = $currentDay;
+        }
+      }
       $build[$delta]['activity'] = [
         '#type' => 'component',
         '#component' => 'personal_secretary:upcoming-activity',
