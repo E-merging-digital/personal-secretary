@@ -221,11 +221,32 @@ final class TodayController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-today-stack']],
       ];
+      $overdueCount = count(array_filter($today['preparations'], static fn(array $item): bool => (bool) $item['overdue']));
+      $showGroups = $overdueCount > 0 && $overdueCount < count($today['preparations']);
+      if ($showGroups) {
+        $build['preparations']['items']['#attributes']['class'] = ['ps-task-groups'];
+        foreach (['overdue' => $this->t('Overdue preparations'), 'today' => $this->t('Due today')] as $key => $title) {
+          $build['preparations']['items'][$key] = [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['ps-task-group']],
+            'heading' => [
+              '#type' => 'html_tag',
+              '#tag' => 'h3',
+              '#attributes' => ['class' => ['ps-task-group__heading']],
+              '#value' => $title,
+            ],
+            'items' => [
+              '#type' => 'container',
+              '#attributes' => ['class' => ['ps-today-stack']],
+            ],
+          ];
+        }
+      }
       foreach ($today['preparations'] as $delta => $item) {
         if (($item['prepared'] ?? FALSE) === TRUE) {
           throw new RuntimeException('Today preparation read exposed a prepared candidate.');
         }
-        $build['preparations']['items'][$delta] = [
+        $row = [
           '#type' => 'container',
           '#attributes' => ['class' => ['ps-card', 'ps-preparation-card']],
           'item' => [
@@ -235,6 +256,12 @@ final class TodayController extends ControllerBase {
           ],
           'action' => $this->preparationActionForm($item, 'today'),
         ];
+        if ($showGroups) {
+          $build['preparations']['items'][$item['overdue'] ? 'overdue' : 'today']['items'][$delta] = $row;
+        }
+        else {
+          $build['preparations']['items'][$delta] = $row;
+        }
       }
     }
 
