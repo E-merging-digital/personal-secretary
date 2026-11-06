@@ -240,12 +240,18 @@ final class PersonalTaskListForm extends FormBase {
       ];
 
       if ($statusFilter !== 'open') {
+        $statusLabel = $item['status'] === PersonalTask::STATUS_COMPLETED
+          ? $this->t('Completed')
+          : $this->t('Open');
+        if ($statusFilter === 'completed' && (string) $item['completed_label'] !== '') {
+          $statusLabel = $this->t('Completed: @completed', [
+            '@completed' => (string) $item['completed_label'],
+          ]);
+        }
         $row['status'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
-          '#value' => $item['status'] === PersonalTask::STATUS_COMPLETED
-            ? $this->t('Completed')
-            : $this->t('Open'),
+          '#value' => $statusLabel,
           '#attributes' => ['class' => ['ps-task-row__status']],
         ];
       }

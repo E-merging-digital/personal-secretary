@@ -83,7 +83,7 @@ final class PersonalTaskQueryService {
       return [];
     }
 
-    return $this->loadAndPresent($ids, $user);
+    return $this->loadAndPresent($ids, $user, NULL, $status === PersonalTask::STATUS_COMPLETED);
   }
 
   /**
@@ -162,6 +162,7 @@ final class PersonalTaskQueryService {
     array $ids,
     UserInterface $user,
     ?DateTimeImmutable $nowUtc = NULL,
+    bool $newestCompletedFirst = FALSE,
   ): array {
     $tasks = $this->entityTypeManager
       ->getStorage(PersonalTask::ENTITY_TYPE_ID)
@@ -172,6 +173,14 @@ final class PersonalTaskQueryService {
       if ($task instanceof PersonalTask) {
         $items[] = $this->presentation($task, $user, $nowUtc);
       }
+    }
+
+    if ($newestCompletedFirst) {
+      usort($items, static function (array $left, array $right): int {
+        $byTime = $right['sort_completed_at'] <=> $left['sort_completed_at'];
+        return $byTime !== 0 ? $byTime : ($right['id'] <=> $left['id']);
+      });
+      return $items;
     }
 
     usort($items, static function (array $left, array $right): int {
@@ -259,13 +268,23 @@ final class PersonalTaskQueryService {
       throw new InvalidArgumentException('PersonalTask due mode is invalid.');
     }
 
+    $status = (string) $task->get('status')->value;
+    $completedAt = $status === PersonalTask::STATUS_COMPLETED && !$task->get('completed_at')->isEmpty()
+      ? (int) $task->get('completed_at')->value
+      : NULL;
+    $completedLabel = $completedAt !== NULL
+      ? (new DateTimeImmutable('@' . $completedAt))->setTimezone($timezone)->format('Y-m-d H:i')
+      : '';
+
     return [
       'id' => (int) $task->id(),
       'title' => (string) $task->get('title')->value,
       'due_mode' => $mode,
       'due_label' => $dueLabel,
       'overdue' => $overdue,
-      'status' => (string) $task->get('status')->value,
+      'status' => $status,
+      'completed_label' => $completedLabel,
+      'sort_completed_at' => $completedAt ?? 0,
       'sort_bucket' => $overdue ? 0 : ($mode === PersonalTask::DUE_NONE ? 2 : 1),
       'sort_due' => $sortDue,
     ];

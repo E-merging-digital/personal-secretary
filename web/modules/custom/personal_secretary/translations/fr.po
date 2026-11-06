@@ -1400,3 +1400,7 @@ msgstr "Tâches en retard"
 
 msgid "Other open tasks"
 msgstr "Autres tâches ouvertes"
+
+# Read-only completed task history (#351).
+msgid "Completed: @completed"
+msgstr "Terminée le : @completed"
