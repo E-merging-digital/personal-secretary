@@ -1311,6 +1311,13 @@ msgstr "En retard uniquement"
 msgid "No overdue tasks."
 msgstr "Aucune tâche en retard."
 
+# Optional filter for pending overdue preparations (#369).
+msgid "All to prepare"
+msgstr "Tous les préparatifs à faire"
+
+msgid "No overdue preparations."
+msgstr "Aucun préparatif en retard."
+
 msgid "Search tasks"
 msgstr "Rechercher"
 

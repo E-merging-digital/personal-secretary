@@ -40,6 +40,7 @@ final class PreparationController extends ControllerBase {
     if (mb_strlen($search) > 100) {
       $search = '';
     }
+    $urgency = ($query['urgency'] ?? NULL) === 'overdue' ? 'overdue' : 'all';
 
     try {
       $model = $this->currentUserPreparations->mine(NULL, $windowDays);
@@ -82,6 +83,12 @@ final class PreparationController extends ControllerBase {
       $items,
       static fn(array $item): bool => ($item['prepared'] ?? FALSE) === TRUE,
     ));
+    if ($urgency === 'overdue') {
+      $toPrepare = array_values(array_filter(
+        $toPrepare,
+        static fn(array $item): bool => ($item['overdue'] ?? FALSE) === TRUE,
+      ));
+    }
 
     $build = [
       '#type' => 'container',
@@ -98,7 +105,8 @@ final class PreparationController extends ControllerBase {
           '#type' => 'link',
           '#title' => $this->t('7 days'),
           '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
-            'query' => ['days' => 7] + ($search === '' ? [] : ['q' => $search]),
+            'query' => ['days' => 7] + ($search === '' ? [] : ['q' => $search])
+              + ($urgency === 'overdue' ? ['urgency' => 'overdue'] : []),
           ]),
           '#attributes' => [
             'class' => $windowDays === 7 ? ['button', 'button--primary'] : ['button'],
@@ -108,14 +116,15 @@ final class PreparationController extends ControllerBase {
           '#type' => 'link',
           '#title' => $this->t('30 days'),
           '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
-            'query' => ['days' => 30] + ($search === '' ? [] : ['q' => $search]),
+            'query' => ['days' => 30] + ($search === '' ? [] : ['q' => $search])
+              + ($urgency === 'overdue' ? ['urgency' => 'overdue'] : []),
           ]),
           '#attributes' => [
             'class' => $windowDays === 30 ? ['button', 'button--primary'] : ['button'],
           ] + ($windowDays === 30 ? ['aria-current' => 'page'] : []),
         ],
       ],
-      'search' => $this->searchForm($windowDays, $search),
+      'search' => $this->searchForm($windowDays, $search, $urgency),
       'window' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
@@ -159,15 +168,17 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-empty-state']],
-        '#value' => $items === [] && $search !== ''
+        '#value' => $urgency === 'overdue'
+          ? $this->t('No overdue preparations.')
+          : ($items === [] && $search !== ''
           ? $this->t('No preparations match this search.')
           : ($items === []
             ? ($windowDays === 30
               ? $this->t('No upcoming preparations are assigned to you in the next 30 days.')
               : $this->t('No upcoming preparations are assigned to you in the next 7 days.'))
-            : $this->t('Nothing currently needs preparation.')),
+            : $this->t('Nothing currently needs preparation.'))),
       ];
-      if ($items === [] && $search === '') {
+      if ($items === [] && $search === '' && $urgency !== 'overdue') {
         $build['to_prepare']['explanation'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
@@ -248,7 +259,7 @@ final class PreparationController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function searchForm(int $days, string $search): array {
+  private function searchForm(int $days, string $search, string $urgency): array {
     $form = [
       '#type' => 'html_tag',
       '#tag' => 'form',
@@ -285,6 +296,32 @@ final class PreparationController extends ControllerBase {
           'value' => (string) $days,
         ],
       ],
+      'urgency_label' => [
+        '#type' => 'html_tag',
+        '#tag' => 'label',
+        '#value' => $this->t('Urgency filter'),
+        '#attributes' => ['for' => 'ps-preparation-search-urgency'],
+      ],
+      'urgency' => [
+        '#type' => 'html_tag',
+        '#tag' => 'select',
+        '#attributes' => [
+          'id' => 'ps-preparation-search-urgency',
+          'name' => 'urgency',
+        ],
+        'all' => [
+          '#type' => 'html_tag',
+          '#tag' => 'option',
+          '#value' => $this->t('All to prepare'),
+          '#attributes' => ['value' => 'all'] + ($urgency === 'all' ? ['selected' => 'selected'] : []),
+        ],
+        'overdue' => [
+          '#type' => 'html_tag',
+          '#tag' => 'option',
+          '#value' => $this->t('Overdue only'),
+          '#attributes' => ['value' => 'overdue'] + ($urgency === 'overdue' ? ['selected' => 'selected'] : []),
+        ],
+      ],
       'submit' => [
         '#type' => 'html_tag',
         '#tag' => 'button',
@@ -292,10 +329,12 @@ final class PreparationController extends ControllerBase {
         '#attributes' => ['type' => 'submit'],
       ],
     ];
-    if ($search !== '') {
+    if ($search !== '' || $urgency === 'overdue') {
       $form['clear'] = [
         '#type' => 'link',
-        '#title' => $this->t('Clear search'),
+        '#title' => $urgency === 'overdue'
+          ? $this->t('Clear filters')
+          : $this->t('Clear search'),
         '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
           'query' => ['days' => $days],
         ]),
