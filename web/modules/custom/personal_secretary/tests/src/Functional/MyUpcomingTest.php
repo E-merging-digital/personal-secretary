@@ -66,6 +66,7 @@ final class MyUpcomingTest extends BrowserTestBase {
       (int) $personA->id(),
       $nowLocal->modify('+1 day')->setTime(9, 0),
     );
+    $ruleASeries->set('location', 'Centre Rivage')->save();
     $this->createSeriesWithRule(
       'Same day A activity',
       (int) $household->id(),
@@ -85,6 +86,7 @@ final class MyUpcomingTest extends BrowserTestBase {
       (int) $personB->id(),
       $nowLocal->modify('+2 days')->setTime(10, 0),
     );
+    $ruleBSeries->set('location', 'Centre Rivage')->save();
     $preparationMutations->createPreparationRequirement(
       $ruleBSeries,
       'Prepare excluded B kit',
@@ -173,12 +175,14 @@ final class MyUpcomingTest extends BrowserTestBase {
       (int) $personA->id(),
       $nowLocal->modify('+20 days')->setTime(9, 0),
     );
+    $laterOwnedSeries->set('location', 'Salle Horizon')->save();
     $laterOtherSeries = $this->createSeriesWithRule(
       'Later B activity',
       (int) $household->id(),
       (int) $personB->id(),
       $nowLocal->modify('+21 days')->setTime(10, 0),
     );
+    $laterOtherSeries->set('location', 'Salle Horizon')->save();
     $this->createSeriesWithRule(
       'Outside horizon A activity',
       (int) $household->id(),
@@ -328,11 +332,11 @@ final class MyUpcomingTest extends BrowserTestBase {
       'css',
       'input#ps-upcoming-search-q[type="search"][name="q"][maxlength="100"]',
     );
-    $this->assertSession()->pageTextContains('Search for an activity');
+    $this->assertSession()->pageTextContains('Search for an activity or location');
     $this->assertSession()->buttonExists('Search activities');
     $this->assertSession()->elementNotExists('css', 'form.ps-upcoming-search input[name="days"]');
 
-    // A real form submission is read-only, case-insensitive and label-only.
+    // A real form submission is read-only and case-insensitive.
     $this->getSession()->getPage()->fillField('q', 'rUlE a');
     $this->getSession()->getPage()->pressButton('Search activities');
     $this->assertSession()->statusCodeEquals(200);
@@ -415,6 +419,36 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('No upcoming activities match this search.');
     $this->assertSession()->pageTextNotContains('Prepare included A kit');
     $this->assertSession()->pageTextNotContains('Rule A activity');
+
+    // Location lookup is limited to the same authorized projection and horizon.
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'rIvAgE']]));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextNotContains('Rule B activity');
+    $this->assertSession()->pageTextNotContains('Same day A activity');
+    $this->assertSession()->linkByHrefExists($this->detailUrl(
+      $ruleASeries,
+      $ruleAOccurrence->originalOccurrenceKey,
+      ['q' => 'rIvAgE'],
+    ));
+
+    // An authorized location in the 30-day horizon cannot leak other People.
+    $this->drupalGet(Url::fromRoute(
+      'personal_secretary.my_upcoming',
+      [],
+      ['query' => ['days' => '30', 'q' => 'hOrIzOn']],
+    ));
+    $this->assertSession()->pageTextContains('Later A activity');
+    $this->assertSession()->pageTextNotContains('Later B activity');
+    $this->assertSession()->pageTextNotContains('Later other-household activity');
+    $this->assertSession()->linkByHrefExists($this->detailUrl(
+      $laterOwnedSeries,
+      $laterOwnedOccurrence->originalOccurrenceKey,
+      ['days' => '30', 'q' => 'hOrIzOn'],
+    ));
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'hOrIzOn']]));
+    $this->assertSession()->pageTextContains('No upcoming activities match this search.');
+    $this->assertSession()->pageTextNotContains('Later A activity');
 
     // Empty, malformed and too-long queries restore the historical results.
     foreach ([['q' => '   '], ['q' => ['Rule A']], ['q' => str_repeat('x', 101)]] as $malformedSearch) {
