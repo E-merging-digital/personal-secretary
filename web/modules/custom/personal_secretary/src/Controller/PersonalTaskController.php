@@ -186,6 +186,9 @@ final class PersonalTaskController extends ControllerBase {
         $filters['q'] = $title;
       }
     }
+    if (($query['sort'] ?? NULL) === 'title') {
+      $filters['sort'] = 'title';
+    }
     return $filters;
   }
 

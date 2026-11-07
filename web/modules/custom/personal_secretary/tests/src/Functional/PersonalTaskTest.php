@@ -464,6 +464,18 @@ final class PersonalTaskTest extends BrowserTestBase {
       ),
     );
 
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['sort' => 'title']]);
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
+    $this->assertSame(
+      [(int) $overdue->id(), (int) $future->id(), (int) $undated->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+      ),
+      'Overdue remains first, with the title sort applied within each group.',
+    );
+
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
     $this->assertSession()->linkExists('Synthetic archive 100%_ marker');
@@ -480,6 +492,35 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
     $this->assertSession()->pageTextNotContains('Synthetic foreign other household');
     $this->assertSession()->pageTextNotContains('Synthetic physically deleted task');
+
+    // Optional alphabetic order is applied only after the same authorized read.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all', 'sort' => 'title']]);
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSame(
+      [(int) $completed->id(), (int) $wildcardDecoy->id(), (int) $future->id(), (int) $overdue->id(), (int) $undated->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+      ),
+      'Title ordering is deterministic and cannot reveal unauthorized tasks.',
+    );
+    $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+    $this->getSession()->getPage()->clickLink('Synthetic future task');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?status=all&sort=title');
+    $this->getSession()->getPage()->clickLink('Back to My tasks');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->getSession()->getPage()->selectFieldOption('status', 'completed');
+    $this->getSession()->getPage()->pressButton('Search tasks');
+    $this->assertSession()->fieldValueEquals('status', 'completed');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->pageTextNotContains('Synthetic future task');
+
+    foreach ([['sort' => 'unexpected'], ['sort' => ['title']]] as $invalidSort) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $invalidSort]);
+      $this->assertSession()->fieldValueEquals('sort', 'smart');
+      $this->assertSession()->pageTextContains('Synthetic overdue task');
+      $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+    }
 
     // Literal %/_ are escaped by Drupal EntityQuery, not interpreted as SQL patterns.
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'all', 'q' => '%_ marker']]);
@@ -711,6 +752,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rechercher dans les titres');
     $this->assertSession()->pageTextContains('Filtrer les tâches par statut');
+    $this->assertSession()->pageTextContains('Trier les tâches');
+    $this->assertSession()->fieldValueEquals('sort', 'smart');
     $this->assertSession()->pageTextContains('Aucune tâche terminée.');
     $this->assertSession()->linkExists('Effacer les filtres');
     $this->drupalGet('/fr/personal-secretary/tasks/mine');
@@ -721,6 +764,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Search task titles');
     $this->assertSession()->pageTextContains('Task status filter');
+    $this->assertSession()->pageTextContains('Sort tasks');
+    $this->assertSession()->fieldValueEquals('sort', 'smart');
     $this->assertSession()->pageTextContains('No completed tasks.');
     $this->assertSession()->linkExists('Clear filters');
 
