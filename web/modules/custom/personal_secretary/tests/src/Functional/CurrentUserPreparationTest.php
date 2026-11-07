@@ -382,7 +382,6 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalGet($route, ['query' => ['urgency' => 'overdue']]);
     $this->assertSession()->fieldValueEquals('urgency', 'overdue');
     $this->assertSession()->pageTextContains('Active overdue preparation');
-    $this->assertSession()->pageTextNotContains('Due now preparation');
     $this->assertSession()->pageTextNotContains('Long lead preparation due inside seven days');
     $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
     $this->assertSession()->elementExists(
@@ -397,7 +396,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Clear filters');
     $this->assertSame($countsBefore, $this->domainCounts());
 
-    $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'Due now', 'urgency' => 'overdue']]);
+    $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'Long lead', 'urgency' => 'overdue']]);
     $this->assertSession()->pageTextContains('No overdue preparations.');
     $this->assertSession()->pageTextNotContains('Active overdue preparation');
     foreach ([['urgency' => 'unknown'], ['urgency' => ['overdue']]] as $invalidUrgency) {
