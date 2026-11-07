@@ -464,6 +464,57 @@ final class PersonalTaskTest extends BrowserTestBase {
       ),
     );
 
+    // Urgency narrows only the authorized open view and preserves other filters.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'sort' => 'title',
+      'urgency' => 'overdue',
+    ]]);
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSame(
+      [(int) $overdue->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+      ),
+    );
+    $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
+    $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+    $this->clickLink('Synthetic overdue task');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?sort=title&urgency=overdue');
+    $this->clickLink('Back to My tasks');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic future',
+      'urgency' => 'overdue',
+    ]]);
+    $this->assertSession()->pageTextContains('No tasks match this search.');
+    $this->assertSession()->pageTextNotContains('Synthetic overdue task');
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'status' => 'completed',
+      'urgency' => 'overdue',
+    ]]);
+    $this->assertSession()->elementNotExists('css', 'select[name="urgency"]');
+    $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
+    foreach ([['urgency' => 'other'], ['urgency' => ['overdue']]] as $invalidUrgency) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $invalidUrgency]);
+      $this->assertSession()->fieldValueEquals('urgency', 'all');
+      $this->assertSession()->pageTextContains('Synthetic future task');
+    }
+
+    $this->drupalGet('/personal-secretary/tasks/mine');
+    $this->submitForm([
+      'title' => 'Synthetic overdue',
+      'status' => 'open',
+      'sort' => 'title',
+      'urgency' => 'overdue',
+    ], 'Search tasks');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
+
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['sort' => 'title']]);
     $this->assertSession()->fieldValueEquals('sort', 'title');
     $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
@@ -622,6 +673,12 @@ final class PersonalTaskTest extends BrowserTestBase {
     $storage->resetCache([(int) $completed->id()]);
     $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($completed->id())->get('status')->value);
 
+    // An empty urgency result is not misrepresented as no open tasks.
+    $this->assertTrue($this->asUser($user, fn (): bool => $mutations->completeTask((int) $overdue->id())));
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'overdue']]);
+    $this->assertSession()->pageTextContains('No overdue tasks.');
+    $this->assertSession()->pageTextNotContains('Synthetic future task');
+
     $this->drupalLogout();
     $unauthorized = $this->drupalCreateUser([]);
     $this->drupalLogin($unauthorized);
@@ -757,6 +814,9 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Aucune tâche terminée.');
     $this->assertSession()->linkExists('Effacer les filtres');
     $this->drupalGet('/fr/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Filtrer selon l’urgence');
+    $this->assertSession()->pageTextContains('En retard uniquement');
+    $this->assertSession()->fieldValueEquals('urgency', 'all');
     $this->assertSession()->pageTextContains('Tâches en retard');
     $this->assertSession()->pageTextContains('Autres tâches ouvertes');
 
@@ -779,6 +839,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Completed:');
 
     $this->drupalGet('/en/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Urgency filter');
+    $this->assertSession()->pageTextContains('Overdue only');
     $this->assertSession()->pageTextContains('Overdue tasks');
     $this->assertSession()->pageTextContains('Other open tasks');
   }
