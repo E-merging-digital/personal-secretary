@@ -1415,3 +1415,7 @@ msgstr "Foyer concerné"
 
 msgid "The activity will belong to the selected household."
 msgstr "L’activité sera rattachée au foyer sélectionné."
+
+# Explicit confirmation after Add Activity (#361).
+msgid "Activity \"@activity\" added."
+msgstr "L’activité « @activity » a été ajoutée."

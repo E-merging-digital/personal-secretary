@@ -497,6 +497,9 @@ final class AddActivityForm extends FormBase {
       return;
     }
 
+    $this->messenger()->addStatus($this->t('Activity "@activity" added.', [
+      '@activity' => (string) $form_state->getValue('activity_label'),
+    ]));
     $form_state->setRedirect(
       $isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming',
     );
