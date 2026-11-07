@@ -189,6 +189,9 @@ final class PersonalTaskController extends ControllerBase {
     if (($query['sort'] ?? NULL) === 'title') {
       $filters['sort'] = 'title';
     }
+    if (!isset($filters['status']) && ($query['urgency'] ?? NULL) === 'overdue') {
+      $filters['urgency'] = 'overdue';
+    }
     return $filters;
   }
 

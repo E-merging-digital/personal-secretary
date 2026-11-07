@@ -1298,6 +1298,19 @@ msgstr "Ordre recommandé"
 msgid "Title (A–Z)"
 msgstr "Titre (A–Z)"
 
+# Optional filter for overdue open tasks (#367).
+msgid "Urgency filter"
+msgstr "Filtrer selon l’urgence"
+
+msgid "All open tasks"
+msgstr "Toutes les tâches ouvertes"
+
+msgid "Overdue only"
+msgstr "En retard uniquement"
+
+msgid "No overdue tasks."
+msgstr "Aucune tâche en retard."
+
 msgid "Search tasks"
 msgstr "Rechercher"
 
