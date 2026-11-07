@@ -1408,3 +1408,10 @@ msgstr "Terminée le : @completed"
 # Today open-task urgency groups (#353).
 msgid "Due today"
 msgstr "À faire aujourd’hui"
+
+# Human-readable multi-household context for Add Activity (#359).
+msgid "Household for this activity"
+msgstr "Foyer concerné"
+
+msgid "The activity will belong to the selected household."
+msgstr "L’activité sera rattachée au foyer sélectionné."
