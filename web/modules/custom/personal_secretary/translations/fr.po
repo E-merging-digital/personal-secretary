@@ -1288,6 +1288,16 @@ msgstr "Rechercher dans les titres"
 msgid "Task status filter"
 msgstr "Filtrer les tâches par statut"
 
+# Optional read-only task ordering (#365).
+msgid "Sort tasks"
+msgstr "Trier les tâches"
+
+msgid "Recommended order"
+msgstr "Ordre recommandé"
+
+msgid "Title (A–Z)"
+msgstr "Titre (A–Z)"
+
 msgid "Search tasks"
 msgstr "Rechercher"
 

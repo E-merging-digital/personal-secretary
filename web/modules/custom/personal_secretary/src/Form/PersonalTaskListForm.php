@@ -44,7 +44,7 @@ final class PersonalTaskListForm extends FormBase {
     $form['#cache'] = ['max-age' => 0];
     $form['#attributes']['class'][] = 'ps-task-list-form';
 
-    [$statusFilter, $titleFilter] = $this->readFilters($this->getRequest()->query->all());
+    [$statusFilter, $titleFilter, $sortFilter] = $this->readFilters($this->getRequest()->query->all());
     $form['filters'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-task-filters']],
@@ -64,6 +64,15 @@ final class PersonalTaskListForm extends FormBase {
           'all' => $this->t('All'),
         ],
         '#default_value' => $statusFilter,
+      ],
+      'sort' => [
+        '#type' => 'select',
+        '#title' => $this->t('Sort tasks'),
+        '#options' => [
+          'smart' => $this->t('Recommended order'),
+          'title' => $this->t('Title (A–Z)'),
+        ],
+        '#default_value' => $sortFilter,
       ],
       'apply' => [
         '#type' => 'submit',
@@ -109,7 +118,7 @@ final class PersonalTaskListForm extends FormBase {
         'tabindex' => '-1',
       ],
     ];
-    $ajax = $this->taskAjaxOptions($statusFilter, $titleFilter);
+    $ajax = $this->taskAjaxOptions($statusFilter, $titleFilter, $sortFilter);
     $stateUndoId = $form_state->get('task_ajax_undo_task_id');
     $reopenTaskId = is_int($stateUndoId)
       ? $stateUndoId
@@ -148,6 +157,17 @@ final class PersonalTaskListForm extends FormBase {
         '#value' => $this->t('Link your account to a valid Household member to see My tasks.'),
       ];
       return $form;
+    }
+
+    // Sort only the already-authorized presentation; preserve urgency groups.
+    if ($sortFilter === 'title') {
+      usort($items, static function (array $left, array $right) use ($statusFilter): int {
+        if ($statusFilter === 'open' && $left['overdue'] !== $right['overdue']) {
+          return $left['overdue'] ? -1 : 1;
+        }
+        $byTitle = mb_strtolower((string) $left['title']) <=> mb_strtolower((string) $right['title']);
+        return $byTitle !== 0 ? $byTitle : ((int) $left['id'] <=> (int) $right['id']);
+      });
     }
 
     if ($items === []) {
@@ -233,7 +253,7 @@ final class PersonalTaskListForm extends FormBase {
           '#url' => Url::fromRoute(
             'personal_secretary.task_status',
             ['task' => $id],
-            ['query' => $this->filterQuery($statusFilter, $titleFilter)],
+            ['query' => $this->filterQuery($statusFilter, $titleFilter, $sortFilter)],
           ),
           '#attributes' => ['class' => ['ps-task-row__title']],
         ],
@@ -336,12 +356,12 @@ final class PersonalTaskListForm extends FormBase {
    * @return array<string, mixed>
    *   Core Form API AJAX button settings.
    */
-  private function taskAjaxOptions(string $status, string $title): array {
+  private function taskAjaxOptions(string $status, string $title, string $sort): array {
     return [
       'callback' => '::ajaxTaskTransition',
       'url' => Url::fromRoute('personal_secretary.my_tasks'),
       'options' => [
-        'query' => $this->filterQuery($status, $title) + [
+        'query' => $this->filterQuery($status, $title, $sort) + [
           FormBuilderInterface::AJAX_FORM_REQUEST => TRUE,
         ],
       ],
@@ -358,7 +378,10 @@ final class PersonalTaskListForm extends FormBase {
   public function submitFilter(array &$form, FormStateInterface $form_state): void {
     // Read the actual submitted field names; the container may flatten them.
     $input = $form_state->getUserInput();
-    [$status, $title] = $this->readFilters([
+    [$status, $title, $sort] = $this->readFilters([
+      'sort' => $input['sort'] ?? $input['filters']['sort']
+        ?? $form_state->getValue('sort')
+        ?? $form_state->getValue(['filters', 'sort']),
       'status' => $input['status'] ?? $input['filters']['status']
         ?? $form_state->getValue('status')
         ?? $form_state->getValue(['filters', 'status']),
@@ -367,7 +390,7 @@ final class PersonalTaskListForm extends FormBase {
         ?? $form_state->getValue(['filters', 'title']),
     ]);
     $form_state->setRedirect('personal_secretary.my_tasks', [], [
-      'query' => $this->filterQuery($status, $title),
+      'query' => $this->filterQuery($status, $title, $sort),
     ]);
   }
 
@@ -377,8 +400,8 @@ final class PersonalTaskListForm extends FormBase {
     $action = (string) ($trigger['#task_action'] ?? '');
     $isAjax = isset($trigger['#ajax']) && $this->getRequest()->isXmlHttpRequest();
 
-    [$status, $title] = $this->readFilters($this->getRequest()->query->all());
-    $filterQuery = $this->filterQuery($status, $title);
+    [$status, $title, $sort] = $this->readFilters($this->getRequest()->query->all());
+    $filterQuery = $this->filterQuery($status, $title, $sort);
 
     try {
       if ($action === 'complete') {
@@ -465,7 +488,7 @@ final class PersonalTaskListForm extends FormBase {
   /**
    * @param array<string, mixed> $input
    *
-   * @return array{string, string}
+   * @return array{string, string, string}
    */
   private function readFilters(array $input): array {
     $status = $input['status'] ?? 'open';
@@ -477,7 +500,11 @@ final class PersonalTaskListForm extends FormBase {
     if (mb_strlen($title) > 100) {
       $title = '';
     }
-    return [$status, $title];
+    $sort = $input['sort'] ?? 'smart';
+    $sort = is_string($sort) && in_array($sort, ['smart', 'title'], TRUE)
+      ? $sort
+      : 'smart';
+    return [$status, $title, $sort];
   }
 
   private function statusConstant(string $status): string {
@@ -491,13 +518,16 @@ final class PersonalTaskListForm extends FormBase {
   /**
    * @return array<string, string>
    */
-  private function filterQuery(string $status, string $title): array {
+  private function filterQuery(string $status, string $title, string $sort): array {
     $query = [];
     if ($status !== 'open') {
       $query['status'] = $status;
     }
     if ($title !== '') {
       $query['q'] = $title;
+    }
+    if ($sort === 'title') {
+      $query['sort'] = 'title';
     }
     return $query;
   }
