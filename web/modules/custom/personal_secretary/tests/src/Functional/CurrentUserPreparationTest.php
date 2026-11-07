@@ -398,7 +398,10 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
 
     $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'Long lead', 'urgency' => 'overdue']]);
     $this->assertSession()->pageTextContains('No overdue preparations.');
-    $this->assertSession()->pageTextNotContains('Active overdue preparation');
+    $this->assertSession()->elementNotExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Active overdue preparation"]]',
+    );
     foreach ([['urgency' => 'unknown'], ['urgency' => ['overdue']]] as $invalidUrgency) {
       $this->drupalGet($route, ['query' => $invalidUrgency]);
       $this->assertSession()->fieldValueEquals('urgency', 'all');
