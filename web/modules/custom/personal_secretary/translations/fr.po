@@ -1365,8 +1365,8 @@ msgid "No preparation shown in this period has been marked prepared."
 msgstr "Aucun préparatif affiché pour cette période n’a été marqué comme prêt."
 
 # My upcoming read-only activity search (#328).
-msgid "Search for an activity"
-msgstr "Rechercher une activité"
+msgid "Search for an activity or location"
+msgstr "Rechercher une activité ou un lieu"
 
 msgid "Search activities"
 msgstr "Rechercher"

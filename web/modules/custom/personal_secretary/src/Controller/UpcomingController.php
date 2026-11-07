@@ -120,7 +120,9 @@ final class UpcomingController extends ControllerBase {
     if ($query !== '') {
       $items = array_values(array_filter(
         $items,
-        static fn(array $item): bool => mb_stripos((string) $item['activity_label'], $query) !== FALSE,
+        static fn(array $item): bool =>
+          mb_stripos((string) $item['activity_label'], $query) !== FALSE
+          || mb_stripos((string) ($item['location'] ?? ''), $query) !== FALSE,
       ));
     }
 
@@ -517,7 +519,7 @@ final class UpcomingController extends ControllerBase {
       'label' => [
         '#type' => 'html_tag',
         '#tag' => 'label',
-        '#value' => $this->t('Search for an activity'),
+        '#value' => $this->t('Search for an activity or location'),
         '#attributes' => ['for' => 'ps-upcoming-search-q'],
       ],
       'query' => [
