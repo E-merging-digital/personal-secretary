@@ -206,6 +206,7 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Activity "Authorized weekly creation" added.');
     $this->assertSession()->pageTextContains('Authorized weekly creation');
     $this->assertSession()->pageTextContains('Synthetic authorized location');
     $this->assertSession()->pageTextContains('Prepare authorized synthetic kit');
@@ -243,6 +244,7 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Activity "Authorized one-off creation" added.');
     $this->assertSession()->pageTextContains('Authorized weekly creation');
     $this->assertSession()->pageTextContains('Authorized one-off creation');
 
