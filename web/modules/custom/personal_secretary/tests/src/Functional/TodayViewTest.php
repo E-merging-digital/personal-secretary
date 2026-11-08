@@ -274,6 +274,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Today due preparation');
     $this->assertSession()->pageTextContains('Today active overdue preparation');
     $this->assertSession()->pageTextContains('Today later preparation');
+    $this->assertCount(0, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add"]'));
     $preparationGroups = $this->getSession()->getPage()->findAll(
       'css',
       '.ps-today-section--preparations .ps-task-group',
@@ -447,6 +448,12 @@ final class TodayViewTest extends BrowserTestBase {
     $url = '/personal-secretary/today';
     $this->drupalGet($url);
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
+    $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add"]'));
+    $this->clickLink('Add an activity to prepare');
+    $this->assertSession()->addressEquals('/personal-secretary/activities/add');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->drupalGet($url);
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
 
     $nowUtc = new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime());
