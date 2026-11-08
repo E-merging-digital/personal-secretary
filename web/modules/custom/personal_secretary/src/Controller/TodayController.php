@@ -254,6 +254,15 @@ final class TodayController extends ControllerBase {
             '#component' => 'personal_secretary:preparation-item',
             '#props' => $this->preparationProps($item),
           ],
+          'detail' => [
+            '#type' => 'link',
+            '#title' => $this->t('View details'),
+            '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
+              'series' => (int) $item['_completion_series_id'],
+              'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
+            ], ['query' => ['from' => 'today']]),
+            '#attributes' => ['class' => ['ps-action-link']],
+          ],
           'action' => $this->preparationActionForm($item, 'today'),
         ];
         if ($showGroups) {
