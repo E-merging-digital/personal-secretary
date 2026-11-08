@@ -115,6 +115,9 @@ final class PersonalTaskController extends ControllerBase {
     }
 
     $item = $this->taskQuery->present($entity);
+    // Navigation origin does not affect the task access check above.
+    $query = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
+    $fromToday = ($query['from'] ?? NULL) === 'today';
     $build = [
       '#cache' => ['max-age' => 0],
       'title' => [
@@ -138,8 +141,10 @@ final class PersonalTaskController extends ControllerBase {
       ],
       'back' => [
         '#type' => 'link',
-        '#title' => $this->t('Back to My tasks'),
-        '#url' => Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $this->taskListReturnQuery()]),
+        '#title' => $fromToday ? $this->t('Back to Today') : $this->t('Back to My tasks'),
+        '#url' => $fromToday
+          ? Url::fromRoute('personal_secretary.today')
+          : Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $this->taskListReturnQuery()]),
       ],
     ];
 
