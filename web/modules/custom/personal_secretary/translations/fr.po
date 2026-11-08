@@ -1051,6 +1051,9 @@ msgstr "Non attribué"
 msgid "Back to My upcoming"
 msgstr "Retour aux activités à venir"
 
+msgid "Back to Today"
+msgstr "Retour à Aujourd’hui"
+
 msgid "Not prepared"
 msgstr "Non prêt"
 

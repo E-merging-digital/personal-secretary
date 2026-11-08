@@ -324,21 +324,34 @@ final class TodayController extends ControllerBase {
         }
 
         $build['planning']['items'][$delta] = [
-          '#type' => 'component',
-          '#component' => 'personal_secretary:today-activity',
-          '#props' => [
-            'activity_label' => $item['activity_label'],
-            'location' => $item['location'],
-            'concerned_person_labels' => $item['concerned_person_labels'],
-            'all_day' => $item['all_day'],
-            'all_day_start_date' => $item['all_day_start_date'],
-            'all_day_end_date' => $item['all_day_end_date'],
-            'effective_start' => $item['effective_start'],
-            'effective_end' => $item['effective_end'],
-            'effective_start_iso' => $item['effective_start_iso'],
-            'effective_end_iso' => $item['effective_end_iso'],
-            'display_timezone' => $item['display_timezone'],
-            'source_timezone' => $item['source_timezone'],
+          '#type' => 'container',
+          '#attributes' => ['class' => ['ps-today-activity-entry']],
+          'activity' => [
+            '#type' => 'component',
+            '#component' => 'personal_secretary:today-activity',
+            '#props' => [
+              'activity_label' => $item['activity_label'],
+              'location' => $item['location'],
+              'concerned_person_labels' => $item['concerned_person_labels'],
+              'all_day' => $item['all_day'],
+              'all_day_start_date' => $item['all_day_start_date'],
+              'all_day_end_date' => $item['all_day_end_date'],
+              'effective_start' => $item['effective_start'],
+              'effective_end' => $item['effective_end'],
+              'effective_start_iso' => $item['effective_start_iso'],
+              'effective_end_iso' => $item['effective_end_iso'],
+              'display_timezone' => $item['display_timezone'],
+              'source_timezone' => $item['source_timezone'],
+            ],
+          ],
+          'detail' => [
+            '#type' => 'link',
+            '#title' => $this->t('View details'),
+            '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
+              'series' => (int) $item['series_id'],
+              'original_occurrence_key' => (string) $item['original_occurrence_key'],
+            ], ['query' => ['from' => 'today']]),
+            '#attributes' => ['class' => ['ps-action-link']],
           ],
         ];
       }

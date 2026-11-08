@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\Tests\personal_secretary\Functional;
 
 use DateTimeImmutable;
+use Drupal\Core\Url;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
@@ -77,13 +78,15 @@ final class TodayViewTest extends BrowserTestBase {
       $localEnd = $window['local_end'];
 
       $insideStart = $window['utc_start']->modify('+4 hours');
-      $this->createSeriesWithRule('Today authorized UTC activity', (int) $h1->id(), (int) $person->id(), $insideStart, $insideStart->modify('+1 hour'));
+      $authorizedActivity = $this->createSeriesWithRule('Today authorized UTC activity', (int) $h1->id(), (int) $person->id(), $insideStart, $insideStart->modify('+1 hour'));
+      $authorizedOccurrence = $effective->projectOverlapping($authorizedActivity, $window['utc_start'], $window['utc_end'])[0];
 
       $h2Start = $window['utc_start']->modify('+5 hours');
       $this->createSeriesWithRule('Today unauthorized H2 activity', (int) $h2->id(), (int) $person->id(), $h2Start, $h2Start->modify('+1 hour'));
 
       $crossStart = $localStart->modify('-1 hour');
-      $this->createSeriesWithRule('Today cross-midnight activity', (int) $h1->id(), (int) $person->id(), $crossStart, $localStart->modify('+1 hour'));
+      $crossActivity = $this->createSeriesWithRule('Today cross-midnight activity', (int) $h1->id(), (int) $person->id(), $crossStart, $localStart->modify('+1 hour'));
+      $crossOccurrence = $effective->projectOverlapping($crossActivity, $window['utc_start'], $window['utc_end'])[0];
 
       $cancelStart = $localStart->modify('+8 hours');
       $cancelled = $this->createSeriesWithRule('Today cancelled activity', (int) $h1->id(), (int) $person->id(), $cancelStart, $cancelStart->modify('+1 hour'));
@@ -252,6 +255,35 @@ final class TodayViewTest extends BrowserTestBase {
       $this->assertCount(0, $preparationGroups);
     }
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
+    // A Today card reaches the exact authorized occurrence and returns here.
+    $detailRoute = 'personal_secretary.occurrence_detail';
+    $detailArgs = [
+      'series' => (int) $authorizedActivity->id(),
+      'original_occurrence_key' => $authorizedOccurrence->originalOccurrenceKey,
+    ];
+    $detailUrl = Url::fromRoute($detailRoute, $detailArgs, ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($detailUrl->toString());
+    $this->drupalGet($detailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Today authorized UTC activity');
+    $this->assertSession()->linkExists('Back to Today');
+    $this->clickLink('Back to Today');
+    $this->assertSession()->addressEquals($todayUrl);
+    $crossDetailUrl = Url::fromRoute($detailRoute, [
+      'series' => (int) $crossActivity->id(),
+      'original_occurrence_key' => $crossOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($crossDetailUrl->toString());
+    $this->drupalGet($crossDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Today cross-midnight activity');
+    $this->clickLink('Back to Today');
+    $this->assertSession()->addressEquals($todayUrl);
+    // A forged array origin must keep the ordinary My upcoming return.
+    $this->drupalGet(Url::fromRoute($detailRoute, $detailArgs, ['query' => ['from' => ['today']]]));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkExists('Back to My upcoming');
+    $this->drupalGet($todayUrl);
     $this->assertSession()->pageTextContains('Today cross-midnight activity');
     $this->assertSession()->pageTextContains('Today responsibility to current');
     $this->assertSession()->pageTextNotContains('Today unauthorized H2 activity');

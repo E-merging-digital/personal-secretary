@@ -191,18 +191,24 @@ final class UpcomingController extends ControllerBase {
       ];
     }
 
+    // The origin controls navigation only; it never expands occurrence access.
+    $input = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
+    $fromToday = ($input['from'] ?? NULL) === 'today';
+
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-occurrence-detail']],
       '#cache' => ['max-age' => 0],
       'back' => [
         '#type' => 'link',
-        '#title' => $this->t('Back to My upcoming'),
-        '#url' => Url::fromRoute(
-          'personal_secretary.my_upcoming',
-          [],
-          $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery()),
-        ),
+        '#title' => $fromToday ? $this->t('Back to Today') : $this->t('Back to My upcoming'),
+        '#url' => $fromToday
+          ? Url::fromRoute('personal_secretary.today')
+          : Url::fromRoute(
+            'personal_secretary.my_upcoming',
+            [],
+            $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery()),
+          ),
         '#attributes' => ['class' => ['ps-occurrence-detail__back']],
       ],
       'occurrence' => $occurrence,
