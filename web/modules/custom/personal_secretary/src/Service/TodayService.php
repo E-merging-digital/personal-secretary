@@ -334,6 +334,8 @@ final class TodayService {
           'sort_start' => $effectiveStartUtc->format(DateTimeInterface::ATOM),
           'sort_revision' => $occurrence->seriesRevisionId,
           'sort_occurrence' => $occurrence->originalOccurrenceKey,
+          'series_id' => (int) $seriesId,
+          'original_occurrence_key' => $occurrence->originalOccurrenceKey,
           'activity_label' => $label,
           'location' => trim((string) ($series->get('location')->value ?? '')),
           'concerned_person_labels' => $this->concernedPersonLabels($series),

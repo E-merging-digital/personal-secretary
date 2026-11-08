@@ -340,6 +340,15 @@ final class TodayController extends ControllerBase {
             'display_timezone' => $item['display_timezone'],
             'source_timezone' => $item['source_timezone'],
           ],
+          'detail' => [
+            '#type' => 'link',
+            '#title' => $this->t('View details'),
+            '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
+              'series' => (int) $item['series_id'],
+              'original_occurrence_key' => (string) $item['original_occurrence_key'],
+            ], ['query' => ['from' => 'today']]),
+            '#attributes' => ['class' => ['ps-action-link']],
+          ],
         ];
       }
     }
