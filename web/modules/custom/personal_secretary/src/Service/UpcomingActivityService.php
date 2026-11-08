@@ -181,6 +181,7 @@ final class UpcomingActivityService {
         $householdIds,
         TRUE,
         TRUE,
+        $seriesId,
       ),
       static fn(array $item): bool =>
         (int) $item['responsibility_target']['series_id'] === $seriesId
@@ -270,6 +271,7 @@ final class UpcomingActivityService {
     ?array $householdIds,
     bool $viewerLocalized,
     bool $includeOverlappingTimed = FALSE,
+    ?int $targetSeriesId = NULL,
   ): array {
     $windowStart = $this->utc($windowStart);
     $windowEnd = $this->utc($windowEnd);
@@ -292,11 +294,15 @@ final class UpcomingActivityService {
       $seriesEntities = $seriesStorage->loadMultiple();
     }
     else {
-      $seriesIds = $seriesStorage
+      $seriesQuery = $seriesStorage
         ->getQuery()
         ->accessCheck(FALSE)
-        ->condition('household', $householdIds, 'IN')
-        ->execute();
+        ->condition('household', $householdIds, 'IN');
+      if ($targetSeriesId !== NULL) {
+        // Scope exact-detail projection before loading any series entity.
+        $seriesQuery->condition('id', $targetSeriesId);
+      }
+      $seriesIds = $seriesQuery->execute();
       $seriesEntities = $seriesStorage->loadMultiple($seriesIds);
     }
 
