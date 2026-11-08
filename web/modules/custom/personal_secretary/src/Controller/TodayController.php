@@ -181,7 +181,7 @@ final class TodayController extends ControllerBase {
           'edit' => [
             '#type' => 'link',
             '#title' => $this->t('Edit'),
-            '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id]),
+            '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id], ['query' => ['from' => 'today']]),
           ],
           'complete' => $this->formBuilder()->getForm(TodayTaskTransitionForm::class, 'complete', $id),
         ];

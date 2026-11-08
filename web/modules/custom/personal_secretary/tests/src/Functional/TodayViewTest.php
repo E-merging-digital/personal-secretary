@@ -234,13 +234,37 @@ final class TodayViewTest extends BrowserTestBase {
     // A task opened from Today returns to Today after a read-only detail view.
     $taskDetailArgs = ['task' => (int) $dueToday->id()];
     $taskDetailUrl = Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => 'today']]);
+    $taskEditUrl = Url::fromRoute('personal_secretary.edit_task', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($taskDetailUrl->toString());
     $this->drupalGet($taskDetailUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today route task');
     $this->assertSession()->linkExists('Back to Today');
+    $this->assertSession()->linkByHrefExists($taskEditUrl->toString());
     $this->clickLink('Back to Today');
     $this->assertSession()->addressEquals($todayUrl);
+    // Both Cancel and Save keep the user on Today, without changing access.
+    $this->assertSession()->linkByHrefExists($taskEditUrl->toString());
+    $this->drupalGet($taskEditUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todayUrl);
+    $editTaskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+    $editTaskStorage->resetCache([(int) $dueToday->id()]);
+    $this->assertSame('Today route task', (string) $editTaskStorage->load($dueToday->id())->get('title')->value);
+    $this->drupalGet(Url::fromRoute('personal_secretary.edit_task', $taskDetailArgs, ['query' => ['from' => ['today']]]));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->drupalGet($taskEditUrl);
+    $this->submitForm([
+      'title' => 'Today route task updated',
+      'due_mode' => PersonalTask::DUE_DATE,
+      'due_date' => $window['local_date'],
+    ], 'Save task');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSession()->pageTextContains('Today route task updated');
+    $editTaskStorage->resetCache([(int) $dueToday->id()]);
+    $this->assertSame('Today route task updated', (string) $editTaskStorage->load($dueToday->id())->get('title')->value);
     // An array-valued origin cannot change navigation or grant task access.
     $this->drupalGet(Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => ['today']]]));
     $this->assertSession()->statusCodeEquals(200);
