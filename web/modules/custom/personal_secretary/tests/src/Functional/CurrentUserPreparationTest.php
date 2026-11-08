@@ -378,6 +378,28 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     );
     $this->assertSame($countsBefore, $this->domainCounts());
 
+    // Both pending and prepared rows link to the authorized exact occurrence.
+    // The pending preparation belongs to a later activity outside seven days.
+    $futureItem = $afterItems['Long lead preparation due inside seven days'];
+    $detailUrl = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $futureItem['_completion_series_id'],
+      'original_occurrence_key' => (string) $futureItem['_completion_original_occurrence_key'],
+    ], ['query' => ['from' => 'preparations', 'days' => 7]]);
+    $this->assertSession()->linkByHrefExists($detailUrl->toString());
+    $preparedDetailUrl = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $candidate['_completion_series_id'],
+      'original_occurrence_key' => (string) $candidate['_completion_original_occurrence_key'],
+    ], ['query' => ['from' => 'preparations', 'days' => 7]]);
+    $this->assertSession()->linkByHrefExists($preparedDetailUrl->toString());
+    $this->drupalGet($detailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Long lead activity outside seven days');
+    $this->assertSession()->elementExists('css', 'a.ps-occurrence-detail__back')->click();
+    $this->assertSession()->addressEquals(Url::fromRoute(
+      'personal_secretary.my_preparations', [], ['query' => ['days' => 7]],
+    ));
+    $this->assertSame($countsBefore, $this->domainCounts());
+
     // Optional urgency narrows only the authorized To prepare partition.
     $this->drupalGet($route, ['query' => ['urgency' => 'overdue']]);
     $this->assertSession()->fieldValueEquals('urgency', 'overdue');
@@ -414,6 +436,25 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       'q' => 'Active overdue',
       'urgency' => 'overdue',
     ]]);
+    $filteredDetailUrl = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $afterItems['Active overdue preparation']['_completion_series_id'],
+      'original_occurrence_key' => (string) $afterItems['Active overdue preparation']['_completion_original_occurrence_key'],
+    ], ['query' => [
+      'from' => 'preparations',
+      'days' => 30,
+      'q' => 'Active overdue',
+      'urgency' => 'overdue',
+    ]]);
+    $this->assertSession()->linkByHrefExists($filteredDetailUrl->toString());
+    $this->drupalGet($filteredDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementExists('css', 'a.ps-occurrence-detail__back')->click();
+    $this->assertSession()->addressEquals(Url::fromRoute(
+      'personal_secretary.my_preparations',
+      [],
+      ['query' => ['days' => 30, 'q' => 'Active overdue', 'urgency' => 'overdue']],
+    ));
+    $this->assertSame($countsBefore, $this->domainCounts());
     $this->assertSession()->elementExists(
       'xpath',
       '//div[contains(@class, "ps-preparation-row--pending")]'

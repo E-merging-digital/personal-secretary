@@ -41,6 +41,9 @@ final class PreparationController extends ControllerBase {
       $search = '';
     }
     $urgency = ($query['urgency'] ?? NULL) === 'overdue' ? 'overdue' : 'all';
+    $returnQuery = ['days' => $windowDays]
+      + ($search === '' ? [] : ['q' => $search])
+      + ($urgency === 'overdue' ? ['urgency' => 'overdue'] : []);
 
     try {
       $model = $this->currentUserPreparations->mine(NULL, $windowDays);
@@ -214,7 +217,7 @@ final class PreparationController extends ControllerBase {
               : $this->t('Upcoming preparations'),
           ];
         }
-        $build['to_prepare']['items'][$delta] = $this->itemBuild($item, FALSE, 'mine');
+        $build['to_prepare']['items'][$delta] = $this->itemBuild($item, FALSE, 'mine', $returnQuery);
         $previousOverdue = $isOverdue;
       }
     }
@@ -233,7 +236,7 @@ final class PreparationController extends ControllerBase {
         '#attributes' => ['class' => ['ps-preparation-list']],
       ];
       foreach ($prepared as $delta => $item) {
-        $build['prepared']['items'][$delta] = $this->itemBuild($item, TRUE, 'mine');
+        $build['prepared']['items'][$delta] = $this->itemBuild($item, TRUE, 'mine', $returnQuery);
       }
     }
 
@@ -346,10 +349,11 @@ final class PreparationController extends ControllerBase {
 
   /**
    * @param array<string, mixed> $item
+   * @param array<string, int|string> $returnQuery
    *
    * @return array<string, mixed>
    */
-  private function itemBuild(array $item, bool $prepared, string $returnSurface): array {
+  private function itemBuild(array $item, bool $prepared, string $returnSurface, array $returnQuery): array {
     return [
       '#type' => 'container',
       '#attributes' => [
@@ -367,6 +371,15 @@ final class PreparationController extends ControllerBase {
         '#type' => 'component',
         '#component' => 'personal_secretary:preparation-item',
         '#props' => $this->presentationProps($item),
+      ],
+      'detail' => [
+        '#type' => 'link',
+        '#title' => $this->t('View details'),
+        '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
+          'series' => (int) $item['_completion_series_id'],
+          'original_occurrence_key' => (string) $item['_completion_original_occurrence_key'],
+        ], ['query' => ['from' => 'preparations'] + $returnQuery]),
+        '#attributes' => ['class' => ['ps-action-link']],
       ],
       'state' => [
         '#type' => 'html_tag',

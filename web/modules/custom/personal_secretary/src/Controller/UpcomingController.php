@@ -194,6 +194,34 @@ final class UpcomingController extends ControllerBase {
     // The origin controls navigation only; it never expands occurrence access.
     $input = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
     $fromToday = ($input['from'] ?? NULL) === 'today';
+    $fromPreparations = ($input['from'] ?? NULL) === 'preparations';
+    if ($fromToday) {
+      $backTitle = $this->t('Back to Today');
+      $backUrl = Url::fromRoute('personal_secretary.today');
+    }
+    elseif ($fromPreparations) {
+      $returnQuery = ['days' => ($input['days'] ?? NULL) === '30' ? 30 : 7];
+      $search = $input['q'] ?? NULL;
+      if (is_string($search)) {
+        $search = trim($search);
+        if ($search !== '' && mb_strlen($search) <= 100) {
+          $returnQuery['q'] = $search;
+        }
+      }
+      if (($input['urgency'] ?? NULL) === 'overdue') {
+        $returnQuery['urgency'] = 'overdue';
+      }
+      $backTitle = $this->t('My preparations');
+      $backUrl = Url::fromRoute('personal_secretary.my_preparations', [], ['query' => $returnQuery]);
+    }
+    else {
+      $backTitle = $this->t('Back to My upcoming');
+      $backUrl = Url::fromRoute(
+        'personal_secretary.my_upcoming',
+        [],
+        $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery()),
+      );
+    }
 
     return [
       '#type' => 'container',
@@ -201,14 +229,8 @@ final class UpcomingController extends ControllerBase {
       '#cache' => ['max-age' => 0],
       'back' => [
         '#type' => 'link',
-        '#title' => $fromToday ? $this->t('Back to Today') : $this->t('Back to My upcoming'),
-        '#url' => $fromToday
-          ? Url::fromRoute('personal_secretary.today')
-          : Url::fromRoute(
-            'personal_secretary.my_upcoming',
-            [],
-            $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery()),
-          ),
+        '#title' => $backTitle,
+        '#url' => $backUrl,
         '#attributes' => ['class' => ['ps-occurrence-detail__back']],
       ],
       'occurrence' => $occurrence,
