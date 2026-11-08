@@ -85,7 +85,8 @@ final class TodayViewTest extends BrowserTestBase {
       $this->createSeriesWithRule('Today unauthorized H2 activity', (int) $h2->id(), (int) $person->id(), $h2Start, $h2Start->modify('+1 hour'));
 
       $crossStart = $localStart->modify('-1 hour');
-      $this->createSeriesWithRule('Today cross-midnight activity', (int) $h1->id(), (int) $person->id(), $crossStart, $localStart->modify('+1 hour'));
+      $crossActivity = $this->createSeriesWithRule('Today cross-midnight activity', (int) $h1->id(), (int) $person->id(), $crossStart, $localStart->modify('+1 hour'));
+      $crossOccurrence = $effective->projectOverlapping($crossActivity, $window['utc_start'], $window['utc_end'])[0];
 
       $cancelStart = $localStart->modify('+8 hours');
       $cancelled = $this->createSeriesWithRule('Today cancelled activity', (int) $h1->id(), (int) $person->id(), $cancelStart, $cancelStart->modify('+1 hour'));
@@ -266,6 +267,16 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
     $this->assertSession()->linkExists('Back to Today');
+    $this->clickLink('Back to Today');
+    $this->assertSession()->addressEquals($todayUrl);
+    $crossDetailUrl = Url::fromRoute($detailRoute, [
+      'series' => (int) $crossActivity->id(),
+      'original_occurrence_key' => $crossOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'today']])->toString();
+    $this->assertSession()->linkByHrefExists($crossDetailUrl);
+    $this->drupalGet($crossDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Today cross-midnight activity');
     $this->clickLink('Back to Today');
     $this->assertSession()->addressEquals($todayUrl);
     // A forged array origin must keep the ordinary My upcoming return.

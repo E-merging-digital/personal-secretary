@@ -165,15 +165,21 @@ final class UpcomingActivityService {
       throw new InvalidArgumentException('Occurrence detail requires an existing target identity.');
     }
 
-    // Detail may be linked from either 7-day or 30-day My upcoming. The
-    // Person/Household filters remain mandatory before any entity is loaded.
+    // A Today detail may target an occurrence earlier today or one that
+    // started yesterday and still overlaps today. Keep the current-person
+    // and Household filters mandatory before loading any entity.
     [$windowStart, $windowEnd] = $this->defaultWindow(self::MAX_WINDOW_DAYS);
+    $viewerTimezone = new DateTimeZone($this->currentUserTimezone->effectiveTimezone());
+    $windowStart = $windowStart->setTimezone($viewerTimezone)
+      ->setTime(0, 0)
+      ->setTimezone(new DateTimeZone('UTC'));
     $matches = array_values(array_filter(
       $this->aggregateInternal(
         $windowStart,
         $windowEnd,
         $this->requirePersistedPersonId($person),
         $householdIds,
+        TRUE,
         TRUE,
       ),
       static fn(array $item): bool =>
@@ -263,6 +269,7 @@ final class UpcomingActivityService {
     ?int $responsiblePersonId,
     ?array $householdIds,
     bool $viewerLocalized,
+    bool $includeOverlappingTimed = FALSE,
   ): array {
     $windowStart = $this->utc($windowStart);
     $windowEnd = $this->utc($windowEnd);
@@ -313,7 +320,7 @@ final class UpcomingActivityService {
       $concernedPersonLabels = $this->concernedPersonLabels($series);
       $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
-      $occurrences = $allDay
+      $occurrences = ($allDay || $includeOverlappingTimed)
         ? $this->effectiveOccurrences->projectOverlapping($series, $windowStart, $windowEnd)
         : $this->effectiveOccurrences->project($series, $windowStart, $windowEnd);
 
