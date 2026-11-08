@@ -145,7 +145,7 @@ final class AddActivityForm extends FormBase {
         '#title' => $this->t('Responsible Person'),
         '#options' => ['' => $this->t('- None -')] + $people,
         '#required' => FALSE,
-        '#description' => $this->t('Required for weekly activities; optional for one-off activities.'),
+        '#description' => $this->t('Required for weekly activities; optional for one-off activities. This is the person who takes charge of it.'),
       ];
       if (count($people) === 1) {
         $form['responsible_person_id']['#default_value'] = (string) array_key_first($people);
@@ -172,7 +172,7 @@ final class AddActivityForm extends FormBase {
       '#title' => $this->t('Concerned people'),
       '#options' => $people,
       '#required' => FALSE,
-      '#description' => $this->t('Optional. Empty means no specific Person is expressed.'),
+      '#description' => $this->t('Optional. Choose people who participate in this activity, for whom it is planned, or who are directly concerned. They are not automatically responsible. Leave empty if none.'),
     ];
     $form['activity_label'] = [
       '#type' => 'textfield',

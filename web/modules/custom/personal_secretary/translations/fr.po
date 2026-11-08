@@ -309,8 +309,8 @@ msgstr "Facultatif pour les activités sur toute la journée. Laisser vide pour 
 msgid "Optional."
 msgstr "Facultatif."
 
-msgid "Optional. Empty means no specific Person is expressed."
-msgstr "Facultatif. Laisser vide signifie qu’aucune personne précise n’est indiquée."
+msgid "Optional. Choose people who participate in this activity, for whom it is planned, or who are directly concerned. They are not automatically responsible. Leave empty if none."
+msgstr "Facultatif. Choisissez les personnes qui participent à cette activité, pour qui elle est prévue ou qui sont directement concernées. Cela ne les rend pas responsables. Laissez vide si aucune."
 
 msgid "Overdue"
 msgstr "En retard"
@@ -828,8 +828,8 @@ msgstr "Pause demandée"
 msgid "Required canonical UTC applicability start."
 msgstr "Début d’applicabilité UTC canonique requis."
 
-msgid "Required for weekly activities; optional for one-off activities."
-msgstr "Requis pour les activités hebdomadaires ; facultatif pour les activités ponctuelles."
+msgid "Required for weekly activities; optional for one-off activities. This is the person who takes charge of it."
+msgstr "Obligatoire pour les activités hebdomadaires, facultatif pour les activités ponctuelles. C’est la personne qui prend cette activité en charge."
 
 msgid "Rescheduled UTC end"
 msgstr "Nouvelle fin UTC"
