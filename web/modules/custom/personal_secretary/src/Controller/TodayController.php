@@ -176,7 +176,7 @@ final class TodayController extends ControllerBase {
           'status' => [
             '#type' => 'link',
             '#title' => $this->t('Task details'),
-            '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id]),
+            '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id], ['query' => ['from' => 'today']]),
           ],
           'edit' => [
             '#type' => 'link',

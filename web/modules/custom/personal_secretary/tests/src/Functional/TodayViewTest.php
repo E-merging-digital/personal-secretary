@@ -231,7 +231,22 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $this->assertSession()->pageTextContains('Today route task');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/add');
-    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $dueToday->id());
+    // A task opened from Today returns to Today after a read-only detail view.
+    $taskDetailArgs = ['task' => (int) $dueToday->id()];
+    $taskDetailUrl = Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($taskDetailUrl->toString());
+    $this->drupalGet($taskDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Today route task');
+    $this->assertSession()->linkExists('Back to Today');
+    $this->clickLink('Back to Today');
+    $this->assertSession()->addressEquals($todayUrl);
+    // An array-valued origin cannot change navigation or grant task access.
+    $this->drupalGet(Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => ['today']]]));
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkExists('Back to My tasks');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->drupalGet($todayUrl);
     $this->assertSession()->pageTextContains('Today due preparation');
     $this->assertSession()->pageTextContains('Today active overdue preparation');
     $this->assertSession()->pageTextContains('Today later preparation');
