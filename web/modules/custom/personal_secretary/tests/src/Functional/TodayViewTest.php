@@ -377,6 +377,30 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->addressEquals($todayUrl);
     $this->assertSame($countsBefore, $this->domainCounts());
 
+    // The Add task shortcut keeps the Today origin through Cancel and POST.
+    $todayAddTaskUrl = Url::fromRoute('personal_secretary.add_task', [], ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($todayAddTaskUrl->toString());
+    $this->drupalGet($todayAddTaskUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSame($countsBefore, $this->domainCounts());
+    $this->drupalGet($todayAddTaskUrl);
+    $this->submitForm([
+      'title' => 'Synthetic Today added task',
+      'due_mode' => PersonalTask::DUE_NONE,
+    ], 'Add task');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSame($countsBefore['task'] + 1, $this->domainCounts()['task']);
+    $this->assertSession()->pageTextNotContains('Synthetic Today added task');
+    $this->drupalGet('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Synthetic Today added task');
+    // A forged array origin cannot redirect a task creation flow to Today.
+    $this->drupalGet(Url::fromRoute('personal_secretary.add_task', [], ['query' => ['from' => ['today']]]));
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/tasks/mine');
+    $this->drupalGet($todayUrl);
+
     $taskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
     $taskId = (int) $dueToday->id();
     // Visiting the action route is read-only; only the Form API POST mutates.

@@ -102,7 +102,7 @@ final class TodayController extends ControllerBase {
         'add' => [
           '#type' => 'link',
           '#title' => $this->t('Add task'),
-          '#url' => Url::fromRoute('personal_secretary.add_task'),
+          '#url' => Url::fromRoute('personal_secretary.add_task', [], ['query' => ['from' => 'today']]),
           '#attributes' => ['class' => ['ps-task-list__add']],
         ],
         'quick' => $this->formBuilder()->getForm(TodayQuickTaskForm::class),
