@@ -293,6 +293,22 @@ final class TodayViewTest extends BrowserTestBase {
     else {
       $this->assertCount(0, $preparationGroups);
     }
+    // A preparation can open its associated future activity and return
+    // here, even when that activity is not part of today's planning.
+    $preparationDetailUrl = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $preparationItems['Today due preparation']['_completion_series_id'],
+      'original_occurrence_key' => (string) $preparationItems['Today due preparation']['_completion_original_occurrence_key'],
+    ], ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($preparationDetailUrl->toString());
+    $countsBeforePreparationDetail = $this->domainCounts();
+    $this->drupalGet($preparationDetailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Today preparation related activity');
+    $this->assertSession()->linkExists('Back to Today');
+    $this->clickLink('Back to Today');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSame($countsBeforePreparationDetail, $this->domainCounts());
+
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
     // A Today card reaches the exact authorized occurrence and returns here.
     $detailRoute = 'personal_secretary.occurrence_detail';
