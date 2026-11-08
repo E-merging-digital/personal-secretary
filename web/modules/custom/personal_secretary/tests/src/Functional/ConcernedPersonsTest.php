@@ -60,6 +60,8 @@ final class ConcernedPersonsTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Concerned people');
+    $this->assertSession()->pageTextContains('This is the person who takes charge of it.');
+    $this->assertSession()->pageTextContains('They are not automatically responsible.');
     $this->assertSession()->fieldExists('concerned_person_ids[' . $eva->id() . ']');
     $this->assertSession()->fieldExists('concerned_person_ids[' . $barbara->id() . ']');
 
