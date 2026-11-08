@@ -215,6 +215,17 @@ final class TodayController extends ControllerBase {
         '#tag' => 'p',
         '#value' => $this->t('No unprepared active preparations are overdue or due today.'),
       ];
+      $build['preparations']['explanation'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'p',
+        '#value' => $this->t('Preparations are added through activities. You can include a preparation when adding an activity.'),
+      ];
+      $build['preparations']['add_activity'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Add an activity to prepare'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity'),
+        '#attributes' => ['class' => ['ps-upcoming-actions__add']],
+      ];
     }
     else {
       $build['preparations']['items'] = [
