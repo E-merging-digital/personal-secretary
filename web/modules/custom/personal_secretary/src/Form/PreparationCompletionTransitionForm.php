@@ -283,7 +283,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
   }
 
   /**
-   * Preserve only the validated horizon and preparation search on mine().
+   * Preserve only the validated horizon, search and urgency on mine().
    *
    * @return array<string, mixed>
    *   Route options, without arbitrary request parameters.
@@ -299,16 +299,20 @@ final class PreparationCompletionTransitionForm extends FormBase {
     if (mb_strlen($search) > 100) {
       $search = '';
     }
+    $urgency = ($input['urgency'] ?? NULL) === 'overdue' ? 'overdue' : 'all';
 
     $query = [];
     if (($input['days'] ?? NULL) === '30') {
       $query['days'] = 30;
     }
-    elseif (($input['days'] ?? NULL) === '7' && $search !== '') {
+    elseif (($input['days'] ?? NULL) === '7' && ($search !== '' || $urgency === 'overdue')) {
       $query['days'] = 7;
     }
     if ($search !== '') {
       $query['q'] = $search;
+    }
+    if ($urgency === 'overdue') {
+      $query['urgency'] = 'overdue';
     }
     return $query === [] ? [] : ['query' => $query];
   }

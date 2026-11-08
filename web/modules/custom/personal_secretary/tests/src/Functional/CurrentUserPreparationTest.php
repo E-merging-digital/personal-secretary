@@ -378,6 +378,65 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     );
     $this->assertSame($countsBefore, $this->domainCounts());
 
+    // Optional urgency narrows only the authorized To prepare partition.
+    $this->drupalGet($route, ['query' => ['urgency' => 'overdue']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->pageTextContains('Active overdue preparation');
+    $this->assertSession()->pageTextNotContains('Long lead preparation due inside seven days');
+    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="All-day preparation"]]',
+    );
+    $this->assertSession()->linkByHrefExists(Url::fromRoute(
+      'personal_secretary.my_preparations',
+      [],
+      ['query' => ['days' => 30, 'urgency' => 'overdue']],
+    )->toString());
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSame($countsBefore, $this->domainCounts());
+
+    $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'Long lead', 'urgency' => 'overdue']]);
+    $this->assertSession()->pageTextContains('No overdue preparations.');
+    $this->assertSession()->elementNotExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Active overdue preparation"]]',
+    );
+    foreach ([['urgency' => 'unknown'], ['urgency' => ['overdue']]] as $invalidUrgency) {
+      $this->drupalGet($route, ['query' => $invalidUrgency]);
+      $this->assertSession()->fieldValueEquals('urgency', 'all');
+      $this->assertSession()->pageTextContains('Due now preparation');
+    }
+
+    // Non-JavaScript transitions retain search, horizon and urgency.
+    $this->drupalGet($route, ['query' => [
+      'days' => '30',
+      'q' => 'Active overdue',
+      'urgency' => 'overdue',
+    ]]);
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--pending")]'
+      . '[.//h3[normalize-space()="Active overdue preparation"]]'
+      . '//input[@value="Mark prepared"]',
+    )->click();
+    $this->assertSession()->pageTextContains('No overdue preparations.');
+    $this->assertSession()->pageTextContains('Preparation marked prepared.');
+    $this->assertSearchContext($route, 'Active overdue', 30);
+    parse_str((string) parse_url($this->getSession()->getCurrentUrl(), PHP_URL_QUERY), $returnQuery);
+    $this->assertSame('overdue', $returnQuery['urgency'] ?? NULL);
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")]'
+      . '[.//h3[normalize-space()="Active overdue preparation"]]'
+      . '//input[@value="Mark not prepared"]',
+    )->click();
+    $this->assertSearchContext($route, 'Active overdue', 30);
+    parse_str((string) parse_url($this->getSession()->getCurrentUrl(), PHP_URL_QUERY), $returnQuery);
+    $this->assertSame('overdue', $returnQuery['urgency'] ?? NULL);
+    $this->assertSession()->pageTextContains('Active overdue preparation');
+    $this->assertSame($countsBefore, $this->domainCounts());
+
     // The wider GET-only horizon includes day 20 but excludes day 31,
     // canceled/reassigned and unauthorized preparations.
     $this->drupalGet($route, ['query' => ['days' => '30']]);
@@ -596,6 +655,16 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/activities/add');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
     $this->assertSame($countsBefore, $this->domainCounts());
+
+    $this->drupalGet('/fr/personal-secretary/preparations/mine', [
+      'query' => ['days' => '30', 'urgency' => 'overdue'],
+    ]);
+    $this->assertSession()->pageTextContains('Filtrer selon l’urgence');
+    $this->assertSession()->pageTextContains('Tous les préparatifs à faire');
+    $this->assertSession()->pageTextContains('En retard uniquement');
+    $this->assertSession()->pageTextContains('Aucun préparatif en retard.');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->linkExists('Effacer les filtres');
 
     $this->drupalGet('/fr/personal-secretary/preparations/mine', [
       'query' => ['days' => '30', 'q' => 'introuvable'],
