@@ -42,9 +42,11 @@ final class PersonalTaskForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $task = $this->taskId() > 0 ? $this->loadEditableTask() : NULL;
-    // Preserve the Today origin on the edit form's POST action.
-    if ($task instanceof PersonalTask && $this->fromToday()) {
-      $form['#action'] = Url::fromRoute('personal_secretary.edit_task', ['task' => $this->taskId()], ['query' => ['from' => 'today']])->toString();
+    // Preserve the Today origin on both add and edit form POST actions.
+    if ($this->fromToday()) {
+      $route = $task instanceof PersonalTask ? 'personal_secretary.edit_task' : 'personal_secretary.add_task';
+      $parameters = $task instanceof PersonalTask ? ['task' => $this->taskId()] : [];
+      $form['#action'] = Url::fromRoute($route, $parameters, ['query' => ['from' => 'today']])->toString();
     }
 
     $form['title'] = [
@@ -251,7 +253,7 @@ final class PersonalTaskForm extends FormBase {
    */
   private function fromToday(): bool {
     $query = $this->getRequest()->query->all();
-    return $this->taskId() > 0 && ($query['from'] ?? NULL) === 'today';
+    return ($query['from'] ?? NULL) === 'today';
   }
 
   private function taskId(): int {
