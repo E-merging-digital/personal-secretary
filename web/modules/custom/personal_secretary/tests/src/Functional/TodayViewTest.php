@@ -261,8 +261,8 @@ final class TodayViewTest extends BrowserTestBase {
       'series' => (int) $authorizedActivity->id(),
       'original_occurrence_key' => $authorizedOccurrence->originalOccurrenceKey,
     ];
-    $detailUrl = Url::fromRoute($detailRoute, $detailArgs, ['query' => ['from' => 'today']])->toString();
-    $this->assertSession()->linkByHrefExists($detailUrl);
+    $detailUrl = Url::fromRoute($detailRoute, $detailArgs, ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($detailUrl->toString());
     $this->drupalGet($detailUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
@@ -272,8 +272,8 @@ final class TodayViewTest extends BrowserTestBase {
     $crossDetailUrl = Url::fromRoute($detailRoute, [
       'series' => (int) $crossActivity->id(),
       'original_occurrence_key' => $crossOccurrence->originalOccurrenceKey,
-    ], ['query' => ['from' => 'today']])->toString();
-    $this->assertSession()->linkByHrefExists($crossDetailUrl);
+    ], ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($crossDetailUrl->toString());
     $this->drupalGet($crossDetailUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today cross-midnight activity');
