@@ -42,6 +42,10 @@ final class PersonalTaskForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $task = $this->taskId() > 0 ? $this->loadEditableTask() : NULL;
+    // Preserve the Today origin on the edit form's POST action.
+    if ($task instanceof PersonalTask && $this->fromToday()) {
+      $form['#action'] = Url::fromRoute('personal_secretary.edit_task', ['task' => $this->taskId()], ['query' => ['from' => 'today']])->toString();
+    }
 
     $form['title'] = [
       '#type' => 'textfield',
@@ -147,7 +151,7 @@ final class PersonalTaskForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-      '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+      '#url' => Url::fromRoute($this->fromToday() ? 'personal_secretary.today' : 'personal_secretary.my_tasks'),
       '#attributes' => ['class' => ['button']],
       '#weight' => 10,
     ];
@@ -213,7 +217,7 @@ final class PersonalTaskForm extends FormBase {
       $this->messenger()->addError($this->t('The task could not be saved because its current authorization or data is no longer valid.'));
     }
 
-    $form_state->setRedirect('personal_secretary.my_tasks');
+    $form_state->setRedirect($this->fromToday() ? 'personal_secretary.today' : 'personal_secretary.my_tasks');
   }
 
   private function loadEditableTask(): PersonalTask {
@@ -240,6 +244,14 @@ final class PersonalTaskForm extends FormBase {
       throw new InvalidArgumentException('Selected Household is no longer eligible.');
     }
     return $selected;
+  }
+
+  /**
+   * Navigation-only preference; it never affects task authorization.
+   */
+  private function fromToday(): bool {
+    $query = $this->getRequest()->query->all();
+    return $this->taskId() > 0 && ($query['from'] ?? NULL) === 'today';
   }
 
   private function taskId(): int {
