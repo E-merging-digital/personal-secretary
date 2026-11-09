@@ -53,7 +53,13 @@ final class EditRecurringScheduleService {
       ->setTimezone($sourceTimezone)
       ->setTime(0, 0);
     $defaultBoundary = $todayLocal->modify('+1 day');
-    while ($defaultBoundary->setTimezone(new DateTimeZone('UTC')) <= $latestEffectiveFrom) {
+    // Keep the current weekday when only the weekly hours need changing.
+    // Choosing another date in the form remains an explicit weekday change.
+    $currentWeekday = $resolved['current_local_start']->format('N');
+    while (
+      $defaultBoundary->setTimezone(new DateTimeZone('UTC')) <= $latestEffectiveFrom
+      || $defaultBoundary->format('N') !== $currentWeekday
+    ) {
       $defaultBoundary = $defaultBoundary->modify('+1 day');
     }
 
