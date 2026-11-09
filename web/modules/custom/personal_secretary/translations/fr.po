@@ -1452,3 +1452,15 @@ msgstr "L’activité sera rattachée au foyer sélectionné."
 # Explicit confirmation after Add Activity (#361).
 msgid "Activity \"@activity\" added."
 msgstr "L’activité « @activity » a été ajoutée."
+
+msgid "Only this date will be cancelled. The recurring activity and its other occurrences stay unchanged. This cancellation cannot be undone."
+msgstr "Seule cette date sera annulée. L’activité récurrente et ses autres occurrences resteront inchangées. Cette annulation est irréversible."
+
+msgid "Keep this occurrence"
+msgstr "Ne pas annuler"
+
+msgid "Cancel this occurrence"
+msgstr "Annuler cette occurrence"
+
+msgid "Only this date will be rescheduled. The recurring activity and its other occurrences stay unchanged."
+msgstr "Seule cette date sera replanifiée. L’activité récurrente et ses autres occurrences resteront inchangées."

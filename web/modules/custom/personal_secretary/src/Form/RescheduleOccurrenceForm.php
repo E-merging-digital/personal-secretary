@@ -65,6 +65,10 @@ final class RescheduleOccurrenceForm extends FormBase {
       '#title' => $this->t('Activity'),
       '#markup' => Html::escape((string) $resolved['series']->label()),
     ];
+    $form['scope_notice'] = [
+      '#type' => 'markup',
+      '#markup' => $this->t('Only this date will be rescheduled. The recurring activity and its other occurrences stay unchanged.'),
+    ];
     $form['source_timezone'] = [
       '#type' => 'item',
       '#title' => $this->t('Source timezone'),

@@ -192,6 +192,8 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->drupalGet($weeklyUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Authorized weekly reschedule');
+    $this->assertSession()->pageTextContains('Only this date will be rescheduled.');
+    $this->assertSession()->pageTextContains('other occurrences stay unchanged.');
     $this->assertSession()->pageTextContains('Source timezone');
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $cancelLinks = $this->getSession()->getPage()->findAll('css', 'form a.button');

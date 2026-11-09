@@ -155,7 +155,22 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $this->drupalGet($weeklyUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Cancel occurrence of Authorized weekly cancellation');
-    $this->submitForm([], 'Cancel occurrence');
+    $this->assertSession()->pageTextContains('Only this date will be cancelled.');
+    $this->assertSession()->pageTextContains('other occurrences stay unchanged.');
+    $sourceStart = new DateTimeImmutable(
+      $weeklyTarget->sourceLocalStart,
+      new DateTimeZone($weeklyTarget->sourceTimezone),
+    );
+    $this->assertSession()->pageTextContains($this->container->get('date.formatter')->format(
+      $sourceStart->getTimestamp(), 'medium', '', $weeklyTarget->sourceTimezone,
+    ));
+    $this->assertSession()->linkExists('Keep this occurrence');
+    $this->clickLink('Keep this occurrence');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
+    $this->assertSame(0, $this->cancelCount(), 'Keeping an occurrence must not write a cancellation.');
+
+    $this->drupalGet($weeklyUrl);
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSame(1, $this->cancelCount());
@@ -172,7 +187,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
 
     $this->drupalGet($oneOffUrl);
     $this->assertSession()->statusCodeEquals(200);
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextNotContains('Authorized one-off cancellation');
@@ -228,7 +243,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
 
     $this->drupalGet($this->cancelUrl($adminSeries, $adminTarget->originalOccurrenceKey));
     $this->assertSession()->statusCodeEquals(200);
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSame(3, $this->cancelCount());
@@ -277,7 +292,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $persistedUser = $this->reloadUser((int) $user->id());
     $persistedUser->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $h2->id()]]);
     $persistedUser->save();
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSame(0, $this->cancelCount());
 
@@ -294,7 +309,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $persistedUser = $this->reloadUser((int) $user->id());
     $persistedUser->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $other->id()]);
     $persistedUser->save();
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSame(0, $this->cancelCount());
 
@@ -307,7 +322,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $persistedH1 = $this->reloadHousehold((int) $h1->id());
     $persistedH1->set('members', [['target_id' => (int) $other->id()]]);
     $persistedH1->save();
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSame(0, $this->cancelCount());
 
@@ -327,7 +342,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
       $instant->modify('+1 second'),
     )[0];
     $responsibility->createAssignOverride($series, $occurrence, (int) $other->id());
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
     $this->assertSame(0, $this->cancelCount());
     $this->assertSession()->pageTextContains('This occurrence can no longer be cancelled.');

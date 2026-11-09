@@ -376,9 +376,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($cancelUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Cancel occurrence of Existing first weekly activity');
-    $this->assertSession()->buttonExists('Cancel occurrence');
+    $this->assertSession()->buttonExists('Cancel this occurrence');
 
-    $this->submitForm([], 'Cancel occurrence');
+    $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextNotContains('Existing first weekly activity');
