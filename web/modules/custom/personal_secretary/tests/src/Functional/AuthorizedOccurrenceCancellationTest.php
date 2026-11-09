@@ -154,7 +154,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
 
     $this->drupalGet($weeklyUrl);
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->pageTextContains('Cancel only this occurrence of Authorized weekly cancellation');
+    $this->assertSession()->pageTextContains('Cancel occurrence of Authorized weekly cancellation');
     $this->assertSession()->pageTextContains('Only this date will be cancelled.');
     $this->assertSession()->pageTextContains('other occurrences stay unchanged.');
     $sourceStart = new DateTimeImmutable(
