@@ -108,6 +108,12 @@ final class EditRecurringScheduleTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('The selected date also sets the new weekday');
     $this->assertSession()->pageTextContains('a Thursday moves the weekly series to Thursdays');
     $this->assertSession()->fieldExists('effective_from_date');
+    // The suggested boundary preserves the current weekly day. The initial
+    // series starts tomorrow, so the first safe same-weekday date is next week.
+    $this->assertSession()->fieldValueEquals(
+      'effective_from_date',
+      $firstStart->modify('+7 days')->format('Y-m-d'),
+    );
     $this->assertSession()->fieldExists('new_start_local_time');
     $this->assertSession()->fieldExists('new_end_local_time');
     $this->assertSession()->fieldNotExists('source_timezone');
