@@ -6,6 +6,7 @@ namespace Drupal\personal_secretary\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\AddHouseholdMemberService;
 use InvalidArgumentException;
 use RuntimeException;
@@ -59,6 +60,13 @@ final class AddHouseholdMemberForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Add household member'),
       '#button_type' => 'primary',
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
+      '#weight' => 10,
     ];
 
     return $form;

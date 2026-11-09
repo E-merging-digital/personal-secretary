@@ -123,6 +123,14 @@ final class AddHouseholdMemberTest extends BrowserTestBase {
     $this->assertSame('255', $personNameField->getAttribute('maxlength'));
     $this->assertTrue($personNameField->hasAttribute('required'));
     $this->assertSession()->buttonExists('Add household member');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertCount($personCountBefore, $personStorage->loadMultiple());
+    $this->assertSame(
+      $selectedMemberIdsBefore,
+      $this->reloadedMemberIds($householdStorage, (int) $selectedHousehold->id()),
+    );
 
     $this->assertCount($personCountBefore, $personStorage->loadMultiple());
     $this->assertCount($householdCountBefore, $householdStorage->loadMultiple());

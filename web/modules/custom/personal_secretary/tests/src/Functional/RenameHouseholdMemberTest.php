@@ -189,6 +189,12 @@ final class RenameHouseholdMemberTest extends BrowserTestBase {
 
     $this->assertPersonUnchanged($personStorage, $targetId, $targetUuid, 'Avery Original Name', $personCountBefore);
     $this->assertSame($householdStateBefore, $this->householdState($householdStorage));
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertPersonUnchanged($personStorage, $targetId, $targetUuid, 'Avery Original Name', $personCountBefore);
+    $this->assertSame($householdStateBefore, $this->householdState($householdStorage));
+    $this->drupalGet($renameUrl);
 
     $this->submitForm([
       'person_id' => (string) $targetId,
