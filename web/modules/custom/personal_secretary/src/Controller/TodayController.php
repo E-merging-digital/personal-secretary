@@ -223,7 +223,7 @@ final class TodayController extends ControllerBase {
       $build['preparations']['add_activity'] = [
         '#type' => 'link',
         '#title' => $this->t('Add an activity to prepare'),
-        '#url' => Url::fromRoute('personal_secretary.add_activity'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']]),
         '#attributes' => ['class' => ['ps-upcoming-actions__add']],
       ];
     }
@@ -301,7 +301,7 @@ final class TodayController extends ControllerBase {
       'add' => [
         '#type' => 'link',
         '#title' => $this->t('Add activity'),
-        '#url' => Url::fromRoute('personal_secretary.add_activity'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']]),
         '#attributes' => ['class' => ['button', 'button--primary']],
       ],
     ];
