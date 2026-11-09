@@ -320,6 +320,41 @@ final class RenameHouseholdMemberTest extends BrowserTestBase {
     $this->assertSame('Avery Corrected Name', trim($samePersonOption->getText()));
   }
 
+  public function testSoleHouseholdMemberIsShownWithoutRedundantSelect(): void {
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $member = $domain->createPerson('Only Synthetic Member');
+    $domain->createHousehold('Only Synthetic Household', [(int) $member->id()]);
+
+    $personId = (int) $member->id();
+    $personUuid = $member->uuid();
+    $personStorage = $this->container
+      ->get('entity_type.manager')
+      ->getStorage('personal_secretary_person');
+
+    $authorized = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->drupalLogin($authorized);
+    $this->drupalGet(Url::fromRoute('personal_secretary.rename_household_member')->toString());
+
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Only Synthetic Member');
+    $this->assertSession()->fieldNotExists('person_id');
+    $this->assertSession()->fieldExists('new_name');
+
+    $this->submitForm([
+      'new_name' => 'Only Corrected Member',
+    ], 'Rename household member');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+
+    $personStorage->resetCache([$personId]);
+    $renamed = $personStorage->load($personId);
+    $this->assertInstanceOf(Person::class, $renamed);
+    $this->assertSame($personId, (int) $renamed->id());
+    $this->assertSame($personUuid, $renamed->uuid());
+    $this->assertSame('Only Corrected Member', (string) $renamed->label());
+    $this->assertCount(1, $personStorage->loadMultiple());
+  }
+
   private function assertPersonUnchanged(
     object $storage,
     int $personId,
