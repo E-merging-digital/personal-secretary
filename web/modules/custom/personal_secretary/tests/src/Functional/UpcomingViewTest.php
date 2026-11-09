@@ -160,6 +160,13 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->fieldExists('preparation_lead_minutes');
     $this->assertSession()->pageTextContains('Weekly');
     $this->assertSession()->fieldNotExists('rrule');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertCount(0, $this->container->get('entity_type.manager')->getStorage('personal_sec_activity_series')->loadMultiple());
+    $this->assertCount(0, $this->container->get('entity_type.manager')->getStorage('personal_secretary_household')->loadMultiple());
+    $this->drupalGet('/personal-secretary/setup');
 
     $sourceTimezone = new DateTimeZone('Europe/Brussels');
     $nowLocal = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
