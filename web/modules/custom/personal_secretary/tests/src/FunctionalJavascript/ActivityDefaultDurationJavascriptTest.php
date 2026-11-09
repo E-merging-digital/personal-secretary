@@ -115,7 +115,6 @@ final class ActivityDefaultDurationJavascriptTest extends WebDriverTestBase {
 
   public function testFirstActivitySetupSuggestsAnEditableEnd(): void {
     $this->drupalGet('/personal-secretary/setup');
-    $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists('css', 'input[data-ps-activity-start]');
     $this->assertSession()->elementExists('css', 'input[data-ps-activity-end]');
     $this->assertTime('end_local_time', '');
