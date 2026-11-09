@@ -486,6 +486,43 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->fieldValueEquals('urgency', 'overdue');
     $this->assertSession()->fieldValueEquals('sort', 'title');
 
+    // Editing from a filtered list or its detail keeps that list context.
+    $editHref = '/personal-secretary/tasks/' . $overdue->id() . '/edit?sort=title&urgency=overdue';
+    $this->assertSession()->linkByHrefExists($editHref);
+    $this->clickLink('Edit');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?sort=title&urgency=overdue');
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->clickLink('Synthetic overdue task');
+    $this->assertSession()->linkByHrefExists($editHref);
+    $this->clickLink('Edit task');
+    $this->submitForm([
+      'title' => 'Synthetic overdue task',
+      'due_mode' => PersonalTask::DUE_DATE,
+      'due_date' => '2020-01-01',
+    ], 'Save task');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->pageTextContains('Synthetic overdue task');
+
+    // Search terms survive Cancel; malformed query values are discarded.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic overdue',
+      'sort' => 'title',
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $overdue->id() . '/edit?q=Synthetic%20overdue&sort=title');
+    $this->clickLink('Edit');
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->drupalGet('/personal-secretary/tasks/' . $overdue->id() . '/edit', ['query' => [
+      'q' => ['forged'],
+      'sort' => ['title'],
+      'urgency' => 'overdue',
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?urgency=overdue');
+
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
       'q' => 'Synthetic future',
       'urgency' => 'overdue',
