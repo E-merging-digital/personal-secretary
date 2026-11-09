@@ -164,9 +164,16 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains($this->container->get('date.formatter')->format(
       $sourceStart->getTimestamp(), 'medium', '', $weeklyTarget->sourceTimezone,
     ));
+    $detailUrl = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $weekly->id(),
+      'original_occurrence_key' => $weeklyTarget->originalOccurrenceKey,
+    ])->toString();
     $this->assertSession()->linkExists('Keep this occurrence');
+    $this->assertSession()->linkByHrefExists($detailUrl);
     $this->clickLink('Keep this occurrence');
-    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
+    $this->assertSession()->addressEquals($detailUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Authorized weekly cancellation');
     $this->assertSame(0, $this->cancelCount(), 'Keeping an occurrence must not write a cancellation.');
 
     $this->drupalGet($weeklyUrl);
@@ -241,8 +248,14 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
       $this->assertSession()->linkExists($adminLink);
     }
 
-    $this->drupalGet($this->cancelUrl($adminSeries, $adminTarget->originalOccurrenceKey));
+    $adminCancelUrl = $this->cancelUrl($adminSeries, $adminTarget->originalOccurrenceKey);
+    $this->drupalGet($adminCancelUrl);
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Keep this occurrence');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame(2, $this->cancelCount());
+    $this->drupalGet($adminCancelUrl);
     $this->submitForm([], 'Cancel this occurrence');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
