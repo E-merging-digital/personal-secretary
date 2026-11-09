@@ -160,6 +160,10 @@ final class UserPersonBindingTest extends BrowserTestBase {
     $this->assertCount(1, $personSelect->findAll('css', 'option[value="' . $targetId . '"]'));
     $this->assertCount(1, $personSelect->findAll('css', 'option[value="' . $otherMember->id() . '"]'));
     $this->assertCount(0, $personSelect->findAll('css', 'option[value="' . $orphanPerson->id() . '"]'));
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->statusCodeEquals(200);
 
     $userStorage->resetCache([(int) $authorized->id()]);
     $persistedAuthorized = $userStorage->load($authorized->id());

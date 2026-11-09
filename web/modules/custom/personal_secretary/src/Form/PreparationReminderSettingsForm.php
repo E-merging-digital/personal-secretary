@@ -7,6 +7,7 @@ namespace Drupal\personal_secretary\Form;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Service\PreparationReminderCandidateService;
 use Drupal\user\UserInterface;
@@ -52,6 +53,12 @@ final class PreparationReminderSettingsForm extends FormBase {
     ];
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Save reminder settings'), '#button_type' => 'primary'];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.today'),
+      '#attributes' => ['class' => ['button']],
+    ];
     return $form;
   }
 

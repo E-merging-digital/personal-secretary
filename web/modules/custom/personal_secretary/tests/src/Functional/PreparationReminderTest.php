@@ -59,6 +59,13 @@ final class PreparationReminderTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Email reminders are optional and apply only when a preparation becomes due, not to ordinary tasks. Email delivery depends on the configured mail service.');
     $this->assertSession()->pageTextContains('Push notifications and proactive in-app notifications are not available.');
     $this->assertSession()->pageTextContains('Also email me when a preparation becomes due');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/today');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/today');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSame(0, (int) $this->reloadUser((int) $user->id())->get(PreparationReminderCandidateService::OPT_IN_FIELD)->value);
+    $this->drupalGet('/personal-secretary/reminders');
+    $this->assertSession()->checkboxNotChecked('preparation_reminders');
     $this->submitForm(['preparation_reminders' => TRUE], 'Save reminder settings');
     $this->assertSession()->checkboxChecked('preparation_reminders');
     $this->assertSession()->pageTextContains('Also email me when a preparation becomes due');

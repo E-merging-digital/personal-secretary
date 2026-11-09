@@ -9,6 +9,7 @@ use DateTimeZone;
 use Drupal\Core\Datetime\TimeZoneFormHelper;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\CurrentUserTimezoneService;
 use Drupal\personal_secretary\Service\FirstActivitySetupService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -108,6 +109,12 @@ final class FirstActivitySetupForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Create first activity'),
       '#button_type' => 'primary',
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
     ];
 
     return $form;
