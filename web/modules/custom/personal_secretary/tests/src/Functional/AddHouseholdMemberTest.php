@@ -22,6 +22,42 @@ final class AddHouseholdMemberTest extends BrowserTestBase {
 
   protected $defaultTheme = 'olivero';
 
+  public function testSingleHouseholdIsSelectedWithoutRedundantChoice(): void {
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $person = $domain->createPerson('Single household existing member');
+    $household = $domain->createHousehold(
+      'Only eligible household',
+      [(int) $person->id()],
+    );
+    $personStorage = $this->container->get('entity_type.manager')
+      ->getStorage('personal_secretary_person');
+    $householdStorage = $this->container->get('entity_type.manager')
+      ->getStorage('personal_secretary_household');
+    $personCountBefore = count($personStorage->loadMultiple());
+    $membersBefore = $this->reloadedMemberIds($householdStorage, (int) $household->id());
+
+    $admin = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->drupalLogin($admin);
+    $this->drupalGet('/personal-secretary/households/members/add');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Only eligible household');
+    $this->assertSession()->fieldNotExists('household_id');
+    $this->assertSession()->fieldExists('person_name');
+
+    $this->submitForm([
+      'person_name' => 'Single household new member',
+    ], 'Add household member');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $people = array_values($personStorage->loadByProperties([
+      'name' => 'Single household new member',
+    ]));
+    $this->assertCount(1, $people);
+    $this->assertCount($personCountBefore + 1, $personStorage->loadMultiple());
+    $membersAfter = $this->reloadedMemberIds($householdStorage, (int) $household->id());
+    $this->assertCount(count($membersBefore) + 1, $membersAfter);
+    $this->assertContains((int) $people[0]->id(), $membersAfter);
+  }
+
   public function testAddHouseholdMemberUnlocksOccurrenceResponsibilityChoice(): void {
     /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
     $domain = $this->container->get('personal_secretary.domain_mutation');

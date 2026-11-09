@@ -42,12 +42,28 @@ final class AddHouseholdMemberForm extends FormBase {
       return $form;
     }
 
-    $form['household_id'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Household'),
-      '#options' => $households,
-      '#required' => TRUE,
-    ];
+    if (count($households) === 1) {
+      // A single eligible Household is unambiguous; keep its ID server-side.
+      $form['household_context'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Household'),
+        '#markup' => $this->t('@household', [
+          '@household' => (string) reset($households),
+        ]),
+      ];
+      $form['household_id'] = [
+        '#type' => 'value',
+        '#value' => (string) array_key_first($households),
+      ];
+    }
+    else {
+      $form['household_id'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Household'),
+        '#options' => $households,
+        '#required' => TRUE,
+      ];
+    }
     $form['person_name'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Person name'),
