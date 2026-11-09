@@ -39,6 +39,12 @@ final class AddHouseholdMemberForm extends FormBase {
         '#tag' => 'p',
         '#value' => $this->t('No Household is available yet.'),
       ];
+      $form['next_step'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Set up your first activity'),
+        '#url' => Url::fromRoute('personal_secretary.setup'),
+        '#attributes' => ['class' => ['button']],
+      ];
       return $form;
     }
 

@@ -39,6 +39,12 @@ final class LinkCurrentUserToPersonForm extends FormBase {
         '#tag' => 'p',
         '#value' => $this->t('No Household member is available to link.'),
       ];
+      $form['next_step'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Add household member'),
+        '#url' => Url::fromRoute('personal_secretary.add_household_member'),
+        '#attributes' => ['class' => ['button']],
+      ];
       return $form;
     }
 
