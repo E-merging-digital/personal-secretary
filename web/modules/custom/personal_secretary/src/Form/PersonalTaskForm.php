@@ -42,11 +42,15 @@ final class PersonalTaskForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $task = $this->taskId() > 0 ? $this->loadEditableTask() : NULL;
-    // Preserve the Today origin on both add and edit form POST actions.
+    $returnQuery = $task instanceof PersonalTask ? $this->taskListReturnQuery() : [];
+    // Keep validated navigation context on edit POST actions.
     if ($this->fromToday()) {
       $route = $task instanceof PersonalTask ? 'personal_secretary.edit_task' : 'personal_secretary.add_task';
       $parameters = $task instanceof PersonalTask ? ['task' => $this->taskId()] : [];
       $form['#action'] = Url::fromRoute($route, $parameters, ['query' => ['from' => 'today']])->toString();
+    }
+    elseif ($returnQuery !== []) {
+      $form['#action'] = Url::fromRoute('personal_secretary.edit_task', ['task' => $this->taskId()], ['query' => $returnQuery])->toString();
     }
 
     $form['title'] = [
@@ -153,7 +157,9 @@ final class PersonalTaskForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-      '#url' => Url::fromRoute($this->fromToday() ? 'personal_secretary.today' : 'personal_secretary.my_tasks'),
+      '#url' => $this->fromToday()
+        ? Url::fromRoute('personal_secretary.today')
+        : Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $returnQuery]),
       '#attributes' => ['class' => ['button']],
       '#weight' => 10,
     ];
@@ -219,7 +225,11 @@ final class PersonalTaskForm extends FormBase {
       $this->messenger()->addError($this->t('The task could not be saved because its current authorization or data is no longer valid.'));
     }
 
-    $form_state->setRedirect($this->fromToday() ? 'personal_secretary.today' : 'personal_secretary.my_tasks');
+    $form_state->setRedirect(
+      $this->fromToday() ? 'personal_secretary.today' : 'personal_secretary.my_tasks',
+      [],
+      $this->fromToday() ? [] : ['query' => $this->taskListReturnQuery()],
+    );
   }
 
   private function loadEditableTask(): PersonalTask {
@@ -254,6 +264,38 @@ final class PersonalTaskForm extends FormBase {
   private function fromToday(): bool {
     $query = $this->getRequest()->query->all();
     return ($query['from'] ?? NULL) === 'today';
+  }
+
+  /**
+   * Navigation-only filters; never used for task authorization.
+   *
+   * @return array<string, string>
+   */
+  private function taskListReturnQuery(): array {
+    if ($this->taskId() === 0 || $this->fromToday()) {
+      return [];
+    }
+
+    $query = $this->getRequest()->query->all();
+    $filters = [];
+    $status = $query['status'] ?? NULL;
+    if (is_string($status) && in_array($status, ['completed', 'all'], TRUE)) {
+      $filters['status'] = $status;
+    }
+    $title = $query['q'] ?? NULL;
+    if (is_string($title)) {
+      $title = trim($title);
+      if ($title !== '' && mb_strlen($title) <= 100) {
+        $filters['q'] = $title;
+      }
+    }
+    if (($query['sort'] ?? NULL) === 'title') {
+      $filters['sort'] = 'title';
+    }
+    if (!isset($filters['status']) && ($query['urgency'] ?? NULL) === 'overdue') {
+      $filters['urgency'] = 'overdue';
+    }
+    return $filters;
   }
 
   private function taskId(): int {
