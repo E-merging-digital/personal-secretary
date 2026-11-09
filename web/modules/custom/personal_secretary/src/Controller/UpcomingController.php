@@ -64,9 +64,7 @@ final class UpcomingController extends ControllerBase {
       ];
       if ($hasExistingContext) {
         $build['my_upcoming'] = $this->myUpcomingLink();
-        $build['add_household_member'] = $this->addHouseholdMemberLink();
-        $build['rename_household_member'] = $this->renameHouseholdMemberLink();
-        $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
+        $build['household_actions'] = $this->householdActionGroup();
       }
       else {
         $build['setup'] = [
@@ -80,9 +78,7 @@ final class UpcomingController extends ControllerBase {
 
     if ($hasExistingContext) {
       $build['my_upcoming'] = $this->myUpcomingLink();
-      $build['add_household_member'] = $this->addHouseholdMemberLink();
-      $build['rename_household_member'] = $this->renameHouseholdMemberLink();
-      $build['link_current_user_to_person'] = $this->linkCurrentUserToPersonLink();
+      $build['household_actions'] = $this->householdActionGroup();
     }
     $build['items'] = $this->buildItems($items, TRUE, FALSE, FALSE);
 
@@ -619,6 +615,7 @@ final class UpcomingController extends ControllerBase {
       '#type' => 'link',
       '#title' => $this->t('My upcoming'),
       '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
+      '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--secondary']],
     ];
   }
 
@@ -639,6 +636,26 @@ final class UpcomingController extends ControllerBase {
   }
 
   /**
+   * Keep household administration separate from occurrence navigation.
+   *
+   * @return array<string, mixed>
+   */
+  private function householdActionGroup(): array {
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--household']],
+      'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('Household')],
+      'links' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['ps-action-group__links']],
+        'add_member' => $this->addHouseholdMemberLink(),
+        'rename_member' => $this->renameHouseholdMemberLink(),
+        'link_current_user' => $this->linkCurrentUserToPersonLink(),
+      ],
+    ];
+  }
+
+  /**
    * @return array<string, mixed>
    */
   private function addHouseholdMemberLink(): array {
@@ -646,6 +663,7 @@ final class UpcomingController extends ControllerBase {
       '#type' => 'link',
       '#title' => $this->t('Add household member'),
       '#url' => Url::fromRoute('personal_secretary.add_household_member'),
+      '#attributes' => ['class' => ['ps-action-link']],
     ];
   }
 
@@ -657,6 +675,7 @@ final class UpcomingController extends ControllerBase {
       '#type' => 'link',
       '#title' => $this->t('Rename household member'),
       '#url' => Url::fromRoute('personal_secretary.rename_household_member'),
+      '#attributes' => ['class' => ['ps-action-link']],
     ];
   }
 
@@ -668,6 +687,7 @@ final class UpcomingController extends ControllerBase {
       '#type' => 'link',
       '#title' => $this->t('Link my account to household member'),
       '#url' => Url::fromRoute('personal_secretary.link_current_user_to_person'),
+      '#attributes' => ['class' => ['ps-action-link']],
     ];
   }
 
