@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -25,6 +26,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
     private readonly CurrentUserOccurrenceCancellationService $currentUserCancellation,
     private readonly RouteMatchInterface $cancelRouteMatch,
     private readonly AccountInterface $cancelCurrentUser,
+    private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -32,6 +34,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
       $container->get('personal_secretary.current_user_occurrence_cancellation'),
       $container->get('current_route_match'),
       $container->get('current_user'),
+      $container->get('date.formatter'),
     );
   }
 
@@ -54,13 +57,27 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
       throw new NotFoundHttpException('The requested occurrence cannot be cancelled.', $exception);
     }
 
+    $occurrence = $resolved['occurrence'];
+    $sourceStart = new \DateTimeImmutable(
+      $occurrence->sourceLocalStart,
+      new \DateTimeZone($occurrence->sourceTimezone),
+    );
+
     return $this->t(
-      'Cancel occurrence of %activity at %time?',
+      'Cancel only this occurrence of %activity on %time?',
       [
         '%activity' => (string) $resolved['series']->label(),
-        '%time' => (new \DateTimeImmutable($resolved['occurrence']->sourceLocalStart))->format('Y-m-d H:i'),
+        '%time' => $this->dateFormatter->format($sourceStart->getTimestamp(), 'medium', '', $occurrence->sourceTimezone),
       ],
     );
+  }
+
+  public function getDescription(): TranslatableMarkup {
+    return $this->t('Only this date will be cancelled. The recurring activity and its other occurrences stay unchanged. This cancellation cannot be undone.');
+  }
+
+  public function getCancelText(): TranslatableMarkup {
+    return $this->t('Keep this occurrence');
   }
 
   public function getCancelUrl(): Url {
@@ -68,7 +85,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
   }
 
   public function getConfirmText(): TranslatableMarkup {
-    return $this->t('Cancel occurrence');
+    return $this->t('Cancel this occurrence');
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
