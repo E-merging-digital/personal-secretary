@@ -6,6 +6,7 @@ namespace Drupal\personal_secretary\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Service\LinkCurrentUserToPersonService;
 use InvalidArgumentException;
 use RuntimeException;
@@ -68,6 +69,12 @@ final class LinkCurrentUserToPersonForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Link my account to household member'),
       '#button_type' => 'primary',
+    ];
+    $form['actions']['cancel'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Cancel'),
+      '#url' => Url::fromRoute('personal_secretary.upcoming'),
+      '#attributes' => ['class' => ['button']],
     ];
 
     return $form;
