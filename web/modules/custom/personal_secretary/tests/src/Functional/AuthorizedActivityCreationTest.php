@@ -70,6 +70,10 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalLogin($authorized);
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
+    $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->pageTextContains('Authorized Household H1');
     // Exactly one scoped Household, despite other globally existing contexts.
     $this->assertSession()->elementExists('css', '.form-item-household-context');
@@ -149,6 +153,9 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists('css', 'select[name="responsible_person_id"]');
     $this->assertSession()->pageTextNotContains('The activity will belong to the selected household.');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
   }
 
   public function testOrdinaryWeeklyAndOneOffCreationReuseExistingSemantics(): void {
