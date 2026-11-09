@@ -64,7 +64,7 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
     );
 
     return $this->t(
-      'Cancel only this occurrence of %activity on %time?',
+      'Cancel occurrence of %activity at %time?',
       [
         '%activity' => (string) $resolved['series']->label(),
         '%time' => $this->dateFormatter->format($sourceStart->getTimestamp(), 'medium', '', $occurrence->sourceTimezone),
