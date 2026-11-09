@@ -1453,9 +1453,6 @@ msgstr "L’activité sera rattachée au foyer sélectionné."
 msgid "Activity \"@activity\" added."
 msgstr "L’activité « @activity » a été ajoutée."
 
-msgid "Cancel only this occurrence of %activity on %time?"
-msgstr "Annuler uniquement cette occurrence de %activity du %time ?"
-
 msgid "Only this date will be cancelled. The recurring activity and its other occurrences stay unchanged. This cancellation cannot be undone."
 msgstr "Seule cette date sera annulée. L’activité récurrente et ses autres occurrences resteront inchangées. Cette annulation est irréversible."
 
