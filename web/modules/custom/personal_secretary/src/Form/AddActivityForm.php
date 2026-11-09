@@ -50,6 +50,10 @@ final class AddActivityForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
+    // Preserve only the explicit Today origin across the form POST.
+    if ($this->fromToday()) {
+      $form['#action'] = Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']])->toString();
+    }
     $isAdministrator = $this->isAdministrator();
     $currentPersonId = NULL;
 
@@ -493,16 +497,28 @@ final class AddActivityForm extends FormBase {
           ? 'The activity could not be created for the selected household and options.'
           : 'The activity could not be created for your current Household access and Person context.',
       ));
-      $form_state->setRedirect('personal_secretary.add_activity');
+      $form_state->setRedirect('personal_secretary.add_activity', [], $this->fromToday() ? ['query' => ['from' => 'today']] : []);
       return;
     }
 
     $this->messenger()->addStatus($this->t('Activity "@activity" added.', [
       '@activity' => (string) $form_state->getValue('activity_label'),
     ]));
-    $form_state->setRedirect(
-      $isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming',
-    );
+    if ($this->fromToday()) {
+      $form_state->setRedirect('personal_secretary.today');
+    }
+    else {
+      $form_state->setRedirect(
+        $isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming',
+      );
+    }
+  }
+
+  /**
+   * Navigation-only origin. Never affects activity permissions or creation.
+   */
+  private function fromToday(): bool {
+    return ($this->getRequest()->query->all()['from'] ?? NULL) === 'today';
   }
 
   /**

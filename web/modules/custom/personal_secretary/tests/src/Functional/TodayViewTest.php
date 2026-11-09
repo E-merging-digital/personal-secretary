@@ -368,7 +368,8 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSame($countsBefore, $this->domainCounts());
 
     // Creating an activity is a direct Today action; Cancel never writes.
-    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $todayAddActivityUrl = Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($todayAddActivityUrl->toString());
     $this->clickLink('Add activity');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->buttonExists('Add activity');
@@ -399,6 +400,39 @@ final class TodayViewTest extends BrowserTestBase {
     $this->drupalGet(Url::fromRoute('personal_secretary.add_task', [], ['query' => ['from' => ['today']]]));
     $this->clickLink('Cancel');
     $this->assertSession()->addressEquals('/personal-secretary/tasks/mine');
+    $this->drupalGet($todayUrl);
+
+    // A saved activity originating from Today returns there; direct creation
+    // retains its existing My upcoming destination.
+    $seriesBeforeAdd = $this->domainCounts()['series'];
+    $this->drupalGet($todayAddActivityUrl);
+    $this->submitForm([
+      'activity_type' => 'one_off',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'activity_label' => 'Synthetic Today added activity',
+      'first_occurrence_date' => $localStart->modify('+3 days')->format('Y-m-d'),
+      'start_local_time' => '14:00',
+      'end_local_time' => '15:00',
+      'source_timezone' => 'Europe/Brussels',
+    ], 'Add activity');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSession()->pageTextContains('Activity "Synthetic Today added activity" added.');
+    $this->assertSame($seriesBeforeAdd + 1, $this->domainCounts()['series']);
+    $this->drupalGet('/personal-secretary/upcoming/mine');
+    $this->assertSession()->pageTextContains('Synthetic Today added activity');
+
+    $this->drupalGet(Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => ['today']]]));
+    $this->submitForm([
+      'activity_type' => 'one_off',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'activity_label' => 'Synthetic ordinary added activity',
+      'first_occurrence_date' => $localStart->modify('+4 days')->format('Y-m-d'),
+      'start_local_time' => '14:00',
+      'end_local_time' => '15:00',
+      'source_timezone' => 'Europe/Brussels',
+    ], 'Add activity');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming/mine');
+    $this->assertSame($seriesBeforeAdd + 2, $this->domainCounts()['series']);
     $this->drupalGet($todayUrl);
 
     $taskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
@@ -473,9 +507,9 @@ final class TodayViewTest extends BrowserTestBase {
     $this->drupalGet($url);
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
-    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add"]'));
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add?from=today"]'));
     $this->clickLink('Add an activity to prepare');
-    $this->assertSession()->addressEquals('/personal-secretary/activities/add');
+    $this->assertSession()->addressEquals('/personal-secretary/activities/add?from=today');
     $this->assertSession()->statusCodeEquals(200);
     $this->drupalGet($url);
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
