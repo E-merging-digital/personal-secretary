@@ -42,12 +42,25 @@ final class RenameHouseholdMemberForm extends FormBase {
       return $form;
     }
 
-    $form['person_id'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Household member'),
-      '#options' => $people,
-      '#required' => TRUE,
-    ];
+    if (count($people) === 1) {
+      $form['person_context'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Household member'),
+        '#markup' => $this->t('@person', ['@person' => (string) reset($people)]),
+      ];
+      $form['person_id'] = [
+        '#type' => 'value',
+        '#value' => (string) array_key_first($people),
+      ];
+    }
+    else {
+      $form['person_id'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Household member'),
+        '#options' => $people,
+        '#required' => TRUE,
+      ];
+    }
     $form['new_name'] = [
       '#type' => 'textfield',
       '#title' => $this->t('New name'),
