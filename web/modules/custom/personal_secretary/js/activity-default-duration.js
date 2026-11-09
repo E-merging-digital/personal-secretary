@@ -31,7 +31,8 @@
         end.insertAdjacentElement('afterend', status);
 
         const isTimed = () =>
-          form.querySelector('input[name="time_mode"]:checked')?.value === 'timed';
+          form.hasAttribute('data-ps-activity-timed-only')
+          || form.querySelector('input[name="time_mode"]:checked')?.value === 'timed';
 
         const suggest = () => {
           if (!autoManaged || !isTimed()) {

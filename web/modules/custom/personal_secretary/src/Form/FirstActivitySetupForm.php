@@ -38,6 +38,8 @@ final class FirstActivitySetupForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $timezones = TimeZoneFormHelper::getOptionsList();
     $defaultTimezone = $this->currentUserTimezone->effectiveTimezone();
+    // The first activity is always timed; reuse the standard end-time suggestion.
+    $form['#attributes']['data-ps-activity-timed-only'] = '';
 
     $form['household_name'] = [
       '#type' => 'textfield',
@@ -70,13 +72,13 @@ final class FirstActivitySetupForm extends FormBase {
     $form['start_local_time'] = [
       '#type' => 'date',
       '#title' => $this->t('Start time'),
-      '#attributes' => ['type' => 'time'],
+      '#attributes' => ['type' => 'time', 'data-ps-activity-start' => ''],
       '#required' => TRUE,
     ];
     $form['end_local_time'] = [
       '#type' => 'date',
       '#title' => $this->t('End time'),
-      '#attributes' => ['type' => 'time'],
+      '#attributes' => ['type' => 'time', 'data-ps-activity-end' => ''],
       '#required' => TRUE,
     ];
     $form['source_timezone'] = [
@@ -104,6 +106,7 @@ final class FirstActivitySetupForm extends FormBase {
       '#min' => 0,
       '#step' => 1,
     ];
+    $form['#attached']['library'][] = 'personal_secretary/activity_default_duration';
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',

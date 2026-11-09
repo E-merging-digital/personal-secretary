@@ -113,6 +113,25 @@ final class ActivityDefaultDurationJavascriptTest extends WebDriverTestBase {
     $this->assertTime('end_local_time', '10:45');
   }
 
+  public function testFirstActivitySetupSuggestsAnEditableEnd(): void {
+    $this->drupalGet('/personal-secretary/setup');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementExists('css', 'input[data-ps-activity-start]');
+    $this->assertSession()->elementExists('css', 'input[data-ps-activity-end]');
+    $this->assertTime('end_local_time', '');
+
+    $this->setTime('start_local_time', '08:45');
+    $this->assertTime('end_local_time', '09:15');
+    $this->setTime('end_local_time', '10:00');
+    $this->setTime('start_local_time', '09:00');
+    $this->assertTime('end_local_time', '10:00');
+
+    // A suggested end must never silently cross into the next day.
+    $this->drupalGet('/personal-secretary/setup');
+    $this->setTime('start_local_time', '23:45');
+    $this->assertTime('end_local_time', '');
+  }
+
   private function setTime(string $name, string $value): void {
     $input = json_encode($name, JSON_THROW_ON_ERROR);
     $time = json_encode($value, JSON_THROW_ON_ERROR);
