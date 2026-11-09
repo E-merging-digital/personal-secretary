@@ -81,7 +81,16 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
   }
 
   public function getCancelUrl(): Url {
-    return Url::fromRoute($this->returnRoute());
+    // Admins can manage an occurrence without a current Person bound to them.
+    if ($this->cancelCurrentUser->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)) {
+      return Url::fromRoute('personal_secretary.upcoming');
+    }
+
+    // The detail route independently rechecks the exact occurrence access.
+    return Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => $this->seriesId(),
+      'original_occurrence_key' => $this->originalOccurrenceKey(),
+    ]);
   }
 
   public function getConfirmText(): TranslatableMarkup {
