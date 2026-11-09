@@ -267,7 +267,9 @@ final class AddActivityForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-      '#url' => Url::fromRoute('personal_secretary.today'),
+      '#url' => Url::fromRoute($this->fromToday()
+        ? 'personal_secretary.today'
+        : ($isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming')),
       '#attributes' => ['class' => ['button']],
       '#weight' => 10,
     ];
