@@ -224,6 +224,18 @@ final class TodayViewTest extends BrowserTestBase {
     $countsBefore = $this->domainCounts();
     $this->drupalGet($todayUrl);
     $this->assertSession()->statusCodeEquals(200);
+    $localNoon = new DateTimeImmutable(
+      $model['local_date'] . ' 12:00:00',
+      new \DateTimeZone($model['timezone']),
+    );
+    $displayDate = $this->container->get('date.formatter')->format(
+      $localNoon->getTimestamp(), 'custom', 'l j F Y', $model['timezone'],
+      $this->container->get('language_manager')->getCurrentLanguage()->getId(),
+    );
+    $dateContext = $this->assertSession()->elementExists('css', '.ps-today__date-context');
+    $this->assertStringContainsString($displayDate, $dateContext->getText());
+    $this->assertStringContainsString($model['timezone'], $dateContext->getText());
+    $this->assertStringNotContainsString($model['local_date'], $dateContext->getText());
     $this->assertSession()->pageTextContains('Tasks');
     $this->assertSession()->pageTextContains('Preparations');
     $this->assertSession()->pageTextContains('Planning');
