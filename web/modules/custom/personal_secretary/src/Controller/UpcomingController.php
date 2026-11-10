@@ -332,7 +332,7 @@ final class UpcomingController extends ControllerBase {
       }
       if (($includeAdminMutationLinks || $includeSelfMutationLinks) && $actionTarget !== NULL) {
         if (!$allDay) {
-          $occurrenceActions['reschedule'] = $this->rescheduleLink($actionTarget);
+          $occurrenceActions['reschedule'] = $this->rescheduleLink($actionTarget, $fromMine, $days, $query);
         }
         $occurrenceActions['cancel'] = $this->cancelLink($actionTarget, $fromMine, $days, $query);
       }
@@ -420,7 +420,7 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function rescheduleLink(array $target): array {
+  private function rescheduleLink(array $target, bool $fromMine, int $days, string $query): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('Reschedule occurrence'),
@@ -430,6 +430,7 @@ final class UpcomingController extends ControllerBase {
           'series' => $target['series_id'],
           'original_occurrence_key' => $target['original_occurrence_key'],
         ],
+        $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query)] : [],
       ),
       '#attributes' => ['class' => ['ps-action-link']],
     ];
