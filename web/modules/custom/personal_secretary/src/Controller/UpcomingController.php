@@ -141,7 +141,7 @@ final class UpcomingController extends ControllerBase {
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query, TRUE);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query, TRUE, TRUE);
     return $build;
   }
 
@@ -161,8 +161,16 @@ final class UpcomingController extends ControllerBase {
       throw new NotFoundHttpException('The requested occurrence is unavailable.', $exception);
     }
 
+    // The source of a detail page determines its navigation, not its access.
+    $input = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
+    $fromToday = ($input['from'] ?? NULL) === 'today';
+    $fromPreparations = ($input['from'] ?? NULL) === 'preparations';
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $occurrence = $this->buildItems([$item], $isAdmin, !$isAdmin, FALSE);
+    $occurrence = $this->buildItems(
+      [$item], $isAdmin, !$isAdmin, FALSE,
+      $this->selectedHorizonDays(), $this->selectedSearchQuery(), FALSE,
+      !$fromToday && !$fromPreparations,
+    );
     try {
       $google = $this->formBuilder()->getForm(GoogleCalendarExportForm::class, $series, $original_occurrence_key);
       $occurrence[0]['occurrence_actions'] ??= [
@@ -188,9 +196,6 @@ final class UpcomingController extends ControllerBase {
     }
 
     // The origin controls navigation only; it never expands occurrence access.
-    $input = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
-    $fromToday = ($input['from'] ?? NULL) === 'today';
-    $fromPreparations = ($input['from'] ?? NULL) === 'preparations';
     if ($fromToday) {
       $backTitle = $this->t('Back to Today');
       $backUrl = Url::fromRoute('personal_secretary.today');
@@ -260,6 +265,7 @@ final class UpcomingController extends ControllerBase {
     int $days = 7,
     string $query = '',
     bool $groupByDay = FALSE,
+    bool $fromMine = FALSE,
   ): array {
     // Reuse the authorized projection; only order and label its visible cards.
     $dayKey = static fn(array $item): string => !empty($item['all_day'])
@@ -328,7 +334,7 @@ final class UpcomingController extends ControllerBase {
         if (!$allDay) {
           $occurrenceActions['reschedule'] = $this->rescheduleLink($actionTarget);
         }
-        $occurrenceActions['cancel'] = $this->cancelLink($actionTarget);
+        $occurrenceActions['cancel'] = $this->cancelLink($actionTarget, $fromMine, $days, $query);
       }
 
       if ($occurrenceActions !== []) {
@@ -429,7 +435,7 @@ final class UpcomingController extends ControllerBase {
     ];
   }
 
-  private function cancelLink(array $target): array {
+  private function cancelLink(array $target, bool $fromMine, int $days, string $query): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('Cancel occurrence'),
@@ -439,6 +445,7 @@ final class UpcomingController extends ControllerBase {
           'series' => $target['series_id'],
           'original_occurrence_key' => $target['original_occurrence_key'],
         ],
+        $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query)] : [],
       ),
       '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--danger']],
     ];
