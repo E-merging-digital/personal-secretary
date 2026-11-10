@@ -686,7 +686,12 @@ final class PersonalTaskTest extends BrowserTestBase {
 
     $this->drupalGet('/personal-secretary/tasks/' . (int) $future->id());
     $this->assertSession()->pageTextContains('Task details');
-    $this->assertSession()->pageTextContains('Due: 2099-01-01');
+    $futureDisplay = $this->container->get('date.formatter')->format(
+      (new DateTimeImmutable('2099-01-01 12:00:00', new DateTimeZone('Europe/Brussels')))->getTimestamp(),
+      'custom', 'j F Y', 'Europe/Brussels',
+    );
+    $this->assertSession()->pageTextContains('Due: ' . $futureDisplay);
+    $this->assertSession()->pageTextNotContains('Due: 2099-01-01');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
 
     // Forged or unrelated query parameters must never be propagated by Back.
@@ -784,9 +789,13 @@ final class PersonalTaskTest extends BrowserTestBase {
       'Completion time descends first; ties use descending task ID, independent of due dates.',
     );
     $this->assertCount(4, $this->getSession()->getPage()->findAll('css', '.ps-task-row__status'));
-    $this->assertSession()->pageTextContains('Completed: 2026-03-29 03:30');
-    $this->assertSession()->pageTextContains('Completed: 2026-03-28 16:00');
-    $this->assertSession()->pageTextContains('Completed: 2026-03-28 13:00');
+    $formatter = $this->container->get('date.formatter');
+    foreach ([$latestUndated, $olderDated, $oldestUndated] as $task) {
+      $this->assertSession()->pageTextContains('Completed: ' . $formatter->format(
+        $times[(int) $task->id()], 'custom', 'j F Y H:i', 'Europe/Brussels',
+      ));
+    }
+    $this->assertSession()->pageTextNotContains('Completed: 2026-03-29');
     $this->assertSession()->pageTextNotContains('Synthetic private completed history');
 
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'completed', 'q' => 'undated history']]);
@@ -856,6 +865,13 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->fieldValueEquals('urgency', 'all');
     $this->assertSession()->pageTextContains('Tâches en retard');
     $this->assertSession()->pageTextContains('Autres tâches ouvertes');
+    $dateTimestamp = (new DateTimeImmutable('2020-01-01 12:00:00', new DateTimeZone('UTC')))->getTimestamp();
+    $formatter = $this->container->get('date.formatter');
+    $frenchDate = $formatter->format($dateTimestamp, 'custom', 'j F Y', 'UTC', 'fr');
+    $englishDate = $formatter->format($dateTimestamp, 'custom', 'j F Y', 'UTC', 'en');
+    $this->assertNotSame($frenchDate, $englishDate);
+    $this->assertSession()->pageTextContains($frenchDate);
+    $this->assertSession()->pageTextNotContains('2020-01-01');
 
     $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['status' => 'completed']]);
     $this->assertSession()->statusCodeEquals(200);
@@ -880,6 +896,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Overdue only');
     $this->assertSession()->pageTextContains('Overdue tasks');
     $this->assertSession()->pageTextContains('Other open tasks');
+    $this->assertSession()->pageTextContains($englishDate);
+    $this->assertSession()->pageTextNotContains('2020-01-01');
   }
 
   private function taskUser(int|string|null $personId, array $householdIds): UserInterface {
