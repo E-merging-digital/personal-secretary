@@ -10,6 +10,7 @@ use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Entity\Household;
 use Drupal\personal_secretary\Entity\PersonalTask;
@@ -29,6 +30,7 @@ final class PersonalTaskQueryService {
     private readonly TimeInterface $time,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   /**
@@ -242,6 +244,11 @@ final class PersonalTaskQueryService {
       ->setTimezone(new DateTimeZone('UTC'));
     $nowUtc = $nowUtc->setTimezone(new DateTimeZone('UTC'));
     $localToday = $nowUtc->setTimezone($timezone)->format('Y-m-d');
+    // The FR numeric pattern remains legible without an installed month catalog.
+    $datePattern = $this->languageManager->getCurrentLanguage()->getId() === 'fr'
+      ? 'd/m/Y'
+      : 'j F Y';
+    $dateTimePattern = $datePattern . ' H:i';
 
     $dueLabel = '';
     $dueDisplayLabel = '';
@@ -258,7 +265,7 @@ final class PersonalTaskQueryService {
       // Date-only values are civil days, not UTC instants.
       $localNoon = new DateTimeImmutable($dueDate . ' 12:00:00', $timezone);
       $dueDisplayLabel = $this->dateFormatter->format(
-        $localNoon->getTimestamp(), 'custom', 'j F Y', $timezone->getName(),
+        $localNoon->getTimestamp(), 'custom', $datePattern, $timezone->getName(),
       );
       $sortDue = (new DateTimeImmutable($dueDate . ' 23:59:59', $timezone))->getTimestamp();
     }
@@ -271,7 +278,7 @@ final class PersonalTaskQueryService {
       $overdue = $dueUtc < $nowUtc;
       $dueLabel = $dueUtc->setTimezone($timezone)->format('Y-m-d H:i');
       $dueDisplayLabel = $this->dateFormatter->format(
-        $dueUtc->getTimestamp(), 'custom', 'j F Y H:i', $timezone->getName(),
+        $dueUtc->getTimestamp(), 'custom', $dateTimePattern, $timezone->getName(),
       );
       $sortDue = $dueUtc->getTimestamp();
     }
@@ -287,7 +294,7 @@ final class PersonalTaskQueryService {
       ? (new DateTimeImmutable('@' . $completedAt))->setTimezone($timezone)->format('Y-m-d H:i')
       : '';
     $completedDisplayLabel = $completedAt !== NULL
-      ? $this->dateFormatter->format($completedAt, 'custom', 'j F Y H:i', $timezone->getName())
+      ? $this->dateFormatter->format($completedAt, 'custom', $dateTimePattern, $timezone->getName())
       : '';
 
     return [
