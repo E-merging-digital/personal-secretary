@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
@@ -28,6 +29,7 @@ final class TodayController extends ControllerBase {
     private readonly TodayService $todayService,
     private readonly LanguageManagerInterface $todayLanguageManager,
     private readonly RequestStack $requestStack,
+    private readonly DateFormatterInterface $todayDateFormatter,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -35,6 +37,7 @@ final class TodayController extends ControllerBase {
       $container->get('personal_secretary.today'),
       $container->get('language_manager'),
       $container->get('request_stack'),
+      $container->get('date.formatter'),
     );
   }
 
@@ -61,6 +64,16 @@ final class TodayController extends ControllerBase {
       return $build;
     }
 
+    // Format the existing source-local civil date for presentation only.
+    $localNoon = new \DateTimeImmutable(
+      $today['local_date'] . ' 12:00:00',
+      new \DateTimeZone($today['timezone']),
+    );
+    $displayDate = $this->todayDateFormatter->format(
+      $localNoon->getTimestamp(), 'custom', 'l j F Y', $today['timezone'],
+      $this->todayLanguageManager->getCurrentLanguage()->getId(),
+    );
+
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-today']],
@@ -70,7 +83,7 @@ final class TodayController extends ControllerBase {
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-today__date-context']],
         '#value' => $this->t('Today: @date (@timezone)', [
-          '@date' => $today['local_date'],
+          '@date' => $displayDate,
           '@timezone' => $today['timezone'],
         ]),
       ],
