@@ -7,16 +7,16 @@
         {% if all_day %}
           {{ 'All day'|t }} —
           {% if all_day_start_date == all_day_end_date %}
-            <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
+            <time datetime="{{ all_day_start_date }}">{{ display_start_label }}</time>
           {% else %}
-            {{ 'from'|t }} <time datetime="{{ all_day_start_date }}">{{ all_day_start_date }}</time>
-            {{ 'to'|t }} <time datetime="{{ all_day_end_date }}">{{ all_day_end_date }}</time>
+            {{ 'from'|t }} <time datetime="{{ all_day_start_date }}">{{ display_start_label }}</time>
+            {{ 'to'|t }} <time datetime="{{ all_day_end_date }}">{{ display_end_label }}</time>
           {% endif %}
           ({{ source_timezone }})
         {% else %}
-          <time datetime="{{ effective_start_iso }}">{{ effective_start }}</time>
+          <time datetime="{{ effective_start_iso }}">{{ display_start_label }}</time>
           –
-          <time datetime="{{ effective_end_iso }}">{{ effective_end }}</time>
+          <time datetime="{{ effective_end_iso }}">{{ display_end_label }}</time>
           ({{ display_timezone }})
         {% endif %}
       </dd>

@@ -12,6 +12,8 @@ props:
     - effective_end
     - effective_start_iso
     - effective_end_iso
+    - display_start_label
+    - display_end_label
     - display_timezone
     - source_timezone
     - source_label
@@ -44,6 +46,12 @@ props:
     effective_end_iso:
       type: string
       title: Viewer-local timed end ISO datetime
+    display_start_label:
+      type: string
+      title: Localized Planning start label
+    display_end_label:
+      type: string
+      title: Localized Planning end label
     display_timezone:
       type: string
       title: Current User display timezone
