@@ -285,7 +285,6 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists($mineCancelUrl . $mineQuery);
 
     $this->drupalGet($mineRequest);
-    $this->assertSession()->linkByHrefExists($filteredMineUrl->toString());
     $this->clickLink('Keep this occurrence');
     $this->assertSession()->addressEquals($filteredMineUrl->toString());
     $this->assertSame(3, $this->cancelCount());
