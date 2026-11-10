@@ -139,7 +139,7 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Add activity');
     $this->assertSession()->linkExists('Cancel occurrence');
     $this->assertSession()->linkExists('Reschedule occurrence');
-    $this->assertSession()->linkByHrefExists($weeklyUrl);
+    $this->assertSession()->linkByHrefExists($weeklyUrl . '?from=mine');
     $this->assertSession()->linkByHrefNotExists($allDayUrl);
     $this->assertSession()->linkByHrefExists($weeklyDetailUrl);
     $this->assertSession()->linkByHrefExists($allDayDetailUrl);
@@ -398,6 +398,54 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     ));
     $this->assertSession()->statusCodeEquals(404);
     $this->assertSame($beforeRejectedReschedule, count($this->activeReschedules()));
+
+    // Personal navigation must be retained for a linked administrator too.
+    [$returnable, $returnableTarget] = $this->createSeriesWithResponsibility(
+      'Returnable admin activity',
+      $h1,
+      $current,
+      $nowLocal->modify('+4 days')->setTime(18, 0),
+      'FREQ=DAILY;COUNT=1',
+    );
+    $returnableUrl = $this->rescheduleUrl($returnable, $returnableTarget->originalOccurrenceKey);
+    $filteredMineUrl = Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Returnable'],
+    ]);
+    $returnableFromMineUrl = Url::fromUserInput($returnableUrl, [
+      'query' => ['from' => 'mine', 'days' => '30', 'q' => 'Returnable'],
+    ]);
+
+    $admin = $this->drupalCreateUser([HouseholdAuthorizationService::ADMIN_PERMISSION]);
+    $this->assertInstanceOf(UserInterface::class, $admin);
+    $admin->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $current->id()])->save();
+    $this->drupalLogout();
+    $this->drupalLogin($admin);
+
+    $this->drupalGet($filteredMineUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists($returnableUrl . '?from=mine&days=30&q=Returnable');
+    $this->clickLink('Reschedule occurrence');
+    $this->assertSession()->addressEquals($returnableFromMineUrl->toString());
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($filteredMineUrl->toString());
+    $this->assertCount(1, $this->activeReschedules(), 'Cancel never reschedules an occurrence.');
+
+    // Direct administration and a forged origin must keep the prior exit.
+    $this->drupalGet($returnableUrl);
+    $this->assertSession()->linkByHrefExists($this->detailUrl($returnable, $returnableTarget->originalOccurrenceKey));
+    $this->drupalGet(Url::fromUserInput($returnableUrl, ['query' => ['from' => ['mine']]]));
+    $this->assertSession()->linkByHrefExists($this->detailUrl($returnable, $returnableTarget->originalOccurrenceKey));
+
+    $returnableStart = (new DateTimeImmutable($returnableTarget->sourceLocalStart))->modify('+30 minutes');
+    $this->drupalGet($returnableFromMineUrl);
+    $this->submitForm([
+      'new_date' => $returnableStart->format('Y-m-d'),
+      'new_local_start_time' => $returnableStart->format('H:i'),
+      'new_local_end_time' => $returnableStart->modify('+1 hour')->format('H:i'),
+    ], 'Reschedule occurrence');
+    $this->assertSession()->addressEquals($filteredMineUrl->toString());
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertCount(2, $this->activeReschedules(), 'Exactly one additional occurrence was rescheduled.');
   }
 
   /**
