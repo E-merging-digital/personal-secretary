@@ -77,13 +77,13 @@ final class PersonalTaskController extends ControllerBase {
           '#value' => $this->t('@task', ['@task' => (string) $item['title']]),
         ],
       ];
-      if ((string) $item['due_label'] !== '') {
+      if ((string) $item['due_display_label'] !== '') {
         $build['items'][$delta]['due'] = [
           '#type' => 'html_tag',
           '#tag' => 'span',
           '#value' => $item['overdue']
-            ? $this->t('Overdue: @due', ['@due' => (string) $item['due_label']])
-            : $this->t('Due: @due', ['@due' => (string) $item['due_label']]),
+            ? $this->t('Overdue: @due', ['@due' => (string) $item['due_display_label']])
+            : $this->t('Due: @due', ['@due' => (string) $item['due_display_label']]),
         ];
       }
       $build['items'][$delta]['edit'] = [
@@ -128,8 +128,8 @@ final class PersonalTaskController extends ControllerBase {
       'due' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => (string) $item['due_label'] !== ''
-          ? $this->t('Due: @due', ['@due' => (string) $item['due_label']])
+        '#value' => (string) $item['due_display_label'] !== ''
+          ? $this->t('Due: @due', ['@due' => (string) $item['due_display_label']])
           : $this->t('No due date.'),
       ],
       'status' => [

@@ -183,8 +183,8 @@ final class TodayController extends ControllerBase {
             '#tag' => 'span',
             '#attributes' => ['class' => ['ps-task-card__due']],
             '#value' => $item['overdue']
-              ? $this->t('Overdue: @due', ['@due' => (string) $item['due_label']])
-              : $this->t('Due: @due', ['@due' => (string) $item['due_label']]),
+              ? $this->t('Overdue: @due', ['@due' => (string) $item['due_display_label']])
+              : $this->t('Due: @due', ['@due' => (string) $item['due_display_label']]),
           ],
           'status' => [
             '#type' => 'link',

@@ -285,9 +285,9 @@ final class PersonalTaskListForm extends FormBase {
         $statusLabel = $item['status'] === PersonalTask::STATUS_COMPLETED
           ? $this->t('Completed')
           : $this->t('Open');
-        if ($statusFilter === 'completed' && (string) $item['completed_label'] !== '') {
+        if ($statusFilter === 'completed' && (string) $item['completed_display_label'] !== '') {
           $statusLabel = $this->t('Completed: @completed', [
-            '@completed' => (string) $item['completed_label'],
+            '@completed' => (string) $item['completed_display_label'],
           ]);
         }
         $row['status'] = [
@@ -298,13 +298,13 @@ final class PersonalTaskListForm extends FormBase {
         ];
       }
 
-      if ((string) $item['due_label'] !== '') {
+      if ((string) $item['due_display_label'] !== '') {
         $row['due'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
           '#value' => $item['overdue'] && $item['status'] === PersonalTask::STATUS_OPEN
-            ? $this->t('Overdue: @due', ['@due' => (string) $item['due_label']])
-            : $this->t('Due: @due', ['@due' => (string) $item['due_label']]),
+            ? $this->t('Overdue: @due', ['@due' => (string) $item['due_display_label']])
+            : $this->t('Due: @due', ['@due' => (string) $item['due_display_label']]),
           '#attributes' => ['class' => ['ps-task-row__due']],
         ];
       }

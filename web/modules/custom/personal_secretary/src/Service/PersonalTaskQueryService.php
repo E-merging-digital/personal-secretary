@@ -8,7 +8,9 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\personal_secretary\Entity\Household;
 use Drupal\personal_secretary\Entity\PersonalTask;
@@ -27,6 +29,8 @@ final class PersonalTaskQueryService {
     private readonly CurrentPersonResolver $currentPersonResolver,
     private readonly TimeInterface $time,
     private readonly ConfigFactoryInterface $configFactory,
+    private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   /**
@@ -240,8 +244,14 @@ final class PersonalTaskQueryService {
       ->setTimezone(new DateTimeZone('UTC'));
     $nowUtc = $nowUtc->setTimezone(new DateTimeZone('UTC'));
     $localToday = $nowUtc->setTimezone($timezone)->format('Y-m-d');
+    // The FR numeric pattern remains legible without an installed month catalog.
+    $datePattern = $this->languageManager->getCurrentLanguage()->getId() === 'fr'
+      ? 'd/m/Y'
+      : 'j F Y';
+    $dateTimePattern = $datePattern . ' H:i';
 
     $dueLabel = '';
+    $dueDisplayLabel = '';
     $overdue = FALSE;
     $sortDue = PHP_INT_MAX;
 
@@ -252,6 +262,11 @@ final class PersonalTaskQueryService {
       }
       $overdue = $localToday > $dueDate;
       $dueLabel = $dueDate;
+      // Date-only values are civil days, not UTC instants.
+      $localNoon = new DateTimeImmutable($dueDate . ' 12:00:00', $timezone);
+      $dueDisplayLabel = $this->dateFormatter->format(
+        $localNoon->getTimestamp(), 'custom', $datePattern, $timezone->getName(),
+      );
       $sortDue = (new DateTimeImmutable($dueDate . ' 23:59:59', $timezone))->getTimestamp();
     }
     elseif ($mode === PersonalTask::DUE_DATE_TIME) {
@@ -262,6 +277,9 @@ final class PersonalTaskQueryService {
       }
       $overdue = $dueUtc < $nowUtc;
       $dueLabel = $dueUtc->setTimezone($timezone)->format('Y-m-d H:i');
+      $dueDisplayLabel = $this->dateFormatter->format(
+        $dueUtc->getTimestamp(), 'custom', $dateTimePattern, $timezone->getName(),
+      );
       $sortDue = $dueUtc->getTimestamp();
     }
     elseif ($mode !== PersonalTask::DUE_NONE) {
@@ -275,15 +293,20 @@ final class PersonalTaskQueryService {
     $completedLabel = $completedAt !== NULL
       ? (new DateTimeImmutable('@' . $completedAt))->setTimezone($timezone)->format('Y-m-d H:i')
       : '';
+    $completedDisplayLabel = $completedAt !== NULL
+      ? $this->dateFormatter->format($completedAt, 'custom', $dateTimePattern, $timezone->getName())
+      : '';
 
     return [
       'id' => (int) $task->id(),
       'title' => (string) $task->get('title')->value,
       'due_mode' => $mode,
       'due_label' => $dueLabel,
+      'due_display_label' => $dueDisplayLabel,
       'overdue' => $overdue,
       'status' => $status,
       'completed_label' => $completedLabel,
+      'completed_display_label' => $completedDisplayLabel,
       'sort_completed_at' => $completedAt ?? 0,
       'sort_bucket' => $overdue ? 0 : ($mode === PersonalTask::DUE_NONE ? 2 : 1),
       'sort_due' => $sortDue,

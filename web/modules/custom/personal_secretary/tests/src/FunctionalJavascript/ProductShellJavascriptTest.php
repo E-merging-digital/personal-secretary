@@ -424,10 +424,15 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
       $rowSelector . ' .ps-task-row__title',
       'Browser overdue task title',
     );
+    $timezone = (string) $context['user']->getTimeZone();
+    $dueDisplay = $this->container->get('date.formatter')->format(
+      (new \DateTimeImmutable('2000-01-01 12:00:00', new \DateTimeZone($timezone)))->getTimestamp(),
+      'custom', 'j F Y', $timezone, 'en',
+    );
     $assert->elementTextContains(
       'css',
       $rowSelector . ' .ps-task-row__due',
-      'Overdue: 2000-01-01',
+      'Overdue: ' . $dueDisplay,
     );
     $assert->elementExists('css', $rowSelector . ' .ps-task-row__complete');
     $assert->elementExists('css', $rowSelector . ' .ps-task-row__edit');
