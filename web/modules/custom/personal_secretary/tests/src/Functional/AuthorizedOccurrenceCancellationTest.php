@@ -138,8 +138,8 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $this->assertSession()->linkExists('Add activity');
     $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
     $this->assertSession()->linkExists('Cancel occurrence');
-    $this->assertSession()->linkByHrefExists($weeklyUrl);
-    $this->assertSession()->linkByHrefExists($oneOffUrl);
+    $this->assertSession()->linkByHrefExists($weeklyUrl . '?from=mine');
+    $this->assertSession()->linkByHrefExists($oneOffUrl . '?from=mine');
     $this->assertSession()->linkExists('Reschedule occurrence');
     $this->assertSession()->linkByHrefExists($this->rescheduleUrl($weekly, $weeklyTarget->originalOccurrenceKey));
     foreach ([
