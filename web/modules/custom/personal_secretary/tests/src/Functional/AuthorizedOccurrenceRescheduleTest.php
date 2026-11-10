@@ -428,7 +428,7 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     $this->assertSession()->addressEquals($returnableFromMineUrl->toString());
     $this->clickLink('Cancel');
     $this->assertSession()->addressEquals($filteredMineUrl->toString());
-    $this->assertCount(1, $this->activeReschedules(), 'Cancel never reschedules an occurrence.');
+    $this->assertCount($beforeRejectedReschedule, $this->activeReschedules(), 'Cancel never reschedules an occurrence.');
 
     // Direct administration and a forged origin must keep the prior exit.
     $this->drupalGet($returnableUrl);
@@ -445,7 +445,7 @@ final class AuthorizedOccurrenceRescheduleTest extends BrowserTestBase {
     ], 'Reschedule occurrence');
     $this->assertSession()->addressEquals($filteredMineUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertCount(2, $this->activeReschedules(), 'Exactly one additional occurrence was rescheduled.');
+    $this->assertCount($beforeRejectedReschedule + 1, $this->activeReschedules(), 'Exactly one additional occurrence was rescheduled.');
   }
 
   /**
