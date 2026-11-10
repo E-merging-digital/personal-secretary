@@ -232,6 +232,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     );
     $admin = $this->drupalCreateUser([HouseholdAuthorizationService::ADMIN_PERMISSION]);
     $this->assertInstanceOf(UserInterface::class, $admin);
+    $admin->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $other->id()])->save();
     $this->drupalLogout();
     $this->drupalLogin($admin);
     $this->drupalGet('/personal-secretary/upcoming');
@@ -263,7 +264,6 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
 
     // An administrator using the personal list must return to that list,
     // retaining the active horizon and search after either decision.
-    $admin->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $other->id()])->save();
     [$mineSeries, $mineTarget] = $this->createSeriesWithResponsibility(
       'Return to My upcoming',
       $h1,
