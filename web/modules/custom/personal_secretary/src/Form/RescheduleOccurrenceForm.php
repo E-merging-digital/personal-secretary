@@ -103,12 +103,22 @@ final class RescheduleOccurrenceForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-      '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
-        'series' => $this->seriesId(),
-        'original_occurrence_key' => $this->originalOccurrenceKey(),
-      ]),
+      '#url' => $this->fromMyUpcoming()
+        ? Url::fromRoute('personal_secretary.my_upcoming', [], $this->returnOptions())
+        : Url::fromRoute('personal_secretary.occurrence_detail', [
+          'series' => $this->seriesId(),
+          'original_occurrence_key' => $this->originalOccurrenceKey(),
+        ]),
       '#attributes' => ['class' => ['button']],
     ];
+
+    if ($this->fromMyUpcoming()) {
+      // Preserve only a bounded navigation origin across the confirmation POST.
+      $form['#action'] = Url::fromRoute('personal_secretary.reschedule_occurrence', [
+        'series' => $this->seriesId(),
+        'original_occurrence_key' => $this->originalOccurrenceKey(),
+      ], ['query' => ['from' => 'mine'] + $this->returnQuery()])->toString();
+    }
 
     return $form;
   }
@@ -177,7 +187,7 @@ final class RescheduleOccurrenceForm extends FormBase {
       $this->messenger()->addError($this->t('This occurrence can no longer be rescheduled.'));
     }
 
-    $form_state->setRedirect($this->returnRoute());
+    $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions());
   }
 
   private function stalePostForm(array $form): array {
@@ -205,11 +215,48 @@ final class RescheduleOccurrenceForm extends FormBase {
 
   private function staleResponse(FormStateInterface $form_state): void {
     $this->messenger()->addError($this->t('This occurrence can no longer be rescheduled.'));
-    $url = Url::fromRoute($this->returnRoute())->toString();
+    $url = Url::fromRoute($this->returnRoute(), [], $this->returnOptions())->toString();
     $form_state->setResponse(new RedirectResponse($url));
   }
 
+  private function fromMyUpcoming(): bool {
+    return ($this->getRequest()->query->all()['from'] ?? NULL) === 'mine';
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function returnQuery(): array {
+    $input = $this->getRequest()->query->all();
+    $query = [];
+    if (($input['days'] ?? NULL) === '30') {
+      $query['days'] = '30';
+    }
+    $search = $input['q'] ?? NULL;
+    if (is_string($search)) {
+      $search = trim($search);
+      if ($search !== '' && mb_strlen($search) <= 100) {
+        $query['q'] = $search;
+      }
+    }
+    return $query;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function returnOptions(): array {
+    if (!$this->fromMyUpcoming()) {
+      return [];
+    }
+    $query = $this->returnQuery();
+    return $query === [] ? [] : ['query' => $query];
+  }
+
   private function returnRoute(): string {
+    if ($this->fromMyUpcoming()) {
+      return 'personal_secretary.my_upcoming';
+    }
     return $this->rescheduleCurrentUser->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)
       ? 'personal_secretary.upcoming'
       : 'personal_secretary.my_upcoming';
