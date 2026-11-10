@@ -82,14 +82,76 @@ final class PersonalTaskDuePresentationTest extends BrowserTestBase {
         (int) $household->id(),
         PersonalTask::DUE_NONE,
       );
+      $timed = $mutations->createTask(
+        'Synthetic timed overdue task',
+        (int) $household->id(),
+        PersonalTask::DUE_DATE_TIME,
+        NULL,
+        $yesterday . ' 12:30',
+      );
 
-      $this->assertFalse($query->present($dueToday)['overdue'], 'A DATE task due on the viewing User civil date is not overdue merely because local midnight passed.');
-      $this->assertTrue($query->present($dueYesterday)['overdue'], 'A DATE task becomes overdue only after its civil due date has passed.');
+      $formatter = $this->container->get('date.formatter');
+      $timezone = new DateTimeZone('Europe/Brussels');
+      $expectedDate = $formatter->format(
+        (new DateTimeImmutable($yesterday . ' 12:00:00', $timezone))->getTimestamp(),
+        'custom', 'j F Y', 'Europe/Brussels',
+      );
+      $timedUtc = new DateTimeImmutable((string) $timed->get('due_at')->value, new DateTimeZone('UTC'));
+      $expectedTimed = $formatter->format(
+        $timedUtc->getTimestamp(), 'custom', 'j F Y H:i', 'Europe/Brussels',
+      );
+
+      $todayModel = $query->present($dueToday);
+      $yesterdayModel = $query->present($dueYesterday);
+      $timedModel = $query->present($timed);
+      $this->assertFalse($todayModel['overdue'], 'A DATE task due on the viewing User civil date is not overdue merely because local midnight passed.');
+      $this->assertTrue($yesterdayModel['overdue'], 'A DATE task becomes overdue only after its civil due date has passed.');
+      $this->assertTrue($timedModel['overdue']);
       $this->assertFalse($query->present($undated)['overdue'], 'An undated task is never overdue.');
+      $this->assertSame($yesterday, $yesterdayModel['due_label'], 'Machine date remains ISO for domain consumers.');
+      $this->assertSame($expectedDate, $yesterdayModel['due_display_label']);
+      $this->assertSame($yesterday . ' 12:30', $timedModel['due_label'], 'Machine timestamp label is unchanged.');
+      $this->assertSame($expectedTimed, $timedModel['due_display_label']);
+
+      $this->assertTrue($mutations->completeTask((int) $undated->id()));
+      $storage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
+      $storage->resetCache([(int) $undated->id()]);
+      $completed = $storage->load($undated->id());
+      $this->assertInstanceOf(PersonalTask::class, $completed);
+      $completedAt = (int) $completed->get('completed_at')->value;
+      $completedModel = $query->present($completed);
+      $this->assertSame(
+        (new DateTimeImmutable('@' . $completedAt))->setTimezone($timezone)->format('Y-m-d H:i'),
+        $completedModel['completed_label'],
+      );
+      $this->assertSame(
+        $formatter->format($completedAt, 'custom', 'j F Y H:i', 'Europe/Brussels'),
+        $completedModel['completed_display_label'],
+      );
     }
     finally {
       $accountSwitcher->switchBack();
     }
+
+    $this->drupalLogin($user);
+    $this->drupalGet('/personal-secretary/today');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Overdue: ' . $expectedTimed);
+    $this->assertSession()->pageTextContains('Overdue: ' . $expectedDate);
+    foreach ($this->getSession()->getPage()->findAll('css', '.ps-task-card__due') as $element) {
+      $this->assertStringNotContainsString($yesterday, $element->getText());
+    }
+
+    $this->drupalGet('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Overdue: ' . $expectedTimed);
+    $this->assertSession()->pageTextContains('Overdue: ' . $expectedDate);
+    foreach ($this->getSession()->getPage()->findAll('css', '.ps-task-row__due') as $element) {
+      $this->assertStringNotContainsString($yesterday, $element->getText());
+    }
+
+    $this->drupalGet('/personal-secretary/tasks/' . (int) $timed->id());
+    $this->assertSession()->pageTextContains('Due: ' . $expectedTimed);
+    $this->assertSession()->pageTextNotContains($yesterday . ' 12:30');
   }
 
   private function installUserReferenceField(string $fieldName, string $targetType, int $cardinality, string $label): void {
