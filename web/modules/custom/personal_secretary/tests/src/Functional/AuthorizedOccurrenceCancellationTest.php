@@ -275,19 +275,19 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $mineQuery = '?from=mine&days=30&q=Return';
     $filteredMineUrl = Url::fromRoute('personal_secretary.my_upcoming', [], [
       'query' => ['days' => '30', 'q' => 'Return'],
-    ])->toString();
+    ]);
     $mineRequest = Url::fromUserInput($mineCancelUrl, [
       'query' => ['from' => 'mine', 'days' => '30', 'q' => 'Return'],
     ]);
 
-    $this->drupalGet(Url::fromUserInput($filteredMineUrl));
+    $this->drupalGet($filteredMineUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($mineCancelUrl . $mineQuery);
 
     $this->drupalGet($mineRequest);
-    $this->assertSession()->linkByHrefExists($filteredMineUrl);
+    $this->assertSession()->linkByHrefExists($filteredMineUrl->toString());
     $this->clickLink('Keep this occurrence');
-    $this->assertSession()->addressEquals($filteredMineUrl);
+    $this->assertSession()->addressEquals($filteredMineUrl->toString());
     $this->assertSame(3, $this->cancelCount());
 
     // A forged array must never act as a personal-list origin.
@@ -296,7 +296,7 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
 
     $this->drupalGet($mineRequest);
     $this->submitForm([], 'Cancel this occurrence');
-    $this->assertSession()->addressEquals($filteredMineUrl);
+    $this->assertSession()->addressEquals($filteredMineUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSame(4, $this->cancelCount());
   }
