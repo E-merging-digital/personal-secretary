@@ -867,7 +867,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Autres tâches ouvertes');
     $dateTimestamp = (new DateTimeImmutable('2020-01-01 12:00:00', new DateTimeZone('UTC')))->getTimestamp();
     $formatter = $this->container->get('date.formatter');
-    $frenchDate = $formatter->format($dateTimestamp, 'custom', 'j F Y', 'UTC', 'fr');
+    $frenchDate = $formatter->format($dateTimestamp, 'custom', 'd/m/Y', 'UTC', 'fr');
     $englishDate = $formatter->format($dateTimestamp, 'custom', 'j F Y', 'UTC', 'en');
     $this->assertNotSame($frenchDate, $englishDate);
     $this->assertSession()->pageTextContains($frenchDate);
