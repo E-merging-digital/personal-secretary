@@ -42,6 +42,18 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
     return 'personal_secretary_cancel_occurrence';
   }
 
+  public function buildForm(array $form, FormStateInterface $form_state): array {
+    $form = parent::buildForm($form, $form_state);
+    if ($this->fromMyUpcoming()) {
+      // Preserve only the bounded product origin on the confirmation POST.
+      $form['#action'] = Url::fromRoute('personal_secretary.cancel_occurrence', [
+        'series' => $this->seriesId(),
+        'original_occurrence_key' => $this->originalOccurrenceKey(),
+      ], ['query' => ['from' => 'mine'] + $this->returnQuery()])->toString();
+    }
+    return $form;
+  }
+
   public function getQuestion(): TranslatableMarkup {
     if ($this->getRequest()->isMethod('POST')) {
       return $this->t('Cancel this occurrence?');
@@ -81,6 +93,10 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
   }
 
   public function getCancelUrl(): Url {
+    if ($this->fromMyUpcoming()) {
+      return Url::fromRoute('personal_secretary.my_upcoming', [], $this->returnOptions());
+    }
+
     // Admins can manage an occurrence without a current Person bound to them.
     if ($this->cancelCurrentUser->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION)) {
       return Url::fromRoute('personal_secretary.upcoming');
@@ -108,7 +124,42 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
       $this->messenger()->addError($this->t('This occurrence can no longer be cancelled.'));
     }
 
+    if ($this->fromMyUpcoming()) {
+      $form_state->setRedirect('personal_secretary.my_upcoming', [], $this->returnOptions());
+      return;
+    }
     $form_state->setRedirect($this->returnRoute());
+  }
+
+  private function fromMyUpcoming(): bool {
+    return ($this->getRequest()->query->all()['from'] ?? NULL) === 'mine';
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function returnQuery(): array {
+    $input = $this->getRequest()->query->all();
+    $query = [];
+    if (($input['days'] ?? NULL) === '30') {
+      $query['days'] = '30';
+    }
+    $search = $input['q'] ?? NULL;
+    if (is_string($search)) {
+      $search = trim($search);
+      if ($search !== '' && mb_strlen($search) <= 100) {
+        $query['q'] = $search;
+      }
+    }
+    return $query;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function returnOptions(): array {
+    $query = $this->returnQuery();
+    return $query === [] ? [] : ['query' => $query];
   }
 
   private function returnRoute(): string {

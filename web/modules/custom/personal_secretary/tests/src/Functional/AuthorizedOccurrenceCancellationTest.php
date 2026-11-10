@@ -260,6 +260,40 @@ final class AuthorizedOccurrenceCancellationTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSame(3, $this->cancelCount());
+
+    // An administrator using the personal list must return to that list,
+    // retaining the active horizon and search after either decision.
+    $admin->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $other->id()])->save();
+    [$mineSeries, $mineTarget] = $this->createSeriesWithResponsibility(
+      'Return to My upcoming',
+      $h1,
+      $other,
+      $nowLocal->modify('+4 days')->setTime(17, 0),
+      'FREQ=DAILY;COUNT=1',
+    );
+    $mineCancelUrl = $this->cancelUrl($mineSeries, $mineTarget->originalOccurrenceKey);
+    $mineQuery = '?from=mine&days=30&q=Return';
+    $filteredMineUrl = '/personal-secretary/upcoming/mine?days=30&q=Return';
+
+    $this->drupalGet($filteredMineUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists($mineCancelUrl . $mineQuery);
+
+    $this->drupalGet($mineCancelUrl . $mineQuery);
+    $this->assertSession()->linkByHrefExists($filteredMineUrl);
+    $this->clickLink('Keep this occurrence');
+    $this->assertSession()->addressEquals($filteredMineUrl);
+    $this->assertSame(3, $this->cancelCount());
+
+    // A forged array must never act as a personal-list origin.
+    $this->drupalGet($mineCancelUrl . '?from%5B%5D=mine');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+
+    $this->drupalGet($mineCancelUrl . $mineQuery);
+    $this->submitForm([], 'Cancel this occurrence');
+    $this->assertSession()->addressEquals($filteredMineUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSame(4, $this->cancelCount());
   }
 
   public function testFreshGrantCurrentPersonMembershipAndResponsibilityRacesFailClosed(): void {
