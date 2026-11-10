@@ -127,7 +127,7 @@ final class UpcomingController extends ControllerBase {
     );
     $build['horizon'] = $this->horizonLinks($days, $query);
     $build['search'] = $this->searchForm($days, $query);
-    $build['add_activity'] = $this->addActivityLink();
+    $build['add_activity'] = $this->addActivityLink(TRUE, $days, $query);
 
     if ($items === []) {
       $build['empty'] = [
@@ -630,14 +630,16 @@ final class UpcomingController extends ControllerBase {
   /**
    * @return array<string, mixed>
    */
-  private function addActivityLink(): array {
+  private function addActivityLink(bool $fromMine = FALSE, int $days = 7, string $query = ''): array {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-upcoming-actions']],
       'add_activity' => [
         '#type' => 'link',
         '#title' => $this->t('Add activity'),
-        '#url' => Url::fromRoute('personal_secretary.add_activity'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity', [],
+          $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query)] : [],
+        ),
         '#attributes' => ['class' => ['ps-upcoming-actions__add']],
       ],
     ];
