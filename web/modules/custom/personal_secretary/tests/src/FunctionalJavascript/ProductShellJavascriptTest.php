@@ -332,7 +332,16 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     $this->assertJsCondition(
       "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
     );
-
+    $mode->selectOption(PersonalTask::DUE_NONE);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
   }
 
   public function testPersonalTaskHouseholdUxAndPersistence(): void {
