@@ -7,6 +7,7 @@ namespace Drupal\Tests\personal_secretary\Functional;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
@@ -156,6 +157,65 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
     $this->clickLink('Cancel');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+  }
+
+  public function testMyUpcomingCreationRetainsBoundedReturnForLinkedAdmin(): void {
+    $this->installUserScopeFields();
+
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $current = $domain->createPerson('Returnable Current Person');
+    $household = $domain->createHousehold('Returnable Household', [(int) $current->id()]);
+    $admin = $this->drupalCreateUser([HouseholdAuthorizationService::ADMIN_PERMISSION]);
+    $this->assertInstanceOf(UserInterface::class, $admin);
+    $admin->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $current->id()])->save();
+    $this->drupalLogin($admin);
+
+    $filteredMine = Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Returnable'],
+    ]);
+    $addFromMine = Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => 'mine', 'days' => '30', 'q' => 'Returnable'],
+    ]);
+    $before = $this->creationCounts();
+
+    $this->drupalGet($filteredMine);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists($addFromMine->toString());
+    $this->drupalGet($addFromMine);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($filteredMine->toString());
+    $this->assertSame($before, $this->creationCounts(), 'Cancel creates nothing.');
+
+    // A direct admin entry or malformed origin keeps its historical exit.
+    $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->drupalGet(Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => ['mine']],
+    ]));
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+
+    $nowLocal = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('Europe/Brussels'));
+    $this->drupalGet($addFromMine);
+    $this->submitForm([
+      'household_id' => (string) $household->id(),
+      'activity_type' => 'one_off',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'responsible_person_id' => (string) $current->id(),
+      'activity_label' => 'Returnable one-off activity',
+      'first_occurrence_date' => $nowLocal->modify('+2 days')->format('Y-m-d'),
+      'start_local_time' => '10:00',
+      'end_local_time' => '11:00',
+      'source_timezone' => 'Europe/Brussels',
+      'preparation_instruction' => '',
+      'preparation_lead_minutes' => '0',
+    ], 'Add activity');
+    $this->assertSession()->addressEquals($filteredMine->toString());
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Activity "Returnable one-off activity" added.');
+    $this->assertSame($before['series'] + 1, $this->creationCounts()['series'], 'One activity was created.');
   }
 
   public function testOrdinaryWeeklyAndOneOffCreationReuseExistingSemantics(): void {
