@@ -50,9 +50,9 @@ final class AddActivityForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    // Preserve only the explicit Today origin across the form POST.
-    if ($this->fromToday()) {
-      $form['#action'] = Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']])->toString();
+    // Preserve only a typed navigation origin across the form POST.
+    if ($this->fromToday() || $this->fromMyUpcoming()) {
+      $form['#action'] = Url::fromRoute('personal_secretary.add_activity', [], ['query' => $this->navigationQuery()])->toString();
     }
     $isAdministrator = $this->isAdministrator();
     $currentPersonId = NULL;
@@ -267,9 +267,13 @@ final class AddActivityForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Cancel'),
-      '#url' => Url::fromRoute($this->fromToday()
-        ? 'personal_secretary.today'
-        : ($isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming')),
+      '#url' => Url::fromRoute(
+        $this->fromToday()
+          ? 'personal_secretary.today'
+          : ($this->fromMyUpcoming() ? 'personal_secretary.my_upcoming' : ($isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming')),
+        [],
+        $this->fromMyUpcoming() ? $this->myUpcomingOptions() : [],
+      ),
       '#attributes' => ['class' => ['button']],
       '#weight' => 10,
     ];
@@ -499,7 +503,8 @@ final class AddActivityForm extends FormBase {
           ? 'The activity could not be created for the selected household and options.'
           : 'The activity could not be created for your current Household access and Person context.',
       ));
-      $form_state->setRedirect('personal_secretary.add_activity', [], $this->fromToday() ? ['query' => ['from' => 'today']] : []);
+      $query = $this->navigationQuery();
+      $form_state->setRedirect('personal_secretary.add_activity', [], $query === [] ? [] : ['query' => $query]);
       return;
     }
 
@@ -508,6 +513,9 @@ final class AddActivityForm extends FormBase {
     ]));
     if ($this->fromToday()) {
       $form_state->setRedirect('personal_secretary.today');
+    }
+    elseif ($this->fromMyUpcoming()) {
+      $form_state->setRedirect('personal_secretary.my_upcoming', [], $this->myUpcomingOptions());
     }
     else {
       $form_state->setRedirect(
@@ -521,6 +529,44 @@ final class AddActivityForm extends FormBase {
    */
   private function fromToday(): bool {
     return ($this->getRequest()->query->all()['from'] ?? NULL) === 'today';
+  }
+
+  private function fromMyUpcoming(): bool {
+    return ($this->getRequest()->query->all()['from'] ?? NULL) === 'mine';
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function navigationQuery(): array {
+    if ($this->fromToday()) {
+      return ['from' => 'today'];
+    }
+    if (!$this->fromMyUpcoming()) {
+      return [];
+    }
+    $input = $this->getRequest()->query->all();
+    $query = ['from' => 'mine'];
+    if (($input['days'] ?? NULL) === '30') {
+      $query['days'] = '30';
+    }
+    $search = $input['q'] ?? NULL;
+    if (is_string($search)) {
+      $search = trim($search);
+      if ($search !== '' && mb_strlen($search) <= 100) {
+        $query['q'] = $search;
+      }
+    }
+    return $query;
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function myUpcomingOptions(): array {
+    $query = $this->navigationQuery();
+    unset($query['from']);
+    return $query === [] ? [] : ['query' => $query];
   }
 
   /**
