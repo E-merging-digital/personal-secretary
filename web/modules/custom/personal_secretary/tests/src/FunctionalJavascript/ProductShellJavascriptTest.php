@@ -251,6 +251,7 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
   public function testPersonalTaskDueFieldVisibility(): void {
     $user = $this->createProductUser();
     $this->drupalLogin($user);
+    $this->getSession()->resizeWindow(390, 844);
     $this->drupalGet('/personal-secretary/tasks/add');
 
     $assert = $this->assertSession();
@@ -286,6 +287,60 @@ final class ProductShellJavascriptTest extends WebDriverTestBase {
     );
     $this->assertJsCondition(
       "document.querySelector('[name=\"due_at[time]\"]').offsetParent !== null",
+    );
+    // Switching back must hide all inputs, not only the initial display.
+    $mode->selectOption(PersonalTask::DUE_NONE);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
+
+    // Editing an existing task must obey the same exclusive field contract.
+    $page = $this->getSession()->getPage();
+    $page->fillField('title', 'Synthetic due-selector edit');
+    $page->pressButton('Add task');
+    $this->assertTrue(
+      $this->getSession()->wait(5000, "location.pathname === '/personal-secretary/tasks/mine'"),
+      'Add task did not return to My tasks.',
+    );
+    $task = $this->loadTaskByTitle('Synthetic due-selector edit');
+    $this->getSession()->resizeWindow(1280, 900);
+    $this->drupalGet('/personal-secretary/tasks/' . $task->id() . '/edit');
+    $mode = $this->assertSession()->fieldExists('due_mode');
+    $mode->selectOption(PersonalTask::DUE_DATE_TIME);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent !== null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent !== null",
+    );
+    $mode->selectOption(PersonalTask::DUE_DATE);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent !== null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
+    );
+    $mode->selectOption(PersonalTask::DUE_NONE);
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_date\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[date]\"]').offsetParent === null",
+    );
+    $this->assertJsCondition(
+      "document.querySelector('[name=\"due_at[time]\"]').offsetParent === null",
     );
   }
 
