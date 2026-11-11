@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -24,12 +28,16 @@ final class EditTimeCommitmentForm extends FormBase {
   public function __construct(
     private readonly EditTimeCommitmentService $timeCommitmentEditor,
     private readonly RouteMatchInterface $timeCommitmentRouteMatch,
+    private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.edit_time_commitment'),
       $container->get('current_route_match'),
+      $container->get('date.formatter'),
+      $container->get('language_manager'),
     );
   }
 
@@ -65,14 +73,25 @@ final class EditTimeCommitmentForm extends FormBase {
     if ($context['is_one_off']) {
       $isAllDay = $context['series']->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
       $localStart = (string) $context['one_off_occurrence_local_start'];
+      $sourceTimezone = (string) $context['source_timezone'];
+      // An all-day date is a civil day, not an instant to move across zones.
+      $displayStart = new DateTimeImmutable(
+        $isAllDay ? substr($localStart, 0, 10) . ' 12:00:00' : $localStart,
+        new DateTimeZone($sourceTimezone),
+      );
+      $dateLabel = $this->dateFormatter->format(
+        $displayStart->getTimestamp(),
+        'custom',
+        $isAllDay ? 'j M Y' : 'j M Y, H:i',
+        $sourceTimezone,
+        $this->languageManager->getCurrentLanguage()->getId(),
+      );
       $form['occurrence_date'] = [
         '#type' => 'item',
         '#title' => $isAllDay
           ? $this->t('Date of this activity')
           : $this->t('Date and time of this activity'),
-        '#markup' => Html::escape($isAllDay
-          ? substr($localStart, 0, 10)
-          : str_replace('T', ' ', substr($localStart, 0, 16))),
+        '#markup' => Html::escape($dateLabel),
         '#description' => $this->t('This activity happens once, so its effective date is set automatically.'),
       ];
       // Keep the existing progressive-enhancement selector, but never trust
