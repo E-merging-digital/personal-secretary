@@ -130,7 +130,10 @@ final class OccurrenceResponsibilityTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Synthetic responsibility activity');
     $this->assertSession()->pageTextContains('Effective date and time');
-    $this->assertSession()->pageTextContains($rescheduledStartLocal->format('Y-m-d H:i'));
+    $this->assertSession()->pageTextContains($this->container->get('date.formatter')->format(
+      $rescheduledStartLocal->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en',
+    ));
+    $this->assertSession()->pageTextNotContains($rescheduledStartLocal->format('Y-m-d H:i'));
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->pageTextContains('Current responsibility');
     $this->assertSession()->pageTextContains('Avery Recurring');
