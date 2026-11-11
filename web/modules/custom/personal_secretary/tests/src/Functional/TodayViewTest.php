@@ -470,6 +470,63 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Today route task');
     $taskStorage->resetCache([$taskId]);
     $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
+
+    // Planning keeps ISO values only in semantic datetime attributes while
+    // presenting timed and all-day cards in the visitor's interface language.
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
+    $this->config('system.site')->set('default_langcode', 'fr')->save();
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0, 'language-user' => 1, 'language-selected' => 2,
+      ])
+      ->save();
+    $this->container->get('language_manager')->reset();
+    $formatter = $this->container->get('date.formatter');
+    foreach (['fr', 'en'] as $langcode) {
+      $this->drupalGet('/' . $langcode . '/personal-secretary/today');
+      $planning = $this->assertSession()->elementExists('css', '.ps-today-section--activities');
+      $this->assertDoesNotMatchRegularExpression('/\\b\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?\\b/', $planning->getText());
+
+      $allDay = $this->assertSession()->elementExists('css', '.personal-secretary-external-event time[datetime="' . $window['local_date'] . '"]');
+      $this->assertSame($window['local_date'], $allDay->getAttribute('datetime'));
+      $this->assertSame(
+        $formatter->format($localNoon->getTimestamp(), 'custom', 'j M Y', 'Europe/Brussels', $langcode),
+        trim($allDay->getText()),
+      );
+
+      $nativeCard = $this->getSession()->getPage()->find(
+        'xpath',
+        '//article[contains(@class, "personal-secretary-today-activity")][h3[normalize-space(.)="Today authorized UTC activity"]]',
+      );
+      $this->assertNotNull($nativeCard);
+      $nativeStart = $nativeCard->find('css', 'time');
+      $this->assertNotNull($nativeStart);
+      $this->assertSame($activities['Today authorized UTC activity']['effective_start_iso'], $nativeStart->getAttribute('datetime'));
+      $this->assertSame(
+        $formatter->format($insideStart->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', $langcode),
+        trim($nativeStart->getText()),
+      );
+
+      $externalTimed = $planning->findAll('css', '.personal-secretary-external-event time[datetime*="T"]');
+      $this->assertCount(2, $externalTimed);
+      $this->assertSame(
+        $formatter->format($window['utc_start']->modify('+6 hours')->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', $langcode),
+        trim($externalTimed[0]->getText()),
+      );
+      $this->assertMatchesRegularExpression('/^\\d{4}-\\d{2}-\\d{2}T/', (string) $externalTimed[0]->getAttribute('datetime'));
+    }
+    $this->config('system.site')->set('default_langcode', 'en')->save();
+    $this->container->get('language_manager')->reset();
     $this->drupalLogout();
 
     $this->drupalLogin($noGrant);

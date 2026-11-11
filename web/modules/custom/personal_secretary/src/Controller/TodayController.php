@@ -333,6 +333,7 @@ final class TodayController extends ControllerBase {
       ];
       foreach ($today['planning'] as $delta => $planningItem) {
         $item = $planningItem['item'];
+        $dateLabels = $this->planningDateLabels($item);
         if ($planningItem['kind'] === 'external_event') {
           $build['planning']['items'][$delta] = [
             '#type' => 'component',
@@ -347,6 +348,8 @@ final class TodayController extends ControllerBase {
               'effective_end' => $item['effective_end'],
               'effective_start_iso' => $item['effective_start_iso'],
               'effective_end_iso' => $item['effective_end_iso'],
+              'display_start_label' => $dateLabels['display_start_label'],
+              'display_end_label' => $dateLabels['display_end_label'],
               'display_timezone' => $item['display_timezone'],
               'source_timezone' => $item['source_timezone'],
               'source_label' => $item['source_label'],
@@ -373,6 +376,8 @@ final class TodayController extends ControllerBase {
               'effective_end' => $item['effective_end'],
               'effective_start_iso' => $item['effective_start_iso'],
               'effective_end_iso' => $item['effective_end_iso'],
+              'display_start_label' => $dateLabels['display_start_label'],
+              'display_end_label' => $dateLabels['display_end_label'],
               'display_timezone' => $item['display_timezone'],
               'source_timezone' => $item['source_timezone'],
             ],
@@ -391,6 +396,39 @@ final class TodayController extends ControllerBase {
     }
 
     return $build;
+  }
+
+  /**
+   * Formats Today Planning labels without changing the underlying dates.
+   *
+   * @param array<string, mixed> $item
+   *   Existing Today activity or external-event projection.
+   *
+   * @return array{display_start_label: string, display_end_label: string}
+   *   Human-readable labels for the two Planning components.
+   */
+  private function planningDateLabels(array $item): array {
+    $language = $this->todayLanguageManager->getCurrentLanguage()->getId();
+    if ($item['all_day']) {
+      // Civil dates are source-local, not UTC instants. Midday avoids
+      // accidentally moving an all-day date across timezones.
+      $timezone = (string) ($item['source_timezone'] ?: $item['display_timezone']);
+      $zone = new \DateTimeZone($timezone);
+      $start = new \DateTimeImmutable($item['all_day_start_date'] . ' 12:00:00', $zone);
+      $end = new \DateTimeImmutable($item['all_day_end_date'] . ' 12:00:00', $zone);
+      $pattern = 'j M Y';
+    }
+    else {
+      $timezone = (string) $item['display_timezone'];
+      $start = new \DateTimeImmutable((string) $item['effective_start_iso']);
+      $end = new \DateTimeImmutable((string) $item['effective_end_iso']);
+      $pattern = 'j M Y, H:i';
+    }
+
+    return [
+      'display_start_label' => $this->todayDateFormatter->format($start->getTimestamp(), 'custom', $pattern, $timezone, $language),
+      'display_end_label' => $this->todayDateFormatter->format($end->getTimestamp(), 'custom', $pattern, $timezone, $language),
+    ];
   }
 
   /**
