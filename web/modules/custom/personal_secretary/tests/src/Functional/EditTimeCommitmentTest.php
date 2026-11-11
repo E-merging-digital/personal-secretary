@@ -443,7 +443,10 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
     $this->drupalGet($this->timeCommitmentEditUrl($timed));
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Date and time of this activity');
-    $this->assertSession()->pageTextContains($timedStart->format('Y-m-d H:i'));
+    $this->assertSession()->pageTextContains($this->container->get('date.formatter')->format(
+      $timedStart->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en',
+    ));
+    $this->assertSession()->pageTextNotContains($timedStart->format('Y-m-d H:i'));
     $this->assertSession()->pageTextContains('This activity happens once, so its effective date is set automatically.');
     $this->assertSession()->elementNotExists('css', 'input[type="date"][name="effective_from_date"]');
     $this->assertSession()->elementExists('css', 'input[type="hidden"][name="effective_from_date"][data-ps-time-commitment-date]');
@@ -466,7 +469,10 @@ final class EditTimeCommitmentTest extends BrowserTestBase {
     $this->drupalGet($this->timeCommitmentEditUrl($allDay));
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Date of this activity');
-    $this->assertSession()->pageTextContains($allDayStart->format('Y-m-d'));
+    $this->assertSession()->pageTextContains($this->container->get('date.formatter')->format(
+      $allDayStart->setTime(12, 0)->getTimestamp(), 'custom', 'j M Y', 'Europe/Brussels', 'en',
+    ));
+    $this->assertSession()->pageTextNotContains($allDayStart->format('Y-m-d'));
     $this->assertSession()->elementNotExists('css', 'input[type="date"][name="effective_from_date"]');
     $this->assertSession()->elementExists('css', 'input[type="hidden"][name="effective_from_date"]');
     $this->clickLink('Cancel');
