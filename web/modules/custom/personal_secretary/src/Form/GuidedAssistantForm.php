@@ -1903,10 +1903,16 @@ final class GuidedAssistantForm extends FormBase {
     if ($status === 'READ_SUCCESS' && is_array($result['data'] ?? NULL)) {
       $data = $result['data'];
       $tomorrow = ($result['intent'] ?? NULL) === ThreeIntentReadProposeService::GET_TOMORROW;
+      // The briefing day is a viewer-local civil date, not a UTC instant.
+      $timezone = (string) $data['timezone'];
+      $language = $this->interfaceLanguage->getCurrentLanguage()->getId();
+      $localNoon = new DateTimeImmutable((string) $data['local_date'] . ' 12:00:00', new DateTimeZone($timezone));
+      $datePattern = $language === 'fr' ? 'd/m/Y' : 'j M Y';
+      $dayLabel = $this->dateFormatter->format($localNoon->getTimestamp(), 'custom', $datePattern, $timezone, $language);
       $build['date'] = $this->fact($this->t('@day: @date (@timezone)', [
         '@day' => $tomorrow ? $this->tr('Tomorrow', 'Demain') : $this->tr('Today', 'Aujourd’hui'),
-        '@date' => (string) $data['local_date'],
-        '@timezone' => (string) $data['timezone'],
+        '@date' => $dayLabel,
+        '@timezone' => $timezone,
       ]));
       $build['briefing'] = $tomorrow
         ? $this->tomorrowBriefing($data)
@@ -1926,7 +1932,7 @@ final class GuidedAssistantForm extends FormBase {
         foreach ($data[$kind] as $index => $item) {
           if ($kind === 'tasks' || $kind === 'preparations') {
             $label = $kind === 'tasks' ? (string) $item['title'] : (string) $item['instruction'];
-            $due = $kind === 'tasks' ? (string) $item['due_label'] : (string) $item['due_time'];
+            $due = $kind === 'tasks' ? (string) $item['due_display_label'] : (string) $item['due_time'];
             $when = $item['overdue']
               ? $this->tr('Overdue', 'En retard')
               : $this->tr('Due', 'Échéance');

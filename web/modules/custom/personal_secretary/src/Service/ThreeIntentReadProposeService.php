@@ -69,6 +69,7 @@ final class ThreeIntentReadProposeService {
       'title' => (string) $row['title'],
       'due_mode' => (string) $row['due_mode'],
       'due_label' => (string) $row['due_label'],
+      'due_display_label' => (string) $row['due_display_label'],
       'overdue' => (bool) $row['overdue'],
     ], $day['tasks']);
     $preparations = array_map(static fn(array $row): array => [
