@@ -168,7 +168,9 @@ final class PersonalTaskController extends ControllerBase {
     $build['delete'] = [
       '#type' => 'link',
       '#title' => $this->t('Delete task'),
-      '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => (int) $entity->id()]),
+      '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => (int) $entity->id()], [
+        'query' => $fromToday ? ['from' => 'today'] : $this->taskListReturnQuery(),
+      ]),
     ];
 
     return $build;
