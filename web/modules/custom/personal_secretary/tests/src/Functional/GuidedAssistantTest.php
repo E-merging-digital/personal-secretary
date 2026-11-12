@@ -153,6 +153,14 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $before = $this->domainCounts();
     $this->submitForm(['intent' => 'GET_TODAY'], 'Show preview');
     $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $formatter = $this->container->get('date.formatter');
+    $todayNoon = (new \DateTimeImmutable($localDate . ' 12:00:00', new \DateTimeZone('Europe/Brussels')))->getTimestamp();
+    $tomorrowNoon = (new \DateTimeImmutable($tomorrow . ' 12:00:00', new \DateTimeZone('Europe/Brussels')))->getTimestamp();
+    $englishToday = $formatter->format($todayNoon, 'custom', 'j M Y', 'Europe/Brussels', 'en');
+    $englishTomorrow = $formatter->format($tomorrowNoon, 'custom', 'j M Y', 'Europe/Brussels', 'en');
+    $this->assertSession()->pageTextContains('Today: ' . $englishToday . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('Synthetic visible Today task — Due: '
+      . $formatter->format($todayNoon, 'custom', 'j F Y', 'Europe/Brussels', 'en'));
     $this->assertSession()->pageTextContains('Synthetic visible Today task');
     $this->assertSession()->pageTextContains('Synthetic overdue Today task');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
@@ -172,7 +180,12 @@ final class GuidedAssistantTest extends BrowserTestBase {
 
     $this->submitForm(['intent' => 'GET_TOMORROW'], 'Show preview');
     $this->assertSession()->pageTextContains('READ_SUCCESS');
-    $this->assertSession()->pageTextContains('Tomorrow: ' . $tomorrow . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('Tomorrow: ' . $englishTomorrow . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('Synthetic due Tomorrow task — Due: '
+      . $formatter->format($tomorrowNoon, 'custom', 'j F Y', 'Europe/Brussels', 'en'));
+    $timedTomorrowUtc = new \DateTimeImmutable($tomorrowAtUtc, new \DateTimeZone('UTC'));
+    $this->assertSession()->pageTextContains('Synthetic timed Tomorrow task — Due: '
+      . $formatter->format($timedTomorrowUtc->getTimestamp(), 'custom', 'j F Y H:i', 'Europe/Brussels', 'en'));
     $this->assertSession()->pageTextContains('Tomorrow at a glance');
     $this->assertSession()->pageTextContains('Tasks due tomorrow: 2');
     $this->assertSession()->pageTextContains('Preparations due tomorrow: 1');
@@ -181,7 +194,7 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic timed Tomorrow task');
     $this->assertSession()->pageTextContains('Synthetic Tomorrow preparation');
     $this->assertSession()->pageTextContains('Synthetic Tomorrow local activity');
-    $this->assertSession()->pageTextContains($tomorrow . ' 00:30');
+    $this->assertSession()->pageTextNotContains('Tomorrow: ' . $tomorrow . ' (Europe/Brussels)');
     $this->assertSession()->elementTextNotContains('css', '.ps-guided-assistant__result', 'Synthetic visible Today task');
     $this->assertSession()->elementTextNotContains('css', '.ps-guided-assistant__result', 'Synthetic overdue Today task');
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow task');
@@ -270,6 +283,10 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Préparer une tâche');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/today');
     $this->submitForm(['intent' => 'GET_TODAY'], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Aujourd’hui: '
+      . $formatter->format($todayNoon, 'custom', 'd/m/Y', 'Europe/Brussels', 'fr') . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('Synthetic visible Today task — Échéance: '
+      . $formatter->format($todayNoon, 'custom', 'd/m/Y', 'Europe/Brussels', 'fr'));
     $this->assertSession()->pageTextContains('Votre journée en bref');
     $this->assertSession()->pageTextContains('Tâches dues ou en retard: 2');
     $this->assertSession()->pageTextContains('Tâches en retard: 1');
@@ -280,6 +297,10 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Today task');
     $this->assertSame($before, $this->domainCounts());
     $this->submitForm(['intent' => 'GET_TOMORROW'], 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('Demain: '
+      . $formatter->format($tomorrowNoon, 'custom', 'd/m/Y', 'Europe/Brussels', 'fr') . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('Synthetic due Tomorrow task — Échéance: '
+      . $formatter->format($tomorrowNoon, 'custom', 'd/m/Y', 'Europe/Brussels', 'fr'));
     $this->assertSession()->pageTextContains('Demain en bref');
     $this->assertSession()->pageTextContains('Tâches à échéance demain: 2');
     $this->assertSession()->pageTextContains('Préparatifs à faire demain: 1');
