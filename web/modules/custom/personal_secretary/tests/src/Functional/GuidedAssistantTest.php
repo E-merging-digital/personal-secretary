@@ -220,6 +220,28 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->submitForm($task, 'Show preview');
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
 
+    // Task proposals keep the submitted civil date/time but present it readably.
+    $datedTask = [
+      'intent' => 'PROPOSE_TASK',
+      'task_title' => 'Synthetic dated task proposal',
+      'task_due_mode' => PersonalTask::DUE_DATE,
+      'task_due_date' => '2030-01-18',
+    ];
+    $this->submitForm($datedTask, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('18 Jan 2030');
+    $this->assertSession()->pageTextNotContains('2030-01-18');
+    $timedTask = [
+      'intent' => 'PROPOSE_TASK',
+      'task_title' => 'Synthetic timed task proposal',
+      'task_due_mode' => PersonalTask::DUE_DATE_TIME,
+      'task_due_at' => '2030-01-18 14:15',
+    ];
+    $this->submitForm($timedTask, 'Show preview');
+    $this->assertSession()->pageTextContains('PROPOSAL_READY');
+    $this->assertSession()->pageTextContains('18 Jan 2030, 14:15');
+    $this->assertSame($before, $this->domainCounts(), 'Dated proposal previews cannot persist tasks.');
+
     $this->submitForm(['intent' => 'PROPOSE_TASK', 'task_title' => '', 'task_due_mode' => PersonalTask::DUE_DATE], 'Show preview');
     $this->assertSession()->pageTextContains('NEEDS_CLARIFICATION');
     $this->assertSession()->pageTextContains('Enter a valid title.');
@@ -237,6 +259,8 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->submitForm($activity, 'Show preview');
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Synthetic guided walk');
+    $this->assertSession()->pageTextContains('22 Oct 2026');
+    $this->assertSession()->pageTextNotContains('2026-10-22');
     $this->assertSession()->pageTextContains('Preview not saved');
     $this->assertSession()->elementExists('css', 'input[name="confirm_create_activity"]');
     $this->assertSession()->elementNotExists('css', 'input[name="confirm_create_task"]');
@@ -311,7 +335,12 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->submitForm($task, 'Afficher l’aperçu');
     $this->assertSession()->pageTextContains('Aperçu non enregistré');
     $this->assertSession()->pageTextContains('Créer cette tâche');
+    $this->submitForm($datedTask, 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('18/01/2030');
+    $this->submitForm($timedTask, 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('18/01/2030, 14:15');
     $this->submitForm($activity, 'Afficher l’aperçu');
+    $this->assertSession()->pageTextContains('22/10/2026');
     $this->assertSession()->pageTextContains('Créer cette activité');
     $this->assertSame($before, $this->domainCounts());
     $this->drupalGet('/en/personal-secretary/assistant');
