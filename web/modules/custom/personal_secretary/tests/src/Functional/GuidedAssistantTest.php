@@ -1143,8 +1143,12 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Before — title: Synthetic original edit title');
     $this->assertSession()->pageTextContains('After — title: Synthetic revised edit title');
-    $this->assertSession()->pageTextContains('Before — deadline: 2026-11-04');
-    $this->assertSession()->pageTextContains('After — deadline: 2026-11-09');
+    $formatter = $this->container->get('date.formatter');
+    $beforeDate = (new \DateTimeImmutable('2026-11-04 12:00:00', new \DateTimeZone('UTC')))->getTimestamp();
+    $afterDate = (new \DateTimeImmutable('2026-11-09 12:00:00', new \DateTimeZone('UTC')))->getTimestamp();
+    $this->assertSession()->pageTextContains('Before — deadline: ' . $formatter->format($beforeDate, 'custom', 'j M Y', 'UTC', 'en'));
+    $this->assertSession()->pageTextContains('After — deadline: ' . $formatter->format($afterDate, 'custom', 'j M Y', 'UTC', 'en'));
+    $this->assertSession()->pageTextNotContains('Before — deadline: 2026-11-04');
     $this->assertSession()->pageTextContains('Preview only — the task has not been changed.');
     $this->assertSession()->elementExists('css', 'input[name="confirm_edit_existing_task"]');
     $storage->resetCache();
@@ -1210,8 +1214,14 @@ final class GuidedAssistantTest extends BrowserTestBase {
       'edit_task_due_at' => '2026-11-12 14:45',
     ];
     $this->submitForm($changes, 'Show preview');
-    $this->assertSession()->pageTextContains('Before — deadline: 2026-11-10 09:30 (Europe/Brussels)');
-    $this->assertSession()->pageTextContains('After — deadline: 2026-11-12 14:45 (Europe/Brussels)');
+    $formatter = $this->container->get('date.formatter');
+    $beforeAt = (new \DateTimeImmutable('2026-11-10T08:30:00+00:00'))->getTimestamp();
+    $afterAt = (new \DateTimeImmutable('2026-11-12 14:45', new \DateTimeZone('Europe/Brussels')))->getTimestamp();
+    $this->assertSession()->pageTextContains('Before — deadline: '
+      . $formatter->format($beforeAt, 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en') . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextContains('After — deadline: '
+      . $formatter->format($afterAt, 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en') . ' (Europe/Brussels)');
+    $this->assertSession()->pageTextNotContains('Before — deadline: 2026-11-10 09:30');
     $storage->resetCache();
     $this->assertSame('2026-11-10T08:30:00', (string) $storage->load($task->id())->get('due_at')->value);
 
@@ -1289,11 +1299,15 @@ final class GuidedAssistantTest extends BrowserTestBase {
       'intent' => 'EDIT_TASK',
       'edit_task_choice' => $choice,
       'edit_task_title' => 'Synthetic French new title',
-      'edit_task_due_mode' => 'UNCHANGED',
+      'edit_task_due_mode' => PersonalTask::DUE_DATE,
+      'edit_task_due_date' => '2030-01-18',
     ], 'Afficher l’aperçu');
     $this->assertSession()->pageTextContains('PROPOSAL_READY');
     $this->assertSession()->pageTextContains('Avant — intitulé: Synthetic French edit title');
     $this->assertSession()->pageTextContains('Après — intitulé: Synthetic French new title');
+    $this->assertSession()->pageTextContains('Avant — échéance: Sans échéance');
+    $this->assertSession()->pageTextContains('Après — échéance: 18/01/2030');
+    $this->assertSession()->pageTextNotContains('Après — échéance: 2030-01-18');
     $this->assertSession()->elementExists('css', 'input[name="confirm_edit_existing_task"]');
     $storage->resetCache();
     $this->assertSame('Synthetic French edit title', (string) $storage->load($task->id())->get('title')->value);

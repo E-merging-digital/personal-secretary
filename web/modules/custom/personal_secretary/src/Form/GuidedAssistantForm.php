@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\StringTranslation\TranslatableMarkup;
 use Drupal\Core\Url;
@@ -49,6 +50,7 @@ final class GuidedAssistantForm extends FormBase {
     protected PersonalTaskQueryService $taskQuery,
     protected CurrentUserPreparationService $currentUserPreparations,
     protected PreparationCompletionService $preparationCompletion,
+    protected DateFormatterInterface $dateFormatter,
   ) {
   }
 
@@ -62,6 +64,7 @@ final class GuidedAssistantForm extends FormBase {
       $container->get('personal_secretary.personal_task_query'),
       $container->get('personal_secretary.current_user_preparation'),
       $container->get('personal_secretary.preparation_completion'),
+      $container->get('date.formatter'),
     );
   }
 
@@ -2117,14 +2120,21 @@ final class GuidedAssistantForm extends FormBase {
     if ($mode === PersonalTask::DUE_NONE) {
       return (string) $this->tr('No deadline', 'Sans échéance');
     }
+    $language = $this->interfaceLanguage->getCurrentLanguage()->getId();
+    $dateFormat = $language === 'fr' ? 'd/m/Y' : 'j M Y';
     if ($mode === PersonalTask::DUE_DATE) {
-      return $date;
+      // A date-only deadline is a civil day; keep it in UTC for display.
+      $civil = DateTimeImmutable::createFromFormat('!Y-m-d', $date, new DateTimeZone('UTC'));
+      return $civil instanceof DateTimeImmutable
+        ? $this->dateFormatter->format($civil->getTimestamp(), 'custom', $dateFormat, 'UTC', $language)
+        : $date;
     }
     $utc = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:s', $at, new DateTimeZone('UTC'));
     if (!$utc instanceof DateTimeImmutable) {
       return (string) $this->tr('Unavailable', 'Indisponible');
     }
-    return $utc->setTimezone(new DateTimeZone($timezone))->format('Y-m-d H:i') . ' (' . $timezone . ')';
+    return $this->dateFormatter->format($utc->getTimestamp(), 'custom', $dateFormat . ', H:i', $timezone, $language)
+      . ' (' . $timezone . ')';
   }
 
   /**
