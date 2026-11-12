@@ -104,6 +104,13 @@ final class RescheduleUpcomingOccurrenceTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic reschedule activity');
     $this->assertSession()->pageTextContains('Source timezone');
     $this->assertSession()->pageTextContains('Europe/Brussels');
+    $this->assertSession()->pageTextContains('Effective date and time');
+    $formatter = $this->container->get('date.formatter');
+    $startLabel = $formatter->format($originalStartLocal->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en');
+    $endLabel = $formatter->format($originalEndLocal->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en');
+    $this->assertSession()->pageTextContains($startLabel . ' – ' . $endLabel);
+    $this->assertSession()->pageTextNotContains($originalStartLocal->format('Y-m-d H:i'));
+    $this->assertSession()->fieldNotExists('current_occurrence');
     $this->assertSession()->fieldExists('new_date');
     $this->assertSession()->fieldExists('new_local_start_time');
     $this->assertSession()->fieldExists('new_local_end_time');
