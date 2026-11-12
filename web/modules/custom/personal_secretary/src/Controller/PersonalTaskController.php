@@ -152,7 +152,9 @@ final class PersonalTaskController extends ControllerBase {
       $build['reopen'] = [
         '#type' => 'link',
         '#title' => $this->t('Reopen task'),
-        '#url' => Url::fromRoute('personal_secretary.reopen_task', ['task' => (int) $entity->id()]),
+        '#url' => Url::fromRoute('personal_secretary.reopen_task', ['task' => (int) $entity->id()], [
+          'query' => $fromToday ? ['from' => 'today'] : $this->taskListReturnQuery(),
+        ]),
       ];
     }
     else {

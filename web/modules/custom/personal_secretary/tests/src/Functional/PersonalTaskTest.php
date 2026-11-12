@@ -310,10 +310,46 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/edit');
     $this->assertSession()->statusCodeEquals(403);
 
-    $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/reopen');
+    // Reopening from a completed-task detail preserves the filtered return.
+    $completedFilters = [
+      'status' => 'completed',
+      'q' => 'Synthetic task after',
+      'sort' => 'title',
+    ];
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $completedFilters]);
+    $this->clickLink('Synthetic task after edit');
+    $reopenUrl = '/personal-secretary/tasks/' . $taskId . '/reopen?status=completed&q=Synthetic%20task%20after&sort=title';
+    $completedReturnUrl = '/personal-secretary/tasks/mine?status=completed&q=Synthetic%20task%20after&sort=title';
+    $this->assertSession()->linkByHrefExists($reopenUrl);
+    $this->clickLink('Reopen task');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextNotContains('This action cannot be undone.');
+    $this->assertSession()->linkByHrefExists($completedReturnUrl);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('status', 'completed');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic task after');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $storage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($taskId)->get('status')->value, 'Cancel must not reopen a task.');
+
+    // Rejected free destinations and array-shaped filters cannot set a return URL.
+    $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/reopen', ['query' => [
+      'status' => ['completed'],
+      'destination' => '/admin',
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefNotExists('/admin');
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $completedFilters]);
+    $this->clickLink('Synthetic task after edit');
+    $this->clickLink('Reopen task');
     $this->submitForm([], 'Reopen task');
+    $this->assertSession()->fieldValueEquals('status', 'completed');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic task after');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $storage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($taskId)->get('status')->value);
+    $this->drupalGet('/personal-secretary/tasks/mine');
     $this->assertSession()->pageTextContains('Synthetic task after edit');
 
     // A filtered list and its task detail retain the same delete return target.
