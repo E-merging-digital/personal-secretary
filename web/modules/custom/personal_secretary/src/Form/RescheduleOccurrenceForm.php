@@ -7,6 +7,8 @@ namespace Drupal\personal_secretary\Form;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -28,6 +30,8 @@ final class RescheduleOccurrenceForm extends FormBase {
     private readonly CurrentUserOccurrenceRescheduleService $currentUserReschedule,
     private readonly RouteMatchInterface $rescheduleRouteMatch,
     private readonly AccountInterface $rescheduleCurrentUser,
+    private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -35,6 +39,8 @@ final class RescheduleOccurrenceForm extends FormBase {
       $container->get('personal_secretary.current_user_occurrence_reschedule'),
       $container->get('current_route_match'),
       $container->get('current_user'),
+      $container->get('date.formatter'),
+      $container->get('language_manager'),
     );
   }
 
@@ -57,8 +63,14 @@ final class RescheduleOccurrenceForm extends FormBase {
     }
 
     $occurrence = $resolved['occurrence'];
-    $sourceStart = new DateTimeImmutable($occurrence->sourceLocalStart);
-    $sourceEnd = new DateTimeImmutable($occurrence->sourceLocalEnd);
+    $sourceTimezone = $occurrence->sourceTimezone;
+    $zone = new DateTimeZone($sourceTimezone);
+    $sourceStart = new DateTimeImmutable($occurrence->sourceLocalStart, $zone);
+    $sourceEnd = new DateTimeImmutable($occurrence->sourceLocalEnd, $zone);
+    $language = $this->languageManager->getCurrentLanguage()->getId();
+    $datePattern = $language === 'fr' ? 'd/m/Y, H:i' : 'j M Y, H:i';
+    $startLabel = $this->dateFormatter->format($sourceStart->getTimestamp(), 'custom', $datePattern, $sourceTimezone, $language);
+    $endLabel = $this->dateFormatter->format($sourceEnd->getTimestamp(), 'custom', $datePattern, $sourceTimezone, $language);
 
     $form['activity'] = [
       '#type' => 'item',
@@ -72,7 +84,12 @@ final class RescheduleOccurrenceForm extends FormBase {
     $form['source_timezone'] = [
       '#type' => 'item',
       '#title' => $this->t('Source timezone'),
-      '#markup' => Html::escape($occurrence->sourceTimezone),
+      '#markup' => Html::escape($sourceTimezone),
+    ];
+    $form['current_occurrence'] = [
+      '#type' => 'item',
+      '#title' => $this->t('Effective date and time'),
+      '#markup' => Html::escape($startLabel . ' – ' . $endLabel),
     ];
     $form['new_date'] = [
       '#type' => 'date',
