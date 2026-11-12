@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Form;
 
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -23,12 +25,16 @@ final class EditRecurringScheduleForm extends FormBase {
   public function __construct(
     private readonly EditRecurringScheduleService $scheduleEditor,
     private readonly RouteMatchInterface $scheduleRouteMatch,
+    private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.edit_recurring_schedule'),
       $container->get('current_route_match'),
+      $container->get('date.formatter'),
+      $container->get('language_manager'),
     );
   }
 
@@ -52,7 +58,13 @@ final class EditRecurringScheduleForm extends FormBase {
       '#markup' => $this->t(
         'Weekly on @weekday, @start–@end',
         [
-          '@weekday' => $currentStart->format('l'),
+          '@weekday' => $this->dateFormatter->format(
+            $currentStart->getTimestamp(),
+            'custom',
+            'l',
+            (string) $context['source_timezone'],
+            $this->languageManager->getCurrentLanguage()->getId(),
+          ),
           '@start' => $currentStart->format('H:i'),
           '@end' => $currentEnd->format('H:i'),
         ],

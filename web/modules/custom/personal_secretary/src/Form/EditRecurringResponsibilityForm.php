@@ -67,7 +67,13 @@ final class EditRecurringResponsibilityForm extends FormBase {
       '#markup' => $this->t(
         'Weekly on @weekday, @start–@end',
         [
-          '@weekday' => $currentStart->format('l'),
+          '@weekday' => $this->dateFormatter->format(
+            $currentStart->getTimestamp(),
+            'custom',
+            'l',
+            (string) $context['source_timezone'],
+            $this->languageManager->getCurrentLanguage()->getId(),
+          ),
           '@start' => $currentStart->format('H:i'),
           '@end' => $currentEnd->format('H:i'),
         ],

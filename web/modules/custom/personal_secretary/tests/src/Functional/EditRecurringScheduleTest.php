@@ -99,6 +99,10 @@ final class EditRecurringScheduleTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Synthetic Weekly Schedule');
     $this->assertSession()->pageTextContains('Current weekly schedule');
+    $weekday = $this->container->get('date.formatter')->format(
+      $firstStart->getTimestamp(), 'custom', 'l', 'Europe/Brussels', 'en',
+    );
+    $this->assertSession()->pageTextContains('Weekly on ' . $weekday . ', ' . $firstStart->format('H:i') . '–' . $firstEnd->format('H:i'));
     $this->assertSession()->pageTextContains('Weekly');
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->pageTextContains('Synthetic Schedule Person');

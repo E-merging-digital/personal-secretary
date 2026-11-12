@@ -163,6 +163,10 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Current recurring responsible Person');
     $this->assertSession()->pageTextContains('Alex Current Recurring');
     $this->assertSession()->pageTextContains('Current weekly schedule');
+    $weekday = $this->container->get('date.formatter')->format(
+      $seriesStart->getTimestamp(), 'custom', 'l', 'Europe/Brussels', 'en',
+    );
+    $this->assertSession()->pageTextContains('Weekly on ' . $weekday . ', ' . $seriesStart->format('H:i') . '–' . $seriesEnd->format('H:i'));
     $this->assertSession()->pageTextContains('Europe/Brussels');
     $this->assertSession()->fieldExists('effective_from_date');
     $this->assertSession()->fieldExists('responsible_person_id');
