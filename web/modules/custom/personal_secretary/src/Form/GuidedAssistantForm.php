@@ -2106,7 +2106,18 @@ final class GuidedAssistantForm extends FormBase {
       }
       $date = (string) ($data['due_date'] ?? $data['due_at'] ?? $data['absolute_date'] ?? '');
       if ($date !== '') {
-        $build['when'] = $this->fact($this->t('@date', ['@date' => $date]));
+        // These proposal values are local civil inputs, not UTC instants.
+        // Use UTC as a neutral display reference, without shifting the clock.
+        $timed = (string) ($data['due_at'] ?? '') !== '';
+        $parsed = DateTimeImmutable::createFromFormat(
+          $timed ? '!Y-m-d H:i' : '!Y-m-d', $date, new DateTimeZone('UTC'),
+        );
+        $language = $this->interfaceLanguage->getCurrentLanguage()->getId();
+        $pattern = ($language === 'fr' ? 'd/m/Y' : 'j M Y') . ($timed ? ', H:i' : '');
+        $label = $parsed instanceof DateTimeImmutable
+          ? $this->dateFormatter->format($parsed->getTimestamp(), 'custom', $pattern, 'UTC', $language)
+          : $date;
+        $build['when'] = $this->fact($this->t('@date', ['@date' => $label]));
       }
       if (isset($data['local_start_time'], $data['local_end_time'])) {
         $build['time'] = $this->fact($this->t('@start – @end', [
