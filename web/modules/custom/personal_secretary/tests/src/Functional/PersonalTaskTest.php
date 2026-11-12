@@ -799,9 +799,13 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->clickLink('Reopen task');
     $this->assertSession()->statusCodeEquals(200);
     $this->submitForm([], 'Reopen task');
-    $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
+    // The completed filter remains selected; the reopened task no longer matches.
+    $this->assertSession()->fieldValueEquals('status', 'completed');
+    $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
     $storage->resetCache([(int) $completed->id()]);
     $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($completed->id())->get('status')->value);
+    $this->drupalGet('/personal-secretary/tasks/mine');
+    $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
 
     // An empty urgency result is not misrepresented as no open tasks.
     $this->assertTrue($this->asUser($user, fn (): bool => $mutations->completeTask((int) $overdue->id())));
