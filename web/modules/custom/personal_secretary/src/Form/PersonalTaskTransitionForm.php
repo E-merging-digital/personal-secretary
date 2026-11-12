@@ -39,6 +39,9 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $form = parent::buildForm($form, $form_state);
     if ($this->action() === 'delete') {
+      // Core's confirmation helper prefers untrusted destination query arguments.
+      // Keep Cancel bound to the validated origin, never an arbitrary destination.
+      $form['actions']['cancel']['#url'] = $this->getCancelUrl();
       // Keep only bounded navigation context on the confirmation POST.
       $form['#action'] = Url::fromRoute('personal_secretary.delete_task', ['task' => $this->taskId()], [
         'query' => $this->deleteReturnQuery(),
