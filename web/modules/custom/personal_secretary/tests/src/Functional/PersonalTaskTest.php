@@ -316,14 +316,66 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->submitForm([], 'Reopen task');
     $this->assertSession()->pageTextContains('Synthetic task after edit');
 
-    $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/delete');
+    // A filtered list and its task detail retain the same delete return target.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic task after',
+      'sort' => 'title',
+    ]]);
+    $deleteUrl = '/personal-secretary/tasks/' . $taskId . '/delete?q=Synthetic%20task%20after&sort=title';
+    $returnUrl = '/personal-secretary/tasks/mine?q=Synthetic%20task%20after&sort=title';
+    $this->assertSession()->linkByHrefExists($deleteUrl);
+    $this->clickLink('Delete');
+    $this->assertSession()->linkByHrefExists($returnUrl);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic task after');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $storage->resetCache([$taskId]);
+    $this->assertInstanceOf(PersonalTask::class, $storage->load($taskId), 'Cancel must not delete a task.');
+
+    $this->clickLink('Synthetic task after edit');
+    $this->assertSession()->linkByHrefExists($deleteUrl);
+    $this->clickLink('Delete task');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('This action cannot be undone.');
     $storage->resetCache([$taskId]);
     $this->assertInstanceOf(PersonalTask::class, $storage->load($taskId), 'GET must not delete a task.');
     $this->submitForm([], 'Delete task');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic task after');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
     $storage->resetCache([$taskId]);
     $this->assertNull($storage->load($taskId));
+
+    $todayTask = $this->asUser($user, fn (): PersonalTask => $tasks->createTask(
+      'Synthetic Today delete', (int) $household->id(), PersonalTask::DUE_NONE,
+    ));
+    $todayTaskId = (int) $todayTask->id();
+
+    // Forged query arrays and free destinations are not accepted for delete.
+    $this->drupalGet('/personal-secretary/tasks/' . $todayTaskId . '/delete', ['query' => [
+      'from' => ['today'],
+      'q' => ['forged'],
+      'destination' => '/admin',
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefNotExists('/admin');
+    $this->clickLink('Cancel');
+
+    // From Today, both Cancel and a confirmed delete return to Today.
+    $this->drupalGet('/personal-secretary/tasks/' . $todayTaskId, ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $todayTaskId . '/delete?from=today');
+    $this->clickLink('Delete task');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/today');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressMatches('~/personal-secretary/today$~');
+    $storage->resetCache([$todayTaskId]);
+    $this->assertInstanceOf(PersonalTask::class, $storage->load($todayTaskId));
+
+    $this->drupalGet('/personal-secretary/tasks/' . $todayTaskId, ['query' => ['from' => 'today']]);
+    $this->clickLink('Delete task');
+    $this->submitForm([], 'Delete task');
+    $this->assertSession()->addressMatches('~/personal-secretary/today$~');
+    $storage->resetCache([$todayTaskId]);
+    $this->assertNull($storage->load($todayTaskId));
   }
 
   public function testExistingInstallUpdatePreservesDomainAndGrants(): void {

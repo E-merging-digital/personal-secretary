@@ -334,7 +334,9 @@ final class PersonalTaskListForm extends FormBase {
           'delete' => [
             '#type' => 'link',
             '#title' => $this->t('Delete'),
-            '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => $id]),
+            '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => $id], [
+              'query' => $this->filterQuery($statusFilter, $titleFilter, $sortFilter, $urgencyFilter),
+            ]),
             '#attributes' => ['class' => ['ps-task-row__delete']],
           ],
         ];
