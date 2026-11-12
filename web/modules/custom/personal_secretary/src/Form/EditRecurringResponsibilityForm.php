@@ -7,6 +7,8 @@ namespace Drupal\personal_secretary\Form;
 use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -27,12 +29,16 @@ final class EditRecurringResponsibilityForm extends FormBase {
   public function __construct(
     private readonly EditRecurringResponsibilityService $responsibilityEditor,
     private readonly RouteMatchInterface $responsibilityRouteMatch,
+    private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.edit_recurring_responsibility'),
       $container->get('current_route_match'),
+      $container->get('date.formatter'),
+      $container->get('language_manager'),
     );
   }
 
@@ -193,14 +199,26 @@ final class EditRecurringResponsibilityForm extends FormBase {
     if ($entry['time_mode'] === ActivitySeries::TIME_MODE_ALL_DAY) {
       $lastDay = $end->modify('-1 day');
       return $start->format('Y-m-d') === $lastDay->format('Y-m-d')
-        ? (string) $this->t('All day on @date', ['@date' => $start->format('Y-m-d')])
+        ? (string) $this->t('All day on @date', ['@date' => $this->displayDate($start, $entry['timezone'])])
         : (string) $this->t('All day from @start to @end', [
-          '@start' => $start->format('Y-m-d'),
-          '@end' => $lastDay->format('Y-m-d'),
+          '@start' => $this->displayDate($start, $entry['timezone']),
+          '@end' => $this->displayDate($lastDay, $entry['timezone']),
         ]);
     }
-    return $start->format('Y-m-d H:i') . ' – ' . $end->format('Y-m-d H:i');
+    return $this->displayDate($start, $entry['timezone'], TRUE) . ' – ' . $this->displayDate($end, $entry['timezone'], TRUE);
   }
+
+  /**
+   * Presents a source-local date without altering the underlying interval.
+   */
+  private function displayDate(DateTimeImmutable $date, string $timezoneName, bool $timed = FALSE): string {
+    $language = $this->languageManager->getCurrentLanguage()->getId();
+    $pattern = $language === 'fr'
+      ? ($timed ? 'd/m/Y, H:i' : 'd/m/Y')
+      : ($timed ? 'j M Y, H:i' : 'j M Y');
+    return $this->dateFormatter->format($date->getTimestamp(), 'custom', $pattern, $timezoneName, $language);
+  }
+
 
   /**
    * @return array<string, mixed>
