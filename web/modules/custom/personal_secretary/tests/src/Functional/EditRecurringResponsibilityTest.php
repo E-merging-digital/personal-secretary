@@ -185,6 +185,17 @@ final class EditRecurringResponsibilityTest extends BrowserTestBase {
     $this->assertLessThanOrEqual(6, count($rows));
     $snapshot = $editor->currentPreview($seriesId);
     $this->assertCount(count($rows), $snapshot['rows']);
+    $firstPreview = $snapshot['rows'][0];
+    $firstStart = new DateTimeImmutable($firstPreview['start']);
+    $firstZone = (string) $firstPreview['timezone'];
+    $expectedLabel = $this->container->get('date.formatter')->format(
+      $firstStart->getTimestamp(), 'custom', 'j M Y, H:i', $firstZone, 'en',
+    );
+    $this->assertStringContainsString($expectedLabel, $rows[0]->getText());
+    $this->assertStringNotContainsString(
+      $firstStart->setTimezone(new DateTimeZone($firstZone))->format('Y-m-d H:i'),
+      $rows[0]->getText(),
+    );
     $this->assertFalse($snapshot['has_more']);
     $this->assertSame(EffectiveResponsibility::SOURCE_OVERRIDE, $snapshot['rows'][3]['source']);
     $this->assertSame('Casey Override', $snapshot['rows'][3]['person_label']);

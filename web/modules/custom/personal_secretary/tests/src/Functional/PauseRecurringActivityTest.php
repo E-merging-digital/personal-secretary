@@ -175,8 +175,16 @@ final class PauseRecurringActivityTest extends BrowserTestBase {
     $shown = $this->getSession()->getPage()->findAll('css', 'table[data-ps-pause-targets="eligible"] tbody tr');
     $this->assertCount(2, $shown);
     $this->assertSame($previewBefore['occurrences_to_cancel'], count($shown));
-    $this->assertStringContainsString($recurringStart->format('Y-m-d H:i'), $shown[0]->getText());
-    $this->assertStringContainsString($secondStart->format('Y-m-d H:i'), $shown[1]->getText());
+    $formatter = $this->container->get('date.formatter');
+    $startLabel = $formatter->format($recurringStart->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en');
+    $secondLabel = $formatter->format($secondStart->getTimestamp(), 'custom', 'j M Y, H:i', 'Europe/Brussels', 'en');
+    $this->assertStringContainsString($startLabel, $shown[0]->getText());
+    $this->assertStringContainsString($secondLabel, $shown[1]->getText());
+    $this->assertStringNotContainsString($recurringStart->format('Y-m-d H:i'), $shown[0]->getText());
+    $this->assertSession()->pageTextContains(
+      $formatter->format($recurringStart->getTimestamp(), 'custom', 'j M Y', 'Europe/Brussels', 'en') . ' – '
+      . $formatter->format($secondStart->getTimestamp(), 'custom', 'j M Y', 'Europe/Brussels', 'en'),
+    );
     $this->assertSession()->pageTextNotContains($targetKey);
     $this->assertSession()->pageTextNotContains($secondTargetKey);
     $assertNoPauseMutation();
