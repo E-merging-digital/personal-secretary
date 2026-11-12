@@ -6,6 +6,8 @@ namespace Drupal\personal_secretary\Form;
 
 use DateTimeImmutable;
 use Drupal\Component\Utility\Html;
+use Drupal\Core\Datetime\DateFormatterInterface;
+use Drupal\Core\Language\LanguageManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
@@ -25,12 +27,16 @@ final class OccurrenceResponsibilityForm extends FormBase {
   public function __construct(
     private readonly OccurrenceResponsibilityService $occurrenceResponsibility,
     private readonly RouteMatchInterface $responsibilityRouteMatch,
+    private readonly DateFormatterInterface $dateFormatter,
+    private readonly LanguageManagerInterface $languageManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.occurrence_responsibility'),
       $container->get('current_route_match'),
+      $container->get('date.formatter'),
+      $container->get('language_manager'),
     );
   }
 
@@ -53,8 +59,13 @@ final class OccurrenceResponsibilityForm extends FormBase {
       $currentResponsibility = (string) $members[$personId]->label();
     }
 
-    $effectiveStart = new DateTimeImmutable($occurrence->effectiveSourceLocalStart);
-    $effectiveEnd = new DateTimeImmutable($occurrence->effectiveSourceLocalEnd);
+    $sourceTimezone = $occurrence->sourceTimezone;
+    $timezone = new \DateTimeZone($sourceTimezone);
+    $effectiveStart = new DateTimeImmutable($occurrence->effectiveSourceLocalStart, $timezone);
+    $effectiveEnd = new DateTimeImmutable($occurrence->effectiveSourceLocalEnd, $timezone);
+    $language = $this->languageManager->getCurrentLanguage()->getId();
+    $startLabel = $this->dateFormatter->format($effectiveStart->getTimestamp(), 'custom', 'j M Y, H:i', $sourceTimezone, $language);
+    $endLabel = $this->dateFormatter->format($effectiveEnd->getTimestamp(), 'custom', 'j M Y, H:i', $sourceTimezone, $language);
 
     $form['activity'] = [
       '#type' => 'item',
@@ -66,8 +77,8 @@ final class OccurrenceResponsibilityForm extends FormBase {
       '#title' => $this->t('Effective date and time'),
       '#markup' => Html::escape(sprintf(
         '%s – %s',
-        $effectiveStart->format('Y-m-d H:i'),
-        $effectiveEnd->format('Y-m-d H:i'),
+        $startLabel,
+        $endLabel,
       )),
     ];
     $form['source_timezone'] = [
