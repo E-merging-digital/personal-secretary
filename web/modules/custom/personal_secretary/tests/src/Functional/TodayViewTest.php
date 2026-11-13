@@ -248,7 +248,12 @@ final class TodayViewTest extends BrowserTestBase {
     $taskDetailUrl = Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $taskEditUrl = Url::fromRoute('personal_secretary.edit_task', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($taskDetailUrl->toString());
-    $this->drupalGet($taskDetailUrl);
+    // The task title itself is the direct, accessible link to its detail.
+    $this->assertSession()->elementExists('css', '.ps-today-section--tasks .ps-task-card__title');
+    $this->assertSession()->linkExists('Today route task');
+    $this->assertSession()->linkNotExists('Task details');
+    $this->clickLink('Today route task');
+    $this->assertSession()->addressEquals($taskDetailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today route task');
     $this->assertSession()->linkExists('Back to Today');
