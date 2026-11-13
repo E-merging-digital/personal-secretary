@@ -342,6 +342,23 @@ final class PersonalTaskListForm extends FormBase {
         ];
       }
 
+      elseif ($item['status'] === PersonalTask::STATUS_COMPLETED) {
+        // Reuse the authenticated inline transition for completed results.
+        $row['actions'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['ps-task-row__actions']],
+          'reopen' => [
+            '#type' => 'submit',
+            '#value' => $this->t('Reopen task'),
+            '#name' => 'reopen_task_' . $id,
+            '#task_id' => $id,
+            '#task_action' => 'reopen',
+            '#ajax' => $ajax,
+            '#attributes' => ['class' => ['ps-task-row__reopen']],
+          ],
+        ];
+      }
+
       if ($groupOpenTasks) {
         $group = $item['overdue'] ? 'overdue' : 'other';
         $form['live']['items'][$group]['list'][$delta] = $row;
@@ -369,7 +386,12 @@ final class PersonalTaskListForm extends FormBase {
         $focus = '#ps-task-live .ps-task-undo__action';
       }
       elseif ($result['action'] === 'reopen' && $taskId > 0) {
-        $focus = '#ps-task-live [data-ps-task-id="' . $taskId . '"] .ps-task-row__complete';
+        // A reopened task disappears from the Completed filter. Keep focus
+        // on accessible feedback instead of targeting a removed row.
+        [$status] = $this->readFilters($this->getRequest()->query->all());
+        if ($status !== 'completed') {
+          $focus = '#ps-task-live [data-ps-task-id="' . $taskId . '"] .ps-task-row__complete';
+        }
       }
     }
     $response->addCommand(new InvokeCommand($focus, 'focus'));
