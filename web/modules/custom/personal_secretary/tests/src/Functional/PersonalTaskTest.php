@@ -461,7 +461,18 @@ final class PersonalTaskTest extends BrowserTestBase {
 
     $this->drupalGet($detailUrl, ['query' => ['from' => 'today']]);
     $this->clickLink('Mark complete');
+    // Inspect the first POST redirect, before any subsequent GET can alter it.
+    $browser = $this->getSession()->getDriver()->getClient();
+    $browser->followRedirects(FALSE);
     $this->submitForm([], 'Mark complete');
+    $location = (string) $browser->getResponse()->getHeader('Location');
+    $browser->followRedirects(TRUE);
+    $this->assertStringContainsString(
+      '/personal-secretary/today?reopen_task=' . $todayCompleteId,
+      $location,
+      'The completion POST must preserve the validated Today Undo target in its first redirect.',
+    );
+    $this->drupalGet($location);
     $this->assertSession()->pageTextContains('Task completed.');
     $storage->resetCache([$todayCompleteId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($todayCompleteId)->get('status')->value);
