@@ -108,7 +108,9 @@ final class PersonalTaskInlineCompletionAjaxJavascriptTest extends WebDriverTest
     $this->assertTaskStatus($betaId, PersonalTask::STATUS_COMPLETED);
     $this->assertFocused('.ps-task-undo__action');
 
-    $this->clickUndo();
+    // Reopen an older completed item directly from its All-status row,
+    // without requiring the transient Undo control.
+    $this->assertSession()->elementExists('css', $this->rowSelector($betaId) . ' .ps-task-row__reopen')->click();
     $this->waitForComplete($betaId);
     $this->assertSession()->elementNotExists('css', '.ps-task-undo__action');
     $this->assertSame('Open', trim($this->assertSession()->elementExists('css', $this->rowSelector($betaId) . ' .ps-task-row__status')->getText()));
@@ -141,6 +143,28 @@ JS);
     $this->assertSession()->pageTextNotContains('Synthetic AJAX Alpha');
     $this->assertTaskStatus($alphaId, PersonalTask::STATUS_OPEN);
     $this->assertTaskStatus($betaId, PersonalTask::STATUS_OPEN);
+
+    // The Completed view offers the same authorized inline action; reopening
+    // removes the row from this filter and focuses the surviving status message.
+    $this->clickComplete($betaId);
+    $this->waitForUndo();
+    $this->assertTaskStatus($betaId, PersonalTask::STATUS_COMPLETED);
+    $completedUrl = $mine . '?status=completed&q=Beta';
+    $this->drupalGet($mine, ['query' => ['status' => 'completed', 'q' => 'Beta']]);
+    $this->assertSession()->addressEquals($completedUrl);
+    $this->assertSession()->elementExists('css', $this->rowSelector($betaId) . ' .ps-task-row__reopen');
+    $this->markPage('filtered-completed');
+
+    $this->assertSession()->elementExists('css', $this->rowSelector($betaId) . ' .ps-task-row__reopen')->click();
+    $this->assertTrue((bool) $this->getSession()->wait(
+      10000,
+      'document.querySelector(' . json_encode($this->rowSelector($betaId), JSON_THROW_ON_ERROR) . ') === null && document.querySelector("#ps-task-feedback")?.textContent.includes("Task reopened.")',
+    ), 'AJAX reopening must remove the completed item and show feedback.');
+    $this->assertSession()->addressEquals($completedUrl);
+    $this->assertPageMarker('filtered-completed');
+    $this->assertSession()->pageTextNotContains('Synthetic AJAX private task');
+    $this->assertTaskStatus($betaId, PersonalTask::STATUS_OPEN);
+    $this->assertFocused('#ps-task-feedback');
 
     // Unlinked users cannot see or mutate the owner/private household tasks.
     $this->drupalLogout();
