@@ -132,6 +132,8 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
    * Returns only to a known product route after a confirmed transition.
    */
   private function redirectAfterTransition(FormStateInterface $form_state, bool $showUndo = FALSE): void {
+    // Do not let an untrusted destination override the validated return route.
+    $form_state->setIgnoreDestination(TRUE);
     $query = $this->transitionReturnQuery();
     $undoQuery = $showUndo ? ['reopen_task' => $this->taskId()] : [];
     if (isset($query['from'])) {
