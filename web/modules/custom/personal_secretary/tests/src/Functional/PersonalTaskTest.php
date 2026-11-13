@@ -483,7 +483,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Task completed.');
     $storage->resetCache([$todayCompleteId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($todayCompleteId)->get('status')->value);
-    $this->assertSession()->addressMatches('~/personal-secretary/today\?reopen_task=' . $todayCompleteId . '$~');
+    // The initial 303 Location above already proves the exact query target.
+    // BrowserKit normalizes the URL here; assert the actual Undo control.
     $this->assertSession()->buttonExists('Reopen task');
   }
 
