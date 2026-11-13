@@ -336,7 +336,11 @@ final class TodayViewTest extends BrowserTestBase {
     ];
     $detailUrl = Url::fromRoute($detailRoute, $detailArgs, ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($detailUrl->toString());
-    $this->drupalGet($detailUrl);
+    $this->assertSession()->elementExists('css', '.ps-today-activity-entry .ps-today-activity__title');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-activity-entry > .ps-action-link'));
+    $this->assertSession()->linkExists('Today authorized UTC activity');
+    $this->clickLink('Today authorized UTC activity');
+    $this->assertSession()->addressEquals($detailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today authorized UTC activity');
     $this->assertSession()->linkExists('Back to Today');
@@ -347,7 +351,8 @@ final class TodayViewTest extends BrowserTestBase {
       'original_occurrence_key' => $crossOccurrence->originalOccurrenceKey,
     ], ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($crossDetailUrl->toString());
-    $this->drupalGet($crossDetailUrl);
+    $this->clickLink('Today cross-midnight activity');
+    $this->assertSession()->addressEquals($crossDetailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today cross-midnight activity');
     $this->clickLink('Back to Today');
