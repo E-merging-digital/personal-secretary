@@ -464,7 +464,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->submitForm([], 'Mark complete');
     $this->assertSession()->addressMatches('~/personal-secretary/today\?reopen_task=' . $todayCompleteId . '$~');
     $this->assertSession()->pageTextContains('Task completed.');
-    $this->assertSession()->linkExists('Reopen task');
+    $this->assertSession()->buttonExists('Reopen task');
     $storage->resetCache([$todayCompleteId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($todayCompleteId)->get('status')->value);
   }
