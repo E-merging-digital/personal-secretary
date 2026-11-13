@@ -248,7 +248,12 @@ final class TodayViewTest extends BrowserTestBase {
     $taskDetailUrl = Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $taskEditUrl = Url::fromRoute('personal_secretary.edit_task', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($taskDetailUrl->toString());
-    $this->drupalGet($taskDetailUrl);
+    // The task title itself is the direct, accessible link to its detail.
+    $this->assertSession()->elementExists('css', '.ps-today-section--tasks .ps-task-card__title');
+    $this->assertSession()->linkExists('Today route task');
+    $this->assertSession()->linkNotExists('Task details');
+    $this->clickLink('Today route task');
+    $this->assertSession()->addressEquals($taskDetailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today route task');
     $this->assertSession()->linkExists('Back to Today');
@@ -625,10 +630,10 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSame('Overdue tasks', trim($groups[0]->find('css', 'h3.ps-task-group__heading')->getText()));
     $this->assertSame('Due today', trim($groups[1]->find('css', 'h3.ps-task-group__heading')->getText()));
     $this->assertSame(['Synthetic Today oldest overdue', 'Synthetic Today recent overdue'], array_map(
-      static fn ($node): string => trim($node->getText()), $groups[0]->findAll('css', '.ps-task-card strong'),
+      static fn ($node): string => trim($node->getText()), $groups[0]->findAll('css', '.ps-task-card__title'),
     ));
     $this->assertSame(['Synthetic Today first due', 'Synthetic Today second due'], array_map(
-      static fn ($node): string => trim($node->getText()), $groups[1]->findAll('css', '.ps-task-card strong'),
+      static fn ($node): string => trim($node->getText()), $groups[1]->findAll('css', '.ps-task-card__title'),
     ));
     $this->assertSession()->pageTextNotContains('Synthetic Today private excluded');
     $this->assertSession()->pageTextNotContains('Synthetic Today future excluded');

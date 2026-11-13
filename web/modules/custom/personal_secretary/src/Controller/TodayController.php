@@ -174,9 +174,10 @@ final class TodayController extends ControllerBase {
           '#type' => 'container',
           '#attributes' => ['class' => ['ps-card', 'ps-task-card']],
           'title' => [
-            '#type' => 'html_tag',
-            '#tag' => 'strong',
-            '#value' => $this->t('@task', ['@task' => (string) $item['title']]),
+            '#type' => 'link',
+            '#title' => (string) $item['title'],
+            '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id], ['query' => ['from' => 'today']]),
+            '#attributes' => ['class' => ['ps-task-card__title']],
           ],
           'due' => [
             '#type' => 'html_tag',
@@ -186,11 +187,7 @@ final class TodayController extends ControllerBase {
               ? $this->t('Overdue: @due', ['@due' => (string) $item['due_display_label']])
               : $this->t('Due: @due', ['@due' => (string) $item['due_display_label']]),
           ],
-          'status' => [
-            '#type' => 'link',
-            '#title' => $this->t('Task details'),
-            '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id], ['query' => ['from' => 'today']]),
-          ],
+
           'edit' => [
             '#type' => 'link',
             '#title' => $this->t('Edit'),
