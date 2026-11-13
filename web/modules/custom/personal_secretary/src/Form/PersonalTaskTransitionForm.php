@@ -38,13 +38,13 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $form = parent::buildForm($form, $form_state);
-    if ($this->action() === 'delete') {
+    if (in_array($this->action(), ['delete', 'reopen'], TRUE)) {
       // Core's confirmation helper prefers untrusted destination query arguments.
       // Keep Cancel bound to the validated origin, never an arbitrary destination.
       $form['actions']['cancel']['#url'] = $this->getCancelUrl();
       // Keep only bounded navigation context on the confirmation POST.
-      $form['#action'] = Url::fromRoute('personal_secretary.delete_task', ['task' => $this->taskId()], [
-        'query' => $this->deleteReturnQuery(),
+      $form['#action'] = Url::fromRoute($this->action() === 'delete' ? 'personal_secretary.delete_task' : 'personal_secretary.reopen_task', ['task' => $this->taskId()], [
+        'query' => $this->transitionReturnQuery(),
       ])->toString();
     }
     return $form;
@@ -61,11 +61,11 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
   }
 
   public function getCancelUrl(): Url {
-    if ($this->action() !== 'delete') {
+    if (!in_array($this->action(), ['delete', 'reopen'], TRUE)) {
       return Url::fromRoute('personal_secretary.my_tasks');
     }
 
-    $query = $this->deleteReturnQuery();
+    $query = $this->transitionReturnQuery();
     return isset($query['from'])
       ? Url::fromRoute('personal_secretary.today')
       : Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $query]);
@@ -103,20 +103,20 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
       if ($this->action() === 'reopen') {
         $this->taskMutations->reopenTask($this->taskId());
         $this->messenger()->addStatus($this->t('Task reopened.'));
-        $form_state->setRedirect('personal_secretary.my_tasks');
+        $this->redirectAfterTransition($form_state);
         return;
       }
       if ($this->action() === 'delete') {
         $this->taskMutations->deleteTask($this->taskId());
         $this->messenger()->addStatus($this->t('Task deleted.'));
-        $this->redirectAfterDelete($form_state);
+        $this->redirectAfterTransition($form_state);
         return;
       }
     }
     catch (InvalidArgumentException) {
       $this->messenger()->addError($this->t('This task action is no longer authorized or valid.'));
-      if ($this->action() === 'delete') {
-        $this->redirectAfterDelete($form_state);
+      if (in_array($this->action(), ['delete', 'reopen'], TRUE)) {
+        $this->redirectAfterTransition($form_state);
       }
       else {
         $form_state->setRedirect('personal_secretary.my_tasks');
@@ -128,10 +128,10 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
   }
 
   /**
-   * Redirects only to a known product route after a confirmed delete.
+   * Returns only to a known product route after a confirmed transition.
    */
-  private function redirectAfterDelete(FormStateInterface $form_state): void {
-    $query = $this->deleteReturnQuery();
+  private function redirectAfterTransition(FormStateInterface $form_state): void {
+    $query = $this->transitionReturnQuery();
     if (isset($query['from'])) {
       $form_state->setRedirect('personal_secretary.today');
       return;
@@ -144,7 +144,7 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
    *
    * @return array<string, string>
    */
-  private function deleteReturnQuery(): array {
+  private function transitionReturnQuery(): array {
     $query = $this->getRequest()->query->all();
     if (($query['from'] ?? NULL) === 'today') {
       return ['from' => 'today'];
