@@ -294,16 +294,47 @@ final class PersonalTaskTest extends BrowserTestBase {
     ], 'Save task');
     $this->assertSession()->pageTextContains('Synthetic task after edit');
 
-    $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/complete');
+    // The open-task detail exposes completion without losing the current filters.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic task after',
+      'sort' => 'title',
+    ]]);
+    $this->clickLink('Synthetic task after edit');
+    $completeUrl = '/personal-secretary/tasks/' . $taskId . '/complete?q=Synthetic%20task%20after&sort=title';
+    $this->assertSession()->linkByHrefExists($completeUrl);
+    $this->clickLink('Mark complete');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?q=Synthetic%20task%20after&sort=title');
     $storage->resetCache([$taskId]);
     $beforeSubmit = $storage->load($taskId);
     $this->assertInstanceOf(PersonalTask::class, $beforeSubmit);
     $this->assertSame(PersonalTask::STATUS_OPEN, (string) $beforeSubmit->get('status')->value, 'GET must not complete a task.');
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic task after');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $storage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($taskId)->get('status')->value, 'Cancel must not complete a task.');
 
+    // Untrusted navigation parameters cannot change the Cancel target.
+    $this->drupalGet('/personal-secretary/tasks/' . $taskId . '/complete', ['query' => [
+      'from' => ['today'],
+      'status' => ['completed'],
+      'destination' => '/admin',
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefNotExists('/admin');
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic task after',
+      'sort' => 'title',
+    ]]);
+    $this->clickLink('Synthetic task after edit');
+    $this->clickLink('Mark complete');
     $this->assertSession()->pageTextNotContains('This action cannot be undone.');
     $this->submitForm([], 'Mark complete');
     $this->assertSession()->pageTextContains('Task completed.');
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic task after');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
     $this->assertSession()->buttonExists('Reopen task');
     $this->assertSession()->pageTextNotContains('Synthetic task after edit');
 
@@ -412,6 +443,30 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->addressMatches('~/personal-secretary/today$~');
     $storage->resetCache([$todayTaskId]);
     $this->assertNull($storage->load($todayTaskId));
+
+    // Completion from a Today task detail returns to Today with Undo.
+    $todayComplete = $this->asUser($user, fn (): PersonalTask => $tasks->createTask(
+      'Synthetic Today completion', (int) $household->id(), PersonalTask::DUE_NONE,
+    ));
+    $todayCompleteId = (int) $todayComplete->id();
+    $detailUrl = '/personal-secretary/tasks/' . $todayCompleteId;
+    $this->drupalGet($detailUrl, ['query' => ['from' => 'today']]);
+    $this->assertSession()->linkByHrefExists($detailUrl . '/complete?from=today');
+    $this->clickLink('Mark complete');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/today');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressMatches('~/personal-secretary/today$~');
+    $storage->resetCache([$todayCompleteId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $storage->load($todayCompleteId)->get('status')->value);
+
+    $this->drupalGet($detailUrl, ['query' => ['from' => 'today']]);
+    $this->clickLink('Mark complete');
+    $this->submitForm([], 'Mark complete');
+    $this->assertSession()->addressMatches('~/personal-secretary/today\?reopen_task=' . $todayCompleteId . '$~');
+    $this->assertSession()->pageTextContains('Task completed.');
+    $this->assertSession()->linkExists('Reopen task');
+    $storage->resetCache([$todayCompleteId]);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($todayCompleteId)->get('status')->value);
   }
 
   public function testExistingInstallUpdatePreservesDomainAndGrants(): void {
