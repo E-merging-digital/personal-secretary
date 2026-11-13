@@ -1,5 +1,11 @@
 <article class="personal-secretary-today-activity">
-  <h3>{{ activity_label }}</h3>
+  <h3>
+    {% if detail_url %}
+      <a class="ps-today-activity__title" href="{{ detail_url }}">{{ activity_label }}</a>
+    {% else %}
+      {{ activity_label }}
+    {% endif %}
+  </h3>
   <dl>
     <div>
       <dt>{{ 'When'|t }}</dt>
