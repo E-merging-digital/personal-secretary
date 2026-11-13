@@ -469,7 +469,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $browser->followRedirects(FALSE);
     $browser->submit($form);
     $response = $browser->getResponse();
-    $this->assertSame(303, $response->getStatus(), 'The completion POST must redirect.');
+    $this->assertSame(303, $response->getStatusCode(), 'The completion POST must redirect.');
     $location = (string) $response->getHeader('Location');
     $this->assertStringContainsString(
       '/personal-secretary/today?reopen_task=' . $todayCompleteId,
