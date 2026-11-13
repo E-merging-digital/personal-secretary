@@ -477,11 +477,9 @@ final class PersonalTaskTest extends BrowserTestBase {
       'The completion POST must preserve the validated Today Undo target in its first redirect.',
     );
     $browser->followRedirects(TRUE);
-    // Verify the redirected page separately with Drupal's supported query
-    // options, avoiding BrowserKit history URL normalization.
-    $this->drupalGet('/personal-secretary/today', [
-      'query' => ['reopen_task' => $todayCompleteId],
-    ]);
+    // Follow exactly the redirect URL already validated above, including
+    // its Undo query; a separate string-path drupalGet() loses these options.
+    $this->drupalGet($location);
     $this->assertSession()->pageTextContains('Task completed.');
     $storage->resetCache([$todayCompleteId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $storage->load($todayCompleteId)->get('status')->value);
