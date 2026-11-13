@@ -391,7 +391,10 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       'original_occurrence_key' => (string) $candidate['_completion_original_occurrence_key'],
     ], ['query' => ['from' => 'preparations', 'days' => 7]]);
     $this->assertSession()->linkByHrefExists($preparedDetailUrl->toString());
-    $this->drupalGet($detailUrl);
+    $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--prepared")]//h3/a[contains(@class, "ps-preparation-item__title") and normalize-space()="All-day preparation"]');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-preparation-row > .ps-action-link'));
+    $this->clickLink('Long lead preparation due inside seven days');
+    $this->assertSession()->addressEquals($detailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Long lead activity outside seven days');
     $this->assertSession()->elementExists('css', 'a.ps-occurrence-detail__back')->click();
@@ -446,7 +449,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       'urgency' => 'overdue',
     ]]);
     $this->assertSession()->linkByHrefExists($filteredDetailUrl->toString());
-    $this->drupalGet($filteredDetailUrl);
+    $this->clickLink('Active overdue preparation');
+    $this->assertSession()->addressEquals($filteredDetailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists('css', 'a.ps-occurrence-detail__back')->click();
     $this->assertSession()->addressEquals(Url::fromRoute(

@@ -21,6 +21,9 @@ props:
     instruction:
       type: string
       title: Preparation instruction
+    detail_url:
+      type: string
+      title: Optional authorized occurrence detail URL
     due_time:
       type: string
       title: Viewer-local due display
