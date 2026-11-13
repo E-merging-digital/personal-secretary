@@ -630,10 +630,10 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSame('Overdue tasks', trim($groups[0]->find('css', 'h3.ps-task-group__heading')->getText()));
     $this->assertSame('Due today', trim($groups[1]->find('css', 'h3.ps-task-group__heading')->getText()));
     $this->assertSame(['Synthetic Today oldest overdue', 'Synthetic Today recent overdue'], array_map(
-      static fn ($node): string => trim($node->getText()), $groups[0]->findAll('css', '.ps-task-card strong'),
+      static fn ($node): string => trim($node->getText()), $groups[0]->findAll('css', '.ps-task-card__title'),
     ));
     $this->assertSame(['Synthetic Today first due', 'Synthetic Today second due'], array_map(
-      static fn ($node): string => trim($node->getText()), $groups[1]->findAll('css', '.ps-task-card strong'),
+      static fn ($node): string => trim($node->getText()), $groups[1]->findAll('css', '.ps-task-card__title'),
     ));
     $this->assertSession()->pageTextNotContains('Synthetic Today private excluded');
     $this->assertSession()->pageTextNotContains('Synthetic Today future excluded');
