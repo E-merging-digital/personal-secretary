@@ -42,7 +42,7 @@ final class PersonalTaskForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $task = $this->taskId() > 0 ? $this->loadEditableTask() : NULL;
-    $returnQuery = $task instanceof PersonalTask ? $this->taskListReturnQuery() : [];
+    $returnQuery = $this->taskListReturnQuery();
     // Keep validated navigation context on edit POST actions.
     if ($this->fromToday()) {
       $route = $task instanceof PersonalTask ? 'personal_secretary.edit_task' : 'personal_secretary.add_task';
@@ -50,7 +50,9 @@ final class PersonalTaskForm extends FormBase {
       $form['#action'] = Url::fromRoute($route, $parameters, ['query' => ['from' => 'today']])->toString();
     }
     elseif ($returnQuery !== []) {
-      $form['#action'] = Url::fromRoute('personal_secretary.edit_task', ['task' => $this->taskId()], ['query' => $returnQuery])->toString();
+      $route = $task instanceof PersonalTask ? 'personal_secretary.edit_task' : 'personal_secretary.add_task';
+      $parameters = $task instanceof PersonalTask ? ['task' => $this->taskId()] : [];
+      $form['#action'] = Url::fromRoute($route, $parameters, ['query' => $returnQuery])->toString();
     }
 
     $form['title'] = [
@@ -272,7 +274,7 @@ final class PersonalTaskForm extends FormBase {
    * @return array<string, string>
    */
   private function taskListReturnQuery(): array {
-    if ($this->taskId() === 0 || $this->fromToday()) {
+    if ($this->fromToday()) {
       return [];
     }
 
