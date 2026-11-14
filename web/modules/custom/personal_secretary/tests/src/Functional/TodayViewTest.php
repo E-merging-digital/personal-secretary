@@ -318,8 +318,11 @@ final class TodayViewTest extends BrowserTestBase {
       'original_occurrence_key' => (string) $preparationItems['Today due preparation']['_completion_original_occurrence_key'],
     ], ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($preparationDetailUrl->toString());
+    $this->assertSession()->elementExists('css', '.ps-preparation-card .ps-preparation-item__title');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-preparation-card > .ps-action-link'));
     $countsBeforePreparationDetail = $this->domainCounts();
-    $this->drupalGet($preparationDetailUrl);
+    $this->clickLink('Today due preparation');
+    $this->assertSession()->addressEquals($preparationDetailUrl->toString());
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Today preparation related activity');
     $this->assertSession()->linkExists('Back to Today');

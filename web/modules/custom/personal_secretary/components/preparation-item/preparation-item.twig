@@ -1,5 +1,11 @@
 <article class="personal-secretary-preparation-item">
-  <h3>{{ instruction }}</h3>
+  <h3>
+    {% if detail_url %}
+      <a class="ps-preparation-item__title" href="{{ detail_url }}">{{ instruction }}</a>
+    {% else %}
+      {{ instruction }}
+    {% endif %}
+  </h3>
   <dl>
     <div>
       <dt>{{ 'Activity'|t }}</dt>
