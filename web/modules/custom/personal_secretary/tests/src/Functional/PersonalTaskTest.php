@@ -492,7 +492,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $filterQuery = ['q' => 'Synthetic', 'sort' => 'title', 'urgency' => 'overdue'];
     $filteredList = Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $filterQuery])->toString();
     $filteredAdd = Url::fromRoute('personal_secretary.add_task', [], ['query' => $filterQuery])->toString();
-    $this->drupalGet($filteredList);
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $filterQuery]);
     $this->assertSession()->linkExists('Add task');
     $idsBeforeFilteredCancel = $storage->getQuery()->accessCheck(FALSE)->execute();
     $this->clickLink('Add task');
