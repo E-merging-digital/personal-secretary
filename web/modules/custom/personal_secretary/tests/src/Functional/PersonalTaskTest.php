@@ -493,7 +493,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $filteredList = Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $filterQuery])->toString();
     $filteredAdd = Url::fromRoute('personal_secretary.add_task', [], ['query' => $filterQuery])->toString();
     $this->drupalGet($filteredList);
-    $this->assertSession()->linkByHrefExists($filteredAdd);
+    $this->assertSession()->linkExists('Add task');
     $idsBeforeFilteredCancel = $storage->getQuery()->accessCheck(FALSE)->execute();
     $this->clickLink('Add task');
     $this->assertSession()->addressEquals($filteredAdd);
