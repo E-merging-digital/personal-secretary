@@ -103,7 +103,9 @@ final class PersonalTaskListForm extends FormBase {
       'add' => [
         '#type' => 'link',
         '#title' => $this->t('Add task'),
-        '#url' => Url::fromRoute('personal_secretary.add_task'),
+        '#url' => Url::fromRoute('personal_secretary.add_task', [], [
+          'query' => $this->filterQuery($statusFilter, $titleFilter, $sortFilter, $urgencyFilter),
+        ]),
         '#attributes' => ['class' => ['ps-task-list__add']],
       ],
     ];

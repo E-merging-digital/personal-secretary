@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Entity\EntityStorageException;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
+use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\language\Entity\ConfigurableLanguage;
@@ -486,6 +487,31 @@ final class PersonalTaskTest extends BrowserTestBase {
     // The initial 303 Location above already proves the exact query target.
     // BrowserKit normalizes the URL here; assert the actual Undo control.
     $this->assertSession()->buttonExists('Reopen task');
+
+    // Adding from a filtered list preserves navigation on Cancel and Save.
+    $filterQuery = ['q' => 'Synthetic', 'sort' => 'title', 'urgency' => 'overdue'];
+    $filteredList = Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $filterQuery])->toString();
+    $filteredAdd = Url::fromRoute('personal_secretary.add_task', [], ['query' => $filterQuery])->toString();
+    $this->drupalGet($filteredList);
+    $this->assertSession()->linkByHrefExists($filteredAdd);
+    $idsBeforeFilteredCancel = $storage->getQuery()->accessCheck(FALSE)->execute();
+    $this->clickLink('Add task');
+    $this->assertSession()->addressEquals($filteredAdd);
+    $this->assertSession()->linkByHrefExists($filteredList);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($filteredList);
+    $this->assertSame($idsBeforeFilteredCancel, $storage->getQuery()->accessCheck(FALSE)->execute());
+    $this->clickLink('Add task');
+    $this->submitForm([
+      'title' => 'Synthetic added from filtered list',
+      'due_mode' => PersonalTask::DUE_DATE,
+      'due_date' => '2020-01-02',
+    ], 'Add task');
+    $this->assertSession()->addressEquals($filteredList);
+    $this->assertSession()->pageTextContains('Task added.');
+    $this->assertSession()->pageTextContains('Synthetic added from filtered list');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
   }
 
   public function testExistingInstallUpdatePreservesDomainAndGrants(): void {
