@@ -51,7 +51,7 @@ final class AddActivityForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     // Preserve only a typed navigation origin across the form POST.
-    if ($this->fromToday() || $this->fromMyUpcoming()) {
+    if ($this->fromToday() || $this->fromMyUpcoming() || $this->fromPreparations()) {
       $form['#action'] = Url::fromRoute('personal_secretary.add_activity', [], ['query' => $this->navigationQuery()])->toString();
     }
     $isAdministrator = $this->isAdministrator();
@@ -270,9 +270,11 @@ final class AddActivityForm extends FormBase {
       '#url' => Url::fromRoute(
         $this->fromToday()
           ? 'personal_secretary.today'
-          : ($this->fromMyUpcoming() ? 'personal_secretary.my_upcoming' : ($isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming')),
+          : ($this->fromPreparations()
+            ? 'personal_secretary.my_preparations'
+            : ($this->fromMyUpcoming() ? 'personal_secretary.my_upcoming' : ($isAdministrator ? 'personal_secretary.upcoming' : 'personal_secretary.my_upcoming'))),
         [],
-        $this->fromMyUpcoming() ? $this->myUpcomingOptions() : [],
+        ($this->fromMyUpcoming() || $this->fromPreparations()) ? $this->navigationReturnOptions() : [],
       ),
       '#attributes' => ['class' => ['button']],
       '#weight' => 10,
@@ -514,8 +516,11 @@ final class AddActivityForm extends FormBase {
     if ($this->fromToday()) {
       $form_state->setRedirect('personal_secretary.today');
     }
+    elseif ($this->fromPreparations()) {
+      $form_state->setRedirect('personal_secretary.my_preparations', [], $this->navigationReturnOptions());
+    }
     elseif ($this->fromMyUpcoming()) {
-      $form_state->setRedirect('personal_secretary.my_upcoming', [], $this->myUpcomingOptions());
+      $form_state->setRedirect('personal_secretary.my_upcoming', [], $this->navigationReturnOptions());
     }
     else {
       $form_state->setRedirect(
@@ -535,6 +540,10 @@ final class AddActivityForm extends FormBase {
     return ($this->getRequest()->query->all()['from'] ?? NULL) === 'mine';
   }
 
+  private function fromPreparations(): bool {
+    return ($this->getRequest()->query->all()['from'] ?? NULL) === 'preparations';
+  }
+
   /**
    * @return array<string, string>
    */
@@ -542,13 +551,16 @@ final class AddActivityForm extends FormBase {
     if ($this->fromToday()) {
       return ['from' => 'today'];
     }
-    if (!$this->fromMyUpcoming()) {
+    if (!$this->fromMyUpcoming() && !$this->fromPreparations()) {
       return [];
     }
     $input = $this->getRequest()->query->all();
-    $query = ['from' => 'mine'];
+    $query = ['from' => $this->fromPreparations() ? 'preparations' : 'mine'];
     if (($input['days'] ?? NULL) === '30') {
       $query['days'] = '30';
+    }
+    elseif ($this->fromPreparations()) {
+      $query['days'] = '7';
     }
     $search = $input['q'] ?? NULL;
     if (is_string($search)) {
@@ -557,13 +569,16 @@ final class AddActivityForm extends FormBase {
         $query['q'] = $search;
       }
     }
+    if ($this->fromPreparations() && ($input['urgency'] ?? NULL) === 'overdue') {
+      $query['urgency'] = 'overdue';
+    }
     return $query;
   }
 
   /**
    * @return array<string, mixed>
    */
-  private function myUpcomingOptions(): array {
+  private function navigationReturnOptions(): array {
     $query = $this->navigationQuery();
     unset($query['from']);
     return $query === [] ? [] : ['query' => $query];
