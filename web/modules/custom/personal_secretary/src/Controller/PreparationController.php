@@ -128,6 +128,19 @@ final class PreparationController extends ControllerBase {
         ],
       ],
       'search' => $this->searchForm($windowDays, $search, $urgency),
+      'add_activity' => [
+        '#type' => 'container',
+        '#access' => $search === '' && $urgency !== 'overdue',
+        '#attributes' => ['class' => ['ps-upcoming-actions']],
+        'link' => [
+          '#type' => 'link',
+          '#title' => $this->t('Add an activity to prepare'),
+          '#url' => Url::fromRoute('personal_secretary.add_activity', [], [
+            'query' => ['from' => 'preparations'] + $returnQuery,
+          ]),
+          '#attributes' => ['class' => ['ps-upcoming-actions__add']],
+        ],
+      ],
       'window' => [
         '#type' => 'html_tag',
         '#tag' => 'p',
@@ -187,18 +200,7 @@ final class PreparationController extends ControllerBase {
           '#tag' => 'p',
           '#value' => $this->t('Preparations are added through activities. You can include a preparation when adding an activity.'),
         ];
-        $build['to_prepare']['add_activity'] = [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['ps-upcoming-actions']],
-          'link' => [
-            '#type' => 'link',
-            '#title' => $this->t('Add an activity to prepare'),
-            '#url' => Url::fromRoute('personal_secretary.add_activity', [], [
-              'query' => ['from' => 'preparations'] + $returnQuery,
-            ]),
-            '#attributes' => ['class' => ['ps-upcoming-actions__add']],
-          ],
-        ];
+
       }
     }
     else {

@@ -354,7 +354,17 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('All-day preparation activity');
     $this->assertSession()->pageTextContains('All day');
     $this->assertSession()->pageTextContains($afterItems['Due now preparation']['activity_start']);
-    $this->assertSession()->elementNotExists('css', 'a.ps-upcoming-actions__add');
+    // The ordinary non-empty list keeps a single add action and its return.
+    $addFromPopulated = Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => 'preparations', 'days' => 7],
+    ])->toString();
+    $this->assertSession()->linkByHrefExists($addFromPopulated);
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
+    $this->clickLink('Add an activity to prepare');
+    $this->assertSession()->addressEquals($addFromPopulated);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($route . '?days=7');
 
     $allDayRendered = $afterItems['All-day preparation'];
     $allDayArticle = '//article[contains(@class, "personal-secretary-preparation-item")][.//h3[normalize-space()="All-day preparation"]]';
