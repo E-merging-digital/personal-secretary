@@ -244,6 +244,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkExists('My upcoming');
     $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+    $this->assertSession()->elementNotExists('css', '.ps-upcoming-card__title-link');
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextContains('Rule B activity');
     $this->assertSession()->pageTextContains('Override to A activity');
@@ -384,7 +385,10 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists($ruleASearchDetail30);
     $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30');
 
-    $this->getSession()->getPage()->clickLink('View details');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-card__title a.ps-upcoming-card__title-link');
+    $this->assertSession()->linkNotExists('View details');
+    $this->getSession()->getPage()->clickLink('Rule A activity');
+    $this->assertSession()->addressEquals($ruleASearchDetail30);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($filtered30);
     $this->drupalGet(Url::fromUserInput($ruleBDetailUrl, [

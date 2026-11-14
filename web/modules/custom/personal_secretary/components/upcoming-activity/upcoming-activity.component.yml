@@ -30,6 +30,9 @@ props:
     activity_label:
       type: string
       title: Activity label
+    detail_url:
+      type: string
+      title: Optional authorized occurrence detail URL
     location:
       type: string
       title: Optional activity location

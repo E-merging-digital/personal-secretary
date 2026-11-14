@@ -309,6 +309,9 @@ final class UpcomingController extends ControllerBase {
           $previousDay = $currentDay;
         }
       }
+      if ($includeDetailLinks) {
+        $item['detail_url'] = $this->detailLink($responsibilityTarget, $days, $query)['#url']->toString();
+      }
       $build[$delta]['activity'] = [
         '#type' => 'component',
         '#component' => 'personal_secretary:upcoming-activity',
@@ -316,9 +319,6 @@ final class UpcomingController extends ControllerBase {
       ];
 
       $occurrenceActions = [];
-      if ($includeDetailLinks) {
-        $occurrenceActions['detail'] = $this->detailLink($responsibilityTarget, $days, $query);
-      }
       if ($includeAdminMutationLinks) {
         $occurrenceActions['responsibility'] = [
           '#type' => 'link',
