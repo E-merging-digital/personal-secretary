@@ -1,6 +1,12 @@
 <article class="personal-secretary-upcoming-activity ps-upcoming-card">
   <header class="ps-upcoming-card__header">
-    <h2 class="ps-upcoming-card__title">{{ activity_label }}</h2>
+    <h2 class="ps-upcoming-card__title">
+      {% if detail_url %}
+        <a class="ps-upcoming-card__title-link" href="{{ detail_url }}">{{ activity_label }}</a>
+      {% else %}
+        {{ activity_label }}
+      {% endif %}
+    </h2>
     {% if is_rescheduled %}
       <span class="ps-upcoming-card__status">{{ 'Rescheduled'|t }}</span>
     {% endif %}
