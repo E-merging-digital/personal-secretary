@@ -193,7 +193,9 @@ final class PreparationController extends ControllerBase {
           'link' => [
             '#type' => 'link',
             '#title' => $this->t('Add an activity to prepare'),
-            '#url' => Url::fromRoute('personal_secretary.add_activity'),
+            '#url' => Url::fromRoute('personal_secretary.add_activity', [], [
+              'query' => ['from' => 'preparations'] + $returnQuery,
+            ]),
             '#attributes' => ['class' => ['ps-upcoming-actions__add']],
           ],
         ];

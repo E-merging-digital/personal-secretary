@@ -216,6 +216,45 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Activity "Returnable one-off activity" added.');
     $this->assertSame($before['series'] + 1, $this->creationCounts()['series'], 'One activity was created.');
+
+    // Add activity also returns to My preparations with bounded filters.
+    $preparationQuery = ['days' => '30', 'q' => 'Returnable', 'urgency' => 'overdue'];
+    $filteredPreparations = Url::fromRoute('personal_secretary.my_preparations', [], [
+      'query' => $preparationQuery,
+    ]);
+    $addFromPreparations = Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => 'preparations'] + $preparationQuery,
+    ]);
+    $this->drupalGet($addFromPreparations);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists($filteredPreparations->toString());
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($filteredPreparations->toString());
+    $this->assertSame($before['series'] + 1, $this->creationCounts()['series']);
+
+    $this->drupalGet($addFromPreparations);
+    $this->submitForm([
+      'household_id' => (string) $household->id(),
+      'activity_type' => 'one_off',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'responsible_person_id' => (string) $current->id(),
+      'activity_label' => 'Returnable preparation activity',
+      'first_occurrence_date' => $nowLocal->modify('+3 days')->format('Y-m-d'),
+      'start_local_time' => '10:00',
+      'end_local_time' => '11:00',
+      'source_timezone' => 'Europe/Brussels',
+      'preparation_instruction' => '',
+      'preparation_lead_minutes' => '0',
+    ], 'Add activity');
+    $this->assertSession()->addressEquals($filteredPreparations->toString());
+    $this->assertSession()->pageTextContains('Activity "Returnable preparation activity" added.');
+    $this->assertSame($before['series'] + 2, $this->creationCounts()['series']);
+
+    // A forged origin cannot introduce an untrusted return route.
+    $this->drupalGet(Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => ['preparations'], 'destination' => '/admin'],
+    ]));
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
   }
 
   public function testOrdinaryWeeklyAndOneOffCreationReuseExistingSemantics(): void {

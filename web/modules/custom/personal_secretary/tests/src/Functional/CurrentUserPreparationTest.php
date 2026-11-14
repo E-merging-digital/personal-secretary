@@ -642,9 +642,17 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('No preparation shown in this period has been marked prepared.');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
     $this->assertSession()->pageTextContains('Add an activity to prepare');
-    $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
+    $addFromPreparations = Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => 'preparations', 'days' => 30],
+    ])->toString();
+    $this->assertSession()->linkByHrefExists($addFromPreparations);
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
-    $this->assertSame($countsBefore, $this->domainCounts(), 'Viewing the empty state must not create an activity or preparation.');
+    $this->clickLink('Add an activity to prepare');
+    $this->assertSession()->addressEquals($addFromPreparations);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($route . '?days=30');
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Viewing and cancelling an empty-state activity must not create data.');
     $this->assertSession()->elementNotExists(
       'xpath',
       '//article[contains(concat(" ", normalize-space(@class), " "), " personal-secretary-preparation-item ")][.//h3[normalize-space()="Active overdue preparation"]]',
