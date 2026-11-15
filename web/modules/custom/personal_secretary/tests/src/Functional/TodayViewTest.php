@@ -242,9 +242,12 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->linkExists('My preparations');
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $overduePreparationsUrl = '/personal-secretary/preparations/mine?urgency=overdue';
+    $overduePreparationsCount = count(array_filter($model['preparations'], static fn(array $item): bool => (bool) $item['overdue']));
+    $this->assertGreaterThan(1, $overduePreparationsCount);
+    $this->assertSession()->linkExists('View ' . $overduePreparationsCount . ' overdue preparations');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"]'));
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"] + .ps-today-stack, .ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"] + .ps-task-groups'));
-    $this->clickLink('View overdue preparations');
+    $this->clickLink('View ' . $overduePreparationsCount . ' overdue preparations');
     $this->assertSession()->addressEquals($overduePreparationsUrl);
     $this->assertSession()->pageTextContains('Today active overdue preparation');
     $this->assertSession()->pageTextNotContains('Today future preparation excluded');
@@ -571,7 +574,7 @@ final class TodayViewTest extends BrowserTestBase {
     $formatter = $this->container->get('date.formatter');
     foreach (['fr', 'en'] as $langcode) {
       $this->drupalGet('/' . $langcode . '/personal-secretary/today');
-      $this->assertSession()->linkExists($langcode === 'fr' ? 'Voir les préparatifs en retard' : 'View overdue preparations');
+      $this->assertSession()->linkExists($langcode === 'fr' ? 'Voir ' . $overduePreparationsCount . ' préparatifs en retard' : 'View ' . $overduePreparationsCount . ' overdue preparations');
       $this->assertSession()->linkByHrefExists('/' . $langcode . '/personal-secretary/preparations/mine?urgency=overdue');
       $planning = $this->assertSession()->elementExists('css', '.ps-today-section--activities');
       $this->assertDoesNotMatchRegularExpression('/\\b\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?\\b/', $planning->getText());
@@ -654,8 +657,8 @@ final class TodayViewTest extends BrowserTestBase {
     $url = '/personal-secretary/today';
     $this->drupalGet($url);
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
-    $this->assertSession()->linkNotExists('View overdue tasks');
-    $this->assertSession()->linkNotExists('View overdue preparations');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href*="urgency=overdue"]'));
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href*="urgency=overdue"]'));
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add?from=today"]'));
     $this->clickLink('Add an activity to prepare');
@@ -695,7 +698,8 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="' . $overdueLink . '"]'));
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="' . $overdueLink . '"] + .ps-today-stack'));
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
-    $this->clickLink('View overdue tasks');
+    $this->assertSession()->linkExists('View 2 overdue tasks');
+    $this->clickLink('View 2 overdue tasks');
     $this->assertSession()->addressEquals($overdueLink);
     $this->assertSession()->pageTextContains('Synthetic Today oldest overdue');
     $this->assertSession()->pageTextNotContains('Synthetic Today future excluded');
@@ -728,6 +732,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/add');
 
     $this->submitForm([], 'Mark complete');
+    $this->assertSession()->linkExists('View 1 overdue task');
     $this->assertSession()->buttonExists('Reopen task');
     $this->assertSession()->pageTextNotContains('Synthetic Today oldest overdue');
     $taskStorage = $this->container->get('entity_type.manager')->getStorage(PersonalTask::ENTITY_TYPE_ID);
@@ -755,12 +760,12 @@ final class TodayViewTest extends BrowserTestBase {
       ->save();
     $this->container->get('language_manager')->reset();
     $this->drupalGet('/fr/personal-secretary/today');
-    $this->assertSession()->linkExists('Voir les tâches en retard');
+    $this->assertSession()->linkExists('Voir 2 tâches en retard');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine?urgency=overdue');
     $this->assertSession()->pageTextContains('Tâches en retard');
     $this->assertSession()->pageTextContains('À faire aujourd’hui');
     $this->drupalGet('/en/personal-secretary/today');
-    $this->assertSession()->linkExists('View overdue tasks');
+    $this->assertSession()->linkExists('View 2 overdue tasks');
     $this->assertSession()->linkByHrefExists('/en/personal-secretary/tasks/mine?urgency=overdue');
     $this->assertSession()->pageTextContains('Overdue tasks');
     $this->assertSession()->pageTextContains('Due today');
@@ -774,7 +779,7 @@ final class TodayViewTest extends BrowserTestBase {
       $switcher->switchBack();
     }
     $this->drupalGet('/en/personal-secretary/today');
-    $this->assertSession()->linkNotExists('View overdue tasks');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href*="urgency=overdue"]'));
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
     $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-card'));
     $switcher->switchTo($user);
@@ -787,7 +792,7 @@ final class TodayViewTest extends BrowserTestBase {
     }
     $this->drupalGet('/en/personal-secretary/today');
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
-    $this->assertSession()->linkNotExists('View overdue tasks');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href*="urgency=overdue"]'));
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
   }
 

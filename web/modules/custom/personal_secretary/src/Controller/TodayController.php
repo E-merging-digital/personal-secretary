@@ -147,7 +147,7 @@ final class TodayController extends ControllerBase {
       if ($overdueCount > 0) {
         $build['tasks']['overdue_link'] = [
           '#type' => 'link',
-          '#title' => $this->t('View overdue tasks'),
+          '#title' => $this->formatPlural($overdueCount, 'View 1 overdue task', 'View @count overdue tasks'),
           '#url' => Url::fromRoute('personal_secretary.my_tasks', [], ['query' => ['urgency' => 'overdue']]),
         ];
       }
@@ -250,7 +250,7 @@ final class TodayController extends ControllerBase {
       if ($overdueCount > 0) {
         $build['preparations']['overdue_link'] = [
           '#type' => 'link',
-          '#title' => $this->t('View overdue preparations'),
+          '#title' => $this->formatPlural($overdueCount, 'View 1 overdue preparation', 'View @count overdue preparations'),
           '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['urgency' => 'overdue']]),
         ];
       }
