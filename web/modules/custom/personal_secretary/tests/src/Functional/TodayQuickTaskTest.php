@@ -112,6 +112,10 @@ final class TodayQuickTaskTest extends BrowserTestBase {
     $tomorrowTask = reset($tomorrowTasks);
     $this->assertSame($tomorrow, (string) $tomorrowTask->get('due_date')->value);
     $this->assertSession()->pageTextNotContains('Tomorrow quick task');
+    $tomorrowDetailUrl = \Drupal\Core\Url::fromRoute('personal_secretary.task_status', [
+      'task' => (int) $tomorrowTask->id(),
+    ], ['query' => ['from' => 'today']])->toString();
+    $this->assertSession()->linkByHrefExists($tomorrowDetailUrl);
 
     $this->submitForm([
       'quick_task_title' => 'Undated quick task',
@@ -125,6 +129,16 @@ final class TodayQuickTaskTest extends BrowserTestBase {
     $undatedTask = reset($undatedTasks);
     $this->assertSame(PersonalTask::DUE_NONE, (string) $undatedTask->get('due_mode')->value);
     $this->assertSame('', (string) ($undatedTask->get('due_date')->value ?? ''));
+    $undatedDetailUrl = \Drupal\Core\Url::fromRoute('personal_secretary.task_status', [
+      'task' => (int) $undatedTask->id(),
+    ], ['query' => ['from' => 'today']])->toString();
+    $this->assertSession()->linkByHrefExists($undatedDetailUrl);
+    $this->clickLink('Task details');
+    $this->assertSession()->addressEquals($undatedDetailUrl);
+    $this->assertSession()->pageTextContains('Undated quick task');
+    $this->clickLink('Back to Today');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertCount(1, $storage->loadByProperties(['title' => 'Undated quick task']));
 
     // Multiple grants require an explicit, eligible Household selection.
     $user->set(HouseholdAuthorizationService::FIELD_NAME, [

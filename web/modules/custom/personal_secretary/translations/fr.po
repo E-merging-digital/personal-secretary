@@ -480,6 +480,9 @@ msgstr "Tâche ajoutée."
 msgid "Task added. Find it in My tasks."
 msgstr "Tâche ajoutée. Retrouvez-la dans Mes tâches."
 
+msgid "Task added. Find it in My tasks. <a href=\":url\">Task details</a>."
+msgstr "Tâche ajoutée. Retrouvez-la dans Mes tâches. <a href=\":url\">Détails de la tâche</a>."
+
 msgid "Task completed. You can reopen it below if this was accidental."
 msgstr "Tâche terminée. Vous pouvez la rouvrir ci-dessous si c’était involontaire."
 
