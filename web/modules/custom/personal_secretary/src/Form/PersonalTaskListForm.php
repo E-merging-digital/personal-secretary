@@ -471,6 +471,11 @@ final class PersonalTaskListForm extends FormBase {
           return;
         }
 
+        if (!$changed) {
+          $this->messenger()->addError($this->t('This task action is no longer authorized or valid.'));
+          $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
+          return;
+        }
         $this->messenger()->addStatus($message);
         $form_state->setRedirect(
           'personal_secretary.my_tasks',
@@ -491,6 +496,11 @@ final class PersonalTaskListForm extends FormBase {
           return;
         }
 
+        if (!$changed) {
+          $this->messenger()->addError($this->t('This task action is no longer authorized or valid.'));
+          $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
+          return;
+        }
         $this->messenger()->addStatus($message);
         $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
         return;
@@ -505,7 +515,7 @@ final class PersonalTaskListForm extends FormBase {
       $this->messenger()->addError(
         $this->t('This task action is no longer authorized or valid.'),
       );
-      $form_state->setRedirect('personal_secretary.my_tasks');
+      $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
       return;
     }
 
@@ -517,7 +527,7 @@ final class PersonalTaskListForm extends FormBase {
     $this->messenger()->addError(
       $this->t('This task action is no longer authorized or valid.'),
     );
-    $form_state->setRedirect('personal_secretary.my_tasks');
+    $form_state->setRedirect('personal_secretary.my_tasks', [], ['query' => $filterQuery]);
   }
 
   /**
