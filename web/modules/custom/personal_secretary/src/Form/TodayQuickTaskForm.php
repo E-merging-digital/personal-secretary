@@ -142,7 +142,9 @@ final class TodayQuickTaskForm extends FormBase {
         $dueMode,
         $dueDate,
       );
-      $this->messenger()->addStatus($this->t('Task added.'));
+      $this->messenger()->addStatus($when === 'today'
+        ? $this->t('Task added.')
+        : $this->t('Task added. Find it in My tasks.'));
     }
     catch (InvalidArgumentException) {
       $this->messenger()->addError($this->t('The task could not be added because its authorization or data changed.'));
