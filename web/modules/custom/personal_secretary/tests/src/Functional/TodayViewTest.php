@@ -241,6 +241,17 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Planning');
     $this->assertSession()->linkExists('My preparations');
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
+    $overduePreparationsUrl = '/personal-secretary/preparations/mine?urgency=overdue';
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"]'));
+    $this->clickLink('View overdue preparations');
+    $this->assertSession()->addressEquals($overduePreparationsUrl);
+    $this->assertSession()->pageTextContains('Today active overdue preparation');
+    $this->assertSession()->pageTextNotContains('Today future preparation excluded');
+    $this->assertSession()->pageTextNotContains('Today unauthorized H2 preparation');
+    if ($laterDueAt >= $nowUtc) {
+      $this->assertSession()->pageTextNotContains('Today later preparation');
+    }
+    $this->drupalGet($todayUrl);
     $this->assertSession()->pageTextContains('Today route task');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/add');
     // A task opened from Today returns to Today after a read-only detail view.
@@ -559,6 +570,8 @@ final class TodayViewTest extends BrowserTestBase {
     $formatter = $this->container->get('date.formatter');
     foreach (['fr', 'en'] as $langcode) {
       $this->drupalGet('/' . $langcode . '/personal-secretary/today');
+      $this->assertSession()->linkExists($langcode === 'fr' ? 'Voir les préparatifs en retard' : 'View overdue preparations');
+      $this->assertSession()->linkByHrefExists('/' . $langcode . '/personal-secretary/preparations/mine?urgency=overdue');
       $planning = $this->assertSession()->elementExists('css', '.ps-today-section--activities');
       $this->assertDoesNotMatchRegularExpression('/\\b\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2})?\\b/', $planning->getText());
 
@@ -641,6 +654,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->drupalGet($url);
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
     $this->assertSession()->linkNotExists('View overdue tasks');
+    $this->assertSession()->linkNotExists('View overdue preparations');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add?from=today"]'));
     $this->clickLink('Add an activity to prepare');

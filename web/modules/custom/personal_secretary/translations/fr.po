@@ -1042,6 +1042,9 @@ msgstr "Voir le détail"
 msgid "View overdue tasks"
 msgstr "Voir les tâches en retard"
 
+msgid "View overdue preparations"
+msgstr "Voir les préparatifs en retard"
+
 msgid "This occurrence"
 msgstr "Cette occurrence"
 

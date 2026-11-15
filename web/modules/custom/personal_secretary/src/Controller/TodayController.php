@@ -297,6 +297,13 @@ final class TodayController extends ControllerBase {
           $build['preparations']['items'][$delta] = $row;
         }
       }
+      if ($overdueCount > 0) {
+        $build['preparations']['overdue_link'] = [
+          '#type' => 'link',
+          '#title' => $this->t('View overdue preparations'),
+          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['urgency' => 'overdue']]),
+        ];
+      }
     }
 
     $build['planning'] = [
