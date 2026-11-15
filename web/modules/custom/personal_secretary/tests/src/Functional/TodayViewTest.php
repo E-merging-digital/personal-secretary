@@ -500,6 +500,36 @@ final class TodayViewTest extends BrowserTestBase {
     $taskStorage->resetCache([$taskId]);
     $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
 
+    // A stale browser form must never report a successful transition when the
+    // same change has already been applied by another authorized request.
+    $this->drupalGet($todayUrl);
+    $this->assertSession()->buttonExists('Mark complete');
+    $accountSwitcher->switchTo($authorized);
+    try {
+      $this->assertTrue($taskMutations->completeTask($taskId));
+    }
+    finally {
+      $accountSwitcher->switchBack();
+    }
+    $this->submitForm([], 'Mark complete');
+    $this->assertSession()->pageTextNotContains('Task completed. You can reopen it below if this was accidental.');
+    $taskStorage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $taskStorage->load($taskId)->get('status')->value);
+
+    $this->drupalGet($todayUrl . '?reopen_task=' . $taskId);
+    $this->assertSession()->buttonExists('Reopen task');
+    $accountSwitcher->switchTo($authorized);
+    try {
+      $this->assertTrue($taskMutations->reopenTask($taskId));
+    }
+    finally {
+      $accountSwitcher->switchBack();
+    }
+    $this->submitForm([], 'Reopen task');
+    $this->assertSession()->pageTextNotContains('Task reopened.');
+    $taskStorage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
+
     // Planning keeps ISO values only in semantic datetime attributes while
     // presenting timed and all-day cards in the visitor's interface language.
     if (ConfigurableLanguage::load('fr') === NULL) {
