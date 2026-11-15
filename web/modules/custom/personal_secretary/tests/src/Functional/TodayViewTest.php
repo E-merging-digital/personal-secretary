@@ -494,6 +494,26 @@ final class TodayViewTest extends BrowserTestBase {
     $taskStorage->resetCache([$taskId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $taskStorage->load($taskId)->get('status')->value);
 
+    // The currently displayed Undo is the reliable basis for a stale
+    // reopen request. Another authorized request reopens the task first.
+    $accountSwitcher->switchTo($authorized);
+    try {
+      $this->assertTrue($taskMutations->reopenTask($taskId));
+    }
+    finally {
+      $accountSwitcher->switchBack();
+    }
+    $this->submitForm([], 'Reopen task');
+    $this->assertSession()->pageTextNotContains('Task reopened.');
+    $taskStorage->resetCache([$taskId]);
+    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
+
+    // Normal completion and Undo remain functional after a stale request.
+    $this->drupalGet($todayUrl);
+    $this->assertSession()->buttonExists('Mark complete');
+    $this->submitForm([], 'Mark complete');
+    $this->assertSession()->addressEquals('/personal-secretary/today?reopen_task=' . $taskId);
+    $this->assertSession()->buttonExists('Reopen task');
     $this->submitForm([], 'Reopen task');
     $this->assertSession()->addressEquals($todayUrl);
     $this->assertSession()->pageTextContains('Today route task');
@@ -515,20 +535,6 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Task completed. You can reopen it below if this was accidental.');
     $taskStorage->resetCache([$taskId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $taskStorage->load($taskId)->get('status')->value);
-
-    $this->drupalGet($todayUrl . '?reopen_task=' . $taskId);
-    $this->assertSession()->buttonExists('Reopen task');
-    $accountSwitcher->switchTo($authorized);
-    try {
-      $this->assertTrue($taskMutations->reopenTask($taskId));
-    }
-    finally {
-      $accountSwitcher->switchBack();
-    }
-    $this->submitForm([], 'Reopen task');
-    $this->assertSession()->pageTextNotContains('Task reopened.');
-    $taskStorage->resetCache([$taskId]);
-    $this->assertSame(PersonalTask::STATUS_OPEN, (string) $taskStorage->load($taskId)->get('status')->value);
 
     // Planning keeps ISO values only in semantic datetime attributes while
     // presenting timed and all-day cards in the visitor's interface language.
