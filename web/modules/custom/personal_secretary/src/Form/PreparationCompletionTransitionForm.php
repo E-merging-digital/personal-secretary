@@ -71,7 +71,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
     }
 
     try {
-      $this->completionService->describeCurrentPreparation(
+      $current = $this->completionService->describeCurrentPreparation(
         $seriesId,
         $originalOccurrenceKey,
         $requirementId,
@@ -90,16 +90,18 @@ final class PreparationCompletionTransitionForm extends FormBase {
     $form['#action'] = $transitionUrl->toString();
 
     $form['#attributes']['class'][] = 'ps-preparation-action-form';
+    $label = match ($action) {
+      'prepared' => $this->t('Mark prepared'),
+      'not_prepared' => $this->t('Mark not prepared'),
+      default => throw new NotFoundHttpException('Unknown preparation completion action.'),
+    };
     $form['submit'] = [
       '#type' => 'submit',
-      '#value' => match ($action) {
-        'prepared' => $this->t('Mark prepared'),
-        'not_prepared' => $this->t('Mark not prepared'),
-        default => throw new NotFoundHttpException('Unknown preparation completion action.'),
-      },
+      '#value' => $label,
       '#button_type' => 'primary',
       '#attributes' => [
         'class' => ['ps-preparation-action-form__submit'],
+        'aria-label' => (string) $label . ': ' . $current['instruction'],
       ],
     ];
 

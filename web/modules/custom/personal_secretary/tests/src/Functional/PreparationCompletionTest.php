@@ -93,10 +93,12 @@ final class PreparationCompletionTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Completion H2 preparation');
     $this->assertSame($count, $this->completionCount(), 'GET must not create completion rows.');
     $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Completion day twenty preparation"]]//form[contains(@action, "days=30") and not(contains(@action, "destination"))]');
+    $this->assertSession()->elementExists('css', 'input.ps-preparation-action-form__submit[aria-label="Mark prepared: Completion day twenty preparation"]');
     $this->pressPreparationAction('Completion day twenty preparation', 'Mark prepared');
     $this->assertSession()->addressEquals($mine . '?days=30');
     $this->assertSession()->pageTextContains('Preparation marked prepared.');
     $this->assertSession()->elementExists('xpath', '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="Completion day twenty preparation"]]');
+    $this->assertSession()->elementExists('css', 'input.ps-preparation-action-form__submit[aria-label="Mark not prepared: Completion day twenty preparation"]');
     $this->assertSame($count + 1, $this->completionCount());
 
     $this->pressPreparationAction('Completion day twenty preparation', 'Mark not prepared');
@@ -148,6 +150,7 @@ final class PreparationCompletionTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Completion main preparation');
     $this->assertSession()->buttonExists('Mark prepared');
+    $this->assertSession()->elementExists('css', 'input.ps-preparation-action-form__submit[aria-label="Mark prepared: Completion main preparation"]');
     $this->assertSame(1, $this->completionCount()); // Only the pre-seeded unauthorized H2 row exists before POST.
     $this->submitForm([], 'Mark prepared');
     $this->assertSession()->addressEquals('/personal-secretary/today');
