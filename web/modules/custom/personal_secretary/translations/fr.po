@@ -477,6 +477,9 @@ msgstr "Tâche"
 msgid "Task added."
 msgstr "Tâche ajoutée."
 
+msgid "Task added. Find it in My tasks."
+msgstr "Tâche ajoutée. Retrouvez-la dans Mes tâches."
+
 msgid "Task completed. You can reopen it below if this was accidental."
 msgstr "Tâche terminée. Vous pouvez la rouvrir ci-dessous si c’était involontaire."
 

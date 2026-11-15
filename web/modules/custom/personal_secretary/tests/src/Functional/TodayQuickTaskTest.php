@@ -85,6 +85,8 @@ final class TodayQuickTaskTest extends BrowserTestBase {
     ], 'Add task now');
     $this->assertSession()->addressEquals($todayUrl);
     $this->assertSession()->pageTextContains('Today quick task');
+    $this->assertSession()->pageTextContains('Task added.');
+    $this->assertSession()->pageTextNotContains('Task added. Find it in My tasks.');
     $todayTasks = $storage->loadByProperties(['title' => 'Today quick task']);
     $this->assertCount(1, $todayTasks);
     $task = reset($todayTasks);
@@ -104,6 +106,7 @@ final class TodayQuickTaskTest extends BrowserTestBase {
       'quick_task_due' => 'tomorrow',
     ], 'Add task now');
     $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSession()->pageTextContains('Task added. Find it in My tasks.');
     $tomorrowTasks = $storage->loadByProperties(['title' => 'Tomorrow quick task']);
     $this->assertCount(1, $tomorrowTasks);
     $tomorrowTask = reset($tomorrowTasks);
@@ -114,7 +117,10 @@ final class TodayQuickTaskTest extends BrowserTestBase {
       'quick_task_title' => 'Undated quick task',
       'quick_task_due' => 'none',
     ], 'Add task now');
-    $undatedTasks = $storage->loadByProperties(['title' => 'Undated quick task']);
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSession()->pageTextContains('Task added. Find it in My tasks.');
+    $this->assertSession()->pageTextNotContains('Undated quick task');
+    $undatedTasks =
     $this->assertCount(1, $undatedTasks);
     $undatedTask = reset($undatedTasks);
     $this->assertSame(PersonalTask::DUE_NONE, (string) $undatedTask->get('due_mode')->value);
