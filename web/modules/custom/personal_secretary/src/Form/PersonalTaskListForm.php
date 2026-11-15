@@ -259,6 +259,7 @@ final class PersonalTaskListForm extends FormBase {
 
     foreach ($items as $delta => $item) {
       $id = (int) $item['id'];
+      $titleId = 'ps-task-title-' . $id;
       $rowClasses = ['ps-task-row'];
       if ($item['overdue'] && $item['status'] === PersonalTask::STATUS_OPEN) {
         $rowClasses[] = 'ps-task-row--overdue';
@@ -279,7 +280,7 @@ final class PersonalTaskListForm extends FormBase {
             ['task' => $id],
             ['query' => $this->filterQuery($statusFilter, $titleFilter, $sortFilter, $urgencyFilter)],
           ),
-          '#attributes' => ['class' => ['ps-task-row__title']],
+          '#attributes' => ['class' => ['ps-task-row__title'], 'id' => $titleId],
         ],
       ];
 
@@ -323,7 +324,7 @@ final class PersonalTaskListForm extends FormBase {
             '#task_action' => 'complete',
             '#ajax' => $ajax,
             '#button_type' => 'primary',
-            '#attributes' => ['class' => ['ps-task-row__complete']],
+            '#attributes' => ['class' => ['ps-task-row__complete'], 'aria-describedby' => $titleId],
           ],
           'edit' => [
             '#type' => 'link',
@@ -331,7 +332,7 @@ final class PersonalTaskListForm extends FormBase {
             '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id], [
               'query' => $this->filterQuery($statusFilter, $titleFilter, $sortFilter, $urgencyFilter),
             ]),
-            '#attributes' => ['class' => ['ps-task-row__edit']],
+            '#attributes' => ['class' => ['ps-task-row__edit'], 'aria-describedby' => $titleId],
           ],
           'delete' => [
             '#type' => 'link',
@@ -339,7 +340,7 @@ final class PersonalTaskListForm extends FormBase {
             '#url' => Url::fromRoute('personal_secretary.delete_task', ['task' => $id], [
               'query' => $this->filterQuery($statusFilter, $titleFilter, $sortFilter, $urgencyFilter),
             ]),
-            '#attributes' => ['class' => ['ps-task-row__delete']],
+            '#attributes' => ['class' => ['ps-task-row__delete'], 'aria-describedby' => $titleId],
           ],
         ];
       }
@@ -356,7 +357,7 @@ final class PersonalTaskListForm extends FormBase {
             '#task_id' => $id,
             '#task_action' => 'reopen',
             '#ajax' => $ajax,
-            '#attributes' => ['class' => ['ps-task-row__reopen']],
+            '#attributes' => ['class' => ['ps-task-row__reopen'], 'aria-describedby' => $titleId],
           ],
         ];
       }

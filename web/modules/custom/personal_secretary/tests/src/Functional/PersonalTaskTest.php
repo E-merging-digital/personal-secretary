@@ -185,6 +185,12 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('H1 synthetic task');
     $this->assertSession()->pageTextNotContains('H2 confidential synthetic task');
+    // Each repeated action exposes the title of its authorized task.
+    $titleId = 'ps-task-title-' . (int) $h1Task->id();
+    $this->assertSession()->elementExists('css', 'a#' . $titleId . '.ps-task-row__title');
+    foreach (['input.ps-task-row__complete', 'a.ps-task-row__edit', 'a.ps-task-row__delete'] as $action) {
+      $this->assertSession()->elementExists('css', $action . '[aria-describedby="' . $titleId . '"]');
+    }
 
     $this->drupalLogout();
     $this->drupalLogin($userB);
@@ -349,6 +355,8 @@ final class PersonalTaskTest extends BrowserTestBase {
       'sort' => 'title',
     ];
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $completedFilters]);
+    $this->assertSession()->elementExists('css', 'a#ps-task-title-' . $taskId . '.ps-task-row__title');
+    $this->assertSession()->elementExists('css', 'input.ps-task-row__reopen[aria-describedby="ps-task-title-' . $taskId . '"]');
     $this->clickLink('Synthetic task after edit');
     $reopenUrl = '/personal-secretary/tasks/' . $taskId . '/reopen?status=completed&q=Synthetic%20task%20after&sort=title';
     $completedReturnUrl = '/personal-secretary/tasks/mine?status=completed&q=Synthetic%20task%20after&sort=title';
