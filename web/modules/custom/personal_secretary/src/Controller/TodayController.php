@@ -143,11 +143,18 @@ final class TodayController extends ControllerBase {
       ];
     }
     else {
+      $overdueCount = count(array_filter($today['tasks'], static fn(array $item): bool => (bool) $item['overdue']));
+      if ($overdueCount > 0) {
+        $build['tasks']['overdue_link'] = [
+          '#type' => 'link',
+          '#title' => $this->t('View overdue tasks'),
+          '#url' => Url::fromRoute('personal_secretary.my_tasks', [], ['query' => ['urgency' => 'overdue']]),
+        ];
+      }
       $build['tasks']['items'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-today-stack']],
       ];
-      $overdueCount = count(array_filter($today['tasks'], static fn(array $item): bool => (bool) $item['overdue']));
       $showGroups = $overdueCount > 0 && $overdueCount < count($today['tasks']);
       if ($showGroups) {
         $build['tasks']['items']['#attributes']['class'] = ['ps-task-groups'];
@@ -203,13 +210,6 @@ final class TodayController extends ControllerBase {
           $build['tasks']['items'][$delta] = $row;
         }
       }
-      if ($overdueCount > 0) {
-        $build['tasks']['overdue_link'] = [
-          '#type' => 'link',
-          '#title' => $this->t('View overdue tasks'),
-          '#url' => Url::fromRoute('personal_secretary.my_tasks', [], ['query' => ['urgency' => 'overdue']]),
-        ];
-      }
     }
 
     $build['preparations'] = [
@@ -246,11 +246,18 @@ final class TodayController extends ControllerBase {
       ];
     }
     else {
+      $overdueCount = count(array_filter($today['preparations'], static fn(array $item): bool => (bool) $item['overdue']));
+      if ($overdueCount > 0) {
+        $build['preparations']['overdue_link'] = [
+          '#type' => 'link',
+          '#title' => $this->t('View overdue preparations'),
+          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['urgency' => 'overdue']]),
+        ];
+      }
       $build['preparations']['items'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-today-stack']],
       ];
-      $overdueCount = count(array_filter($today['preparations'], static fn(array $item): bool => (bool) $item['overdue']));
       $showGroups = $overdueCount > 0 && $overdueCount < count($today['preparations']);
       if ($showGroups) {
         $build['preparations']['items']['#attributes']['class'] = ['ps-task-groups'];
@@ -296,13 +303,6 @@ final class TodayController extends ControllerBase {
         else {
           $build['preparations']['items'][$delta] = $row;
         }
-      }
-      if ($overdueCount > 0) {
-        $build['preparations']['overdue_link'] = [
-          '#type' => 'link',
-          '#title' => $this->t('View overdue preparations'),
-          '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['urgency' => 'overdue']]),
-        ];
       }
     }
 

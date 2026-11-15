@@ -243,6 +243,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $overduePreparationsUrl = '/personal-secretary/preparations/mine?urgency=overdue';
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"]'));
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"] + .ps-today-stack, .ps-today-section--preparations a[href="' . $overduePreparationsUrl . '"] + .ps-task-groups'));
     $this->clickLink('View overdue preparations');
     $this->assertSession()->addressEquals($overduePreparationsUrl);
     $this->assertSession()->pageTextContains('Today active overdue preparation');
@@ -692,6 +693,7 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-card'));
     $overdueLink = '/personal-secretary/tasks/mine?urgency=overdue';
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="' . $overdueLink . '"]'));
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="' . $overdueLink . '"] + .ps-today-stack'));
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
     $this->clickLink('View overdue tasks');
     $this->assertSession()->addressEquals($overdueLink);
