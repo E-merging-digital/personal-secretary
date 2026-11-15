@@ -120,7 +120,7 @@ final class TodayQuickTaskTest extends BrowserTestBase {
     $this->assertSession()->addressEquals($todayUrl);
     $this->assertSession()->pageTextContains('Task added. Find it in My tasks.');
     $this->assertSession()->pageTextNotContains('Undated quick task');
-    $undatedTasks =
+    $undatedTasks = $storage->loadByProperties(['title' => 'Undated quick task']);
     $this->assertCount(1, $undatedTasks);
     $undatedTask = reset($undatedTasks);
     $this->assertSame(PersonalTask::DUE_NONE, (string) $undatedTask->get('due_mode')->value);
