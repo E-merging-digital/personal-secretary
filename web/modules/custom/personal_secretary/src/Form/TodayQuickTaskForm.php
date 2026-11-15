@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\personal_secretary\Entity\PersonalTask;
 use Drupal\personal_secretary\Service\PersonalTaskMutationService;
 use Drupal\personal_secretary\Service\TodayService;
@@ -136,15 +137,24 @@ final class TodayQuickTaskForm extends FormBase {
           ? $date->modify('+1 day')->format('Y-m-d')
           : $localDate;
       }
-      $this->taskMutations->createTask(
+      $task = $this->taskMutations->createTask(
         (string) $form_state->getValue('quick_task_title'),
         $this->selectedHouseholdId($form_state),
         $dueMode,
         $dueDate,
       );
-      $this->messenger()->addStatus($when === 'today'
-        ? $this->t('Task added.')
-        : $this->t('Task added. Find it in My tasks.'));
+      if ($when === 'today') {
+        $this->messenger()->addStatus($this->t('Task added.'));
+      }
+      else {
+        $taskDetailUrl = Url::fromRoute('personal_secretary.task_status', [
+          'task' => (int) $task->id(),
+        ], ['query' => ['from' => 'today']])->toString();
+        $this->messenger()->addStatus($this->t(
+          'Task added. Find it in My tasks. <a href=":url">Task details</a>.',
+          [':url' => $taskDetailUrl],
+        ));
+      }
     }
     catch (InvalidArgumentException) {
       $this->messenger()->addError($this->t('The task could not be added because its authorization or data changed.'));
