@@ -295,7 +295,17 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Today due preparation');
     $this->assertSession()->pageTextContains('Today active overdue preparation');
     $this->assertSession()->pageTextContains('Today later preparation');
-    $this->assertCount(0, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/activities/add"]'));
+    // An existing preparation never hides the add path or its Today return.
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a.ps-upcoming-actions__add'));
+    $addPreparationUrl = Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']])->toString();
+    $this->assertSession()->linkByHrefExists($addPreparationUrl);
+    $countsBeforeAddPreparation = $this->domainCounts();
+    $this->clickLink('Add an activity to prepare');
+    $this->assertSession()->addressEquals($addPreparationUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todayUrl);
+    $this->assertSame($countsBeforeAddPreparation, $this->domainCounts());
     $preparationGroups = $this->getSession()->getPage()->findAll(
       'css',
       '.ps-today-section--preparations .ps-task-group',

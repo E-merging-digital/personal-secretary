@@ -219,6 +219,12 @@ final class TodayController extends ControllerBase {
         '#url' => Url::fromRoute('personal_secretary.my_preparations'),
       ],
     ];
+    $build['preparations']['add_activity'] = [
+      '#type' => 'link',
+      '#title' => $this->t('Add an activity to prepare'),
+      '#url' => Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']]),
+      '#attributes' => ['class' => ['ps-upcoming-actions__add']],
+    ];
 
     if ($today['preparations'] === []) {
       $build['preparations']['empty'] = [
@@ -230,12 +236,6 @@ final class TodayController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#value' => $this->t('Preparations are added through activities. You can include a preparation when adding an activity.'),
-      ];
-      $build['preparations']['add_activity'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Add an activity to prepare'),
-        '#url' => Url::fromRoute('personal_secretary.add_activity', [], ['query' => ['from' => 'today']]),
-        '#attributes' => ['class' => ['ps-upcoming-actions__add']],
       ];
     }
     else {
