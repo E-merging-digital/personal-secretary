@@ -83,7 +83,9 @@ final class TodayTaskTransitionForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     try {
       if ($this->action() === 'complete') {
-        $this->taskMutations->completeTask($this->taskId());
+        if (!$this->taskMutations->completeTask($this->taskId())) {
+          throw new InvalidArgumentException('The task transition is stale.');
+        }
         $this->messenger()->addStatus($this->t('Task completed. You can reopen it below if this was accidental.'));
         $form_state->setRedirect('personal_secretary.today', [], [
           'query' => ['reopen_task' => $this->taskId()],
@@ -92,7 +94,9 @@ final class TodayTaskTransitionForm extends FormBase {
       }
 
       if ($this->action() === 'reopen') {
-        $this->taskMutations->reopenTask($this->taskId());
+        if (!$this->taskMutations->reopenTask($this->taskId())) {
+          throw new InvalidArgumentException('The task transition is stale.');
+        }
         $this->messenger()->addStatus($this->t('Task reopened.'));
         $form_state->setRedirect('personal_secretary.today');
         return;
