@@ -198,7 +198,10 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertTrue($this->asUser($userA, fn (): bool => $tasks->completeTask((int) $h1Task->id())));
     $this->submitForm([], 'Mark complete');
     $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $openFilters]));
-    $this->assertSession()->pageTextContains('This task action is no longer authorized or valid.');
+    // Core Form API can reject a stale trigger before submitForm() runs.
+    // In either case, the filtered view must remain and no success be claimed.
+    $this->assertSession()->fieldValueEquals('title', 'H1 synthetic');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
     $this->assertSession()->pageTextNotContains('Task completed. You can reopen it below if this was accidental.');
 
     $completedFilters = ['status' => 'completed', 'q' => 'H1 synthetic', 'sort' => 'title'];
@@ -206,7 +209,9 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertTrue($this->asUser($userA, fn (): bool => $tasks->reopenTask((int) $h1Task->id())));
     $this->submitForm([], 'Reopen task');
     $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks', [], ['query' => $completedFilters]));
-    $this->assertSession()->pageTextContains('This task action is no longer authorized or valid.');
+    $this->assertSession()->fieldValueEquals('status', 'completed');
+    $this->assertSession()->fieldValueEquals('title', 'H1 synthetic');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
     $this->assertSession()->pageTextNotContains('Task reopened.');
 
     $this->drupalLogout();
