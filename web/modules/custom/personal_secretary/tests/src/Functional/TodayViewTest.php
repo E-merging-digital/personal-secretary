@@ -248,6 +248,10 @@ final class TodayViewTest extends BrowserTestBase {
     $taskDetailUrl = Url::fromRoute('personal_secretary.task_status', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $taskEditUrl = Url::fromRoute('personal_secretary.edit_task', $taskDetailArgs, ['query' => ['from' => 'today']]);
     $this->assertSession()->linkByHrefExists($taskDetailUrl->toString());
+    // The title also describes each repeated Edit action on Today's task cards.
+    $titleId = 'ps-today-task-title-' . (int) $dueToday->id();
+    $this->assertSession()->elementExists('css', 'a#' . $titleId . '.ps-task-card__title');
+    $this->assertSession()->elementExists('css', 'a[aria-describedby="' . $titleId . '"]');
     // The task title itself is the direct, accessible link to its detail.
     $this->assertSession()->elementExists('css', '.ps-today-section--tasks .ps-task-card__title');
     $this->assertSession()->linkExists('Today route task');
@@ -470,11 +474,13 @@ final class TodayViewTest extends BrowserTestBase {
 
     $this->drupalGet($todayUrl);
     $this->assertSession()->buttonExists('Mark complete');
+    $this->assertSession()->elementExists('css', 'input.ps-today-task-action-form__submit[aria-label="Mark complete: Today route task updated"]');
     $this->submitForm([], 'Mark complete');
     $this->assertSession()->addressEquals('/personal-secretary/today?reopen_task=' . $taskId);
     $this->assertSession()->pageTextNotContains('Today route task');
     $this->assertSession()->pageTextContains('Today due preparation');
     $this->assertSession()->buttonExists('Reopen task');
+    $this->assertSession()->elementExists('css', 'input.ps-today-task-action-form__submit[aria-label="Reopen task: Today route task updated"]');
     $taskStorage->resetCache([$taskId]);
     $this->assertSame(PersonalTask::STATUS_COMPLETED, (string) $taskStorage->load($taskId)->get('status')->value);
 

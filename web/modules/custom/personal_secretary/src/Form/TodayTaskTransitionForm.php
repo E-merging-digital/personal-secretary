@@ -67,11 +67,15 @@ final class TodayTaskTransitionForm extends FormBase {
 
     $form['#action'] = Url::fromRoute($route, ['task' => $taskId])->toString();
     $form['#attributes']['class'][] = 'ps-today-task-action-form';
+    $label = $action === 'complete' ? $this->t('Mark complete') : $this->t('Reopen task');
     $form['submit'] = [
       '#type' => 'submit',
-      '#value' => $action === 'complete' ? $this->t('Mark complete') : $this->t('Reopen task'),
+      '#value' => $label,
       '#button_type' => 'primary',
-      '#attributes' => ['class' => ['ps-today-task-action-form__submit']],
+      '#attributes' => [
+        'class' => ['ps-today-task-action-form__submit'],
+        'aria-label' => (string) $label . ': ' . (string) $task->get('title')->value,
+      ],
     ];
     return $form;
   }

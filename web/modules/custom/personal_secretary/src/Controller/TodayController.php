@@ -177,7 +177,7 @@ final class TodayController extends ControllerBase {
             '#type' => 'link',
             '#title' => (string) $item['title'],
             '#url' => Url::fromRoute('personal_secretary.task_status', ['task' => $id], ['query' => ['from' => 'today']]),
-            '#attributes' => ['class' => ['ps-task-card__title']],
+            '#attributes' => ['class' => ['ps-task-card__title'], 'id' => 'ps-today-task-title-' . $id],
           ],
           'due' => [
             '#type' => 'html_tag',
@@ -192,6 +192,7 @@ final class TodayController extends ControllerBase {
             '#type' => 'link',
             '#title' => $this->t('Edit'),
             '#url' => Url::fromRoute('personal_secretary.edit_task', ['task' => $id], ['query' => ['from' => 'today']]),
+            '#attributes' => ['aria-describedby' => 'ps-today-task-title-' . $id],
           ],
           'complete' => $this->formBuilder()->getForm(TodayTaskTransitionForm::class, 'complete', $id),
         ];
