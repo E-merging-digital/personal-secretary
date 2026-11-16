@@ -9,6 +9,7 @@ use DateTimeZone;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\language\Entity\ConfigurableLanguage;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
 use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
@@ -225,6 +226,27 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalLogout();
     $this->drupalLogin($authorized);
+
+    // Reuse the existing bilingual test setup before asserting FR labels.
+    if (ConfigurableLanguage::load('fr') === NULL) {
+      ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
+    $this->config('system.site')->set('default_langcode', 'fr')->save();
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
 
     $this->drupalGet('/fr/personal-secretary/upcoming');
     $this->assertSession()->linkExists('Modifier le lieu de l’activité');
