@@ -1081,7 +1081,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic window day six');
 
     $thirty = '/personal-secretary/tasks/mine?urgency=next30';
-    $this->drupalGet($thirty);
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'next30']]);
     $this->assertSession()->fieldValueEquals('urgency', 'next30');
     foreach (['Synthetic window day seven', 'Synthetic window day twenty nine', 'Synthetic window local midnight'] as $included) {
       $this->assertSession()->pageTextContains($included);
