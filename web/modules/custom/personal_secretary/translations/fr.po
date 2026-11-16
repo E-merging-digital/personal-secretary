@@ -1498,3 +1498,18 @@ msgstr "Affichage des préparatifs non effectués à faire demain."
 
 msgid "Tomorrow only"
 msgstr "Demain uniquement"
+
+msgid "Showing your local activities tomorrow."
+msgstr "Affichage de vos activités locales de demain."
+
+msgid "No local activities tomorrow."
+msgstr "Aucune activité locale demain."
+
+msgid "No tomorrow activities match this search."
+msgstr "Aucune activité de demain ne correspond à cette recherche."
+
+msgid "Choose activity focus"
+msgstr "Choisir la période des activités"
+
+msgid "All upcoming"
+msgstr "Toutes les activités à venir"

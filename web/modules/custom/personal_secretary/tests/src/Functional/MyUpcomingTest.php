@@ -235,6 +235,7 @@ final class MyUpcomingTest extends BrowserTestBase {
       CurrentPersonResolver::FIELD_NAME,
       ['target_id' => (int) $personA->id()],
     );
+    $authorized->set('timezone', 'Europe/Brussels');
     $authorized->save();
     $authorizedId = (int) $authorized->id();
 
@@ -262,6 +263,63 @@ final class MyUpcomingTest extends BrowserTestBase {
     $mappingBefore = (int) $persistedAuthorized
       ->get(CurrentPersonResolver::FIELD_NAME)
       ->target_id;
+
+    // Tomorrow is a viewer-local calendar day, not the next 24 UTC hours.
+    $focused = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['focus' => 'tomorrow']])->toString();
+    $this->drupalGet($focused);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Showing your local activities tomorrow.');
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextContains('Same day A activity');
+    foreach (['Rule B activity', 'Override to A activity', 'Later A activity', 'Later B activity'] as $excluded) {
+      $this->assertSession()->pageTextNotContains($excluded);
+    }
+    $this->assertSession()->linkByHrefExists($this->detailUrl($ruleASeries, $ruleAOccurrence->originalOccurrenceKey, ['focus' => 'tomorrow']));
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30&focus=tomorrow');
+    $this->assertSession()->elementExists('css', 'form.ps-upcoming-search input[type="hidden"][name="focus"][value="tomorrow"]');
+    $this->assertSession()->linkExists('All upcoming');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl);
+    $this->clickLink('Add activity');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?focus=tomorrow');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($focused);
+    $this->clickLink('Rule A activity');
+    $this->assertSession()->linkByHrefExists($focused);
+    $cancelFormUrl = Url::fromRoute('personal_secretary.cancel_occurrence', [
+      'series' => (int) $ruleASeries->id(),
+      'original_occurrence_key' => $ruleAOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'mine', 'focus' => 'tomorrow']])->toString();
+    $rescheduleFormUrl = Url::fromRoute('personal_secretary.reschedule_occurrence', [
+      'series' => (int) $ruleASeries->id(),
+      'original_occurrence_key' => $ruleAOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'mine', 'focus' => 'tomorrow']])->toString();
+    $this->assertSession()->linkByHrefExists($cancelFormUrl);
+    $this->assertSession()->linkByHrefExists($rescheduleFormUrl);
+    $this->drupalGet($cancelFormUrl);
+    $this->assertSession()->linkByHrefExists($focused);
+    $this->drupalGet($rescheduleFormUrl);
+    $this->assertSession()->linkByHrefExists($focused);
+    $this->drupalGet($focused);
+    $this->getSession()->getPage()->fillField('q', 'Rule A');
+    $this->getSession()->getPage()->pressButton('Search activities');
+    $focusedSearch = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'Rule A', 'focus' => 'tomorrow']])->toString();
+    $this->assertSession()->addressEquals($focusedSearch);
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextNotContains('Same day A activity');
+    $focusedSearch30 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'Rule A', 'focus' => 'tomorrow']])->toString();
+    $this->assertSession()->linkByHrefExists($focusedSearch30);
+    $this->getSession()->getPage()->clickLink('30 days');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30&focus=tomorrow');
+    $this->assertSession()->linkExists('Clear search');
+    $this->getSession()->getPage()->clickLink('Clear search');
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextContains('Same day A activity');
+    foreach ([['focus' => 'unknown'], ['focus' => ['tomorrow']]] as $invalidFocus) {
+      $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => $invalidFocus]));
+      $this->assertSession()->pageTextContains('Override to A activity');
+      $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+    }
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Tomorrow focus must not mutate domain data.');
 
     $this->drupalGet($myUpcomingUrl);
     $this->assertSession()->statusCodeEquals(200);

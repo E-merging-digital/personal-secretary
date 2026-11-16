@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
@@ -107,6 +109,7 @@ final class UpcomingController extends ControllerBase {
 
     $days = $this->selectedHorizonDays();
     $query = $this->selectedSearchQuery();
+    $focus = $this->selectedFocus();
     // Filter only the already-authorized, horizon-bounded projection.
     $items = $this->upcomingActivities->upcomingForPersonInHouseholds(
       $person,
@@ -122,26 +125,48 @@ final class UpcomingController extends ControllerBase {
       ));
     }
 
+    if ($focus === 'tomorrow') {
+      // Filter the existing authorized projection by viewer-local civil day.
+      // Offsets in display_start_iso/display_end_iso make this DST safe.
+      $timezone = new DateTimeZone(\Drupal::service('personal_secretary.current_user_timezone')->effectiveTimezone());
+      $tomorrowStart = (new DateTimeImmutable('@' . \Drupal::time()->getCurrentTime()))
+        ->setTimezone($timezone)->setTime(0, 0)->modify('+1 day');
+      $tomorrowEnd = $tomorrowStart->modify('+1 day');
+      $items = array_values(array_filter(
+        $items,
+        static fn(array $item): bool =>
+          new DateTimeImmutable((string) $item['display_start_iso']) < $tomorrowEnd
+          && new DateTimeImmutable((string) $item['display_end_iso']) > $tomorrowStart,
+      ));
+    }
+
     $build = $this->windowBuild(
-      (string) $this->t('Showing My upcoming activities for the next @days days.', ['@days' => $days]),
+      (string) ($focus === 'tomorrow'
+        ? $this->t('Showing your local activities tomorrow.')
+        : $this->t('Showing My upcoming activities for the next @days days.', ['@days' => $days])),
     );
-    $build['horizon'] = $this->horizonLinks($days, $query);
-    $build['search'] = $this->searchForm($days, $query);
-    $build['add_activity'] = $this->addActivityLink(TRUE, $days, $query);
+    $build['horizon'] = $this->horizonLinks($days, $query, $focus);
+    $build['focus'] = $this->focusLinks($days, $query, $focus);
+    $build['search'] = $this->searchForm($days, $query, $focus);
+    $build['add_activity'] = $this->addActivityLink(TRUE, $days, $query, $focus);
 
     if ($items === []) {
       $build['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $query !== ''
-          ? $this->t('No upcoming activities match this search.')
-          : $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days]),
+        '#value' => $focus === 'tomorrow'
+          ? ($query !== ''
+            ? $this->t('No tomorrow activities match this search.')
+            : $this->t('No local activities tomorrow.'))
+          : ($query !== ''
+            ? $this->t('No upcoming activities match this search.')
+            : $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days])),
       ];
       return $build;
     }
 
     $isAdmin = $this->currentUser()->hasPermission(HouseholdAuthorizationService::ADMIN_PERMISSION);
-    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query, TRUE, TRUE);
+    $build['items'] = $this->buildItems($items, $isAdmin, !$isAdmin, TRUE, $days, $query, TRUE, TRUE, $focus);
     return $build;
   }
 
@@ -169,7 +194,7 @@ final class UpcomingController extends ControllerBase {
     $occurrence = $this->buildItems(
       [$item], $isAdmin, !$isAdmin, FALSE,
       $this->selectedHorizonDays(), $this->selectedSearchQuery(), FALSE,
-      !$fromToday && !$fromPreparations,
+      !$fromToday && !$fromPreparations, $this->selectedFocus(),
     );
     try {
       $google = $this->formBuilder()->getForm(GoogleCalendarExportForm::class, $series, $original_occurrence_key);
@@ -220,7 +245,7 @@ final class UpcomingController extends ControllerBase {
       $backUrl = Url::fromRoute(
         'personal_secretary.my_upcoming',
         [],
-        $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery()),
+        $this->upcomingUrlOptions($this->selectedHorizonDays(), $this->selectedSearchQuery(), $this->selectedFocus()),
       );
     }
 
@@ -266,6 +291,7 @@ final class UpcomingController extends ControllerBase {
     string $query = '',
     bool $groupByDay = FALSE,
     bool $fromMine = FALSE,
+    string $focus = 'all',
   ): array {
     // Reuse the authorized projection; only order and label its visible cards.
     $dayKey = static fn(array $item): string => !empty($item['all_day'])
@@ -310,7 +336,7 @@ final class UpcomingController extends ControllerBase {
         }
       }
       if ($includeDetailLinks) {
-        $item['detail_url'] = $this->detailLink($responsibilityTarget, $days, $query)['#url']->toString();
+        $item['detail_url'] = $this->detailLink($responsibilityTarget, $days, $query, $focus)['#url']->toString();
       }
       $build[$delta]['activity'] = [
         '#type' => 'component',
@@ -332,9 +358,9 @@ final class UpcomingController extends ControllerBase {
       }
       if (($includeAdminMutationLinks || $includeSelfMutationLinks) && $actionTarget !== NULL) {
         if (!$allDay) {
-          $occurrenceActions['reschedule'] = $this->rescheduleLink($actionTarget, $fromMine, $days, $query);
+          $occurrenceActions['reschedule'] = $this->rescheduleLink($actionTarget, $fromMine, $days, $query, $focus);
         }
-        $occurrenceActions['cancel'] = $this->cancelLink($actionTarget, $fromMine, $days, $query);
+        $occurrenceActions['cancel'] = $this->cancelLink($actionTarget, $fromMine, $days, $query, $focus);
       }
 
       if ($occurrenceActions !== []) {
@@ -403,7 +429,7 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function detailLink(array $target, int $days, string $query): array {
+  private function detailLink(array $target, int $days, string $query, string $focus = 'all'): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('View details'),
@@ -420,7 +446,7 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function rescheduleLink(array $target, bool $fromMine, int $days, string $query): array {
+  private function rescheduleLink(array $target, bool $fromMine, int $days, string $query, string $focus = 'all'): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('Reschedule occurrence'),
@@ -430,13 +456,13 @@ final class UpcomingController extends ControllerBase {
           'series' => $target['series_id'],
           'original_occurrence_key' => $target['original_occurrence_key'],
         ],
-        $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query)] : [],
+        $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query, $focus)] : [],
       ),
       '#attributes' => ['class' => ['ps-action-link']],
     ];
   }
 
-  private function cancelLink(array $target, bool $fromMine, int $days, string $query): array {
+  private function cancelLink(array $target, bool $fromMine, int $days, string $query, string $focus = 'all'): array {
     return [
       '#type' => 'link',
       '#title' => $this->t('Cancel occurrence'),
@@ -446,7 +472,7 @@ final class UpcomingController extends ControllerBase {
           'series' => $target['series_id'],
           'original_occurrence_key' => $target['original_occurrence_key'],
         ],
-        $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query)] : [],
+        $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query, $focus)] : [],
       ),
       '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--danger']],
     ];
@@ -463,7 +489,12 @@ final class UpcomingController extends ControllerBase {
   /**
    * @return array<string, mixed>
    */
-  private function horizonLinks(int $activeDays, string $query): array {
+  private function selectedFocus(): string {
+    return ($this->requestStack->getCurrentRequest()?->query->all()['focus'] ?? NULL) === 'tomorrow'
+      ? 'tomorrow' : 'all';
+  }
+
+  private function horizonLinks(int $activeDays, string $query, string $focus = 'all'): array {
     $links = [
       '#type' => 'container',
       '#attributes' => [
@@ -491,12 +522,30 @@ final class UpcomingController extends ControllerBase {
         '#url' => Url::fromRoute(
           'personal_secretary.my_upcoming',
           [],
-          $this->upcomingUrlOptions($days, $query),
+          $this->upcomingUrlOptions($days, $query, $focus),
         ),
         '#attributes' => $attributes,
       ];
     }
 
+    return $links;
+  }
+
+  private function focusLinks(int $days, string $query, string $focus): array {
+    $links = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['ps-upcoming-focus'], 'role' => 'navigation',
+        'aria-label' => (string) $this->t('Choose activity focus')],
+    ];
+    foreach (['all' => $this->t('All upcoming'), 'tomorrow' => $this->t('Tomorrow only')] as $value => $label) {
+      $links[$value] = [
+        '#type' => 'link',
+        '#title' => $label,
+        '#url' => Url::fromRoute('personal_secretary.my_upcoming', [], $this->upcomingUrlOptions($days, $query, $value)),
+        '#attributes' => ['class' => $value === $focus ? ['button', 'button--primary'] : ['button']]
+          + ($value === $focus ? ['aria-current' => 'page'] : []),
+      ];
+    }
     return $links;
   }
 
@@ -514,7 +563,7 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, string>
    */
-  private function upcomingQuery(int $days, string $query): array {
+  private function upcomingQuery(int $days, string $query, string $focus = 'all'): array {
     $options = [];
     if ($days === 30) {
       $options['days'] = '30';
@@ -522,14 +571,17 @@ final class UpcomingController extends ControllerBase {
     if ($query !== '') {
       $options['q'] = $query;
     }
+    if ($focus === 'tomorrow') {
+      $options['focus'] = 'tomorrow';
+    }
     return $options;
   }
 
   /**
    * @return array<string, mixed>
    */
-  private function upcomingUrlOptions(int $days, string $query): array {
-    $options = $this->upcomingQuery($days, $query);
+  private function upcomingUrlOptions(int $days, string $query, string $focus = 'all'): array {
+    $options = $this->upcomingQuery($days, $query, $focus);
     return $options === [] ? [] : ['query' => $options];
   }
 
@@ -538,7 +590,7 @@ final class UpcomingController extends ControllerBase {
    *
    * @return array<string, mixed>
    */
-  private function searchForm(int $days, string $query): array {
+  private function searchForm(int $days, string $query, string $focus = 'all'): array {
     $form = [
       '#type' => 'html_tag',
       '#tag' => 'form',
@@ -574,6 +626,13 @@ final class UpcomingController extends ControllerBase {
       ],
     ];
 
+    if ($focus === 'tomorrow') {
+      $form['focus'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'input',
+        '#attributes' => ['type' => 'hidden', 'name' => 'focus', 'value' => 'tomorrow'],
+      ];
+    }
     if ($days === 30) {
       $form['days'] = [
         '#type' => 'html_tag',
@@ -592,7 +651,7 @@ final class UpcomingController extends ControllerBase {
         '#url' => Url::fromRoute(
           'personal_secretary.my_upcoming',
           [],
-          $this->upcomingUrlOptions($days, ''),
+          $this->upcomingUrlOptions($days, '', $focus),
         ),
       ];
     }
@@ -630,7 +689,7 @@ final class UpcomingController extends ControllerBase {
   /**
    * @return array<string, mixed>
    */
-  private function addActivityLink(bool $fromMine = FALSE, int $days = 7, string $query = ''): array {
+  private function addActivityLink(bool $fromMine = FALSE, int $days = 7, string $query = '', string $focus = 'all'): array {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['ps-upcoming-actions']],
@@ -638,7 +697,7 @@ final class UpcomingController extends ControllerBase {
         '#type' => 'link',
         '#title' => $this->t('Add activity'),
         '#url' => Url::fromRoute('personal_secretary.add_activity', [],
-          $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query)] : [],
+          $fromMine ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query, $focus)] : [],
         ),
         '#attributes' => ['class' => ['ps-upcoming-actions__add']],
       ],

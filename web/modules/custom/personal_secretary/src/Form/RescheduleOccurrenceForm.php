@@ -256,6 +256,9 @@ final class RescheduleOccurrenceForm extends FormBase {
         $query['q'] = $search;
       }
     }
+    if (($input['focus'] ?? NULL) === 'tomorrow') {
+      $query['focus'] = 'tomorrow';
+    }
     return $query;
   }
 
