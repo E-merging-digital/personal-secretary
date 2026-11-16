@@ -1321,6 +1321,15 @@ msgstr "Titre (A–Z)"
 msgid "Urgency filter"
 msgstr "Filtrer selon l’urgence"
 
+msgid "Task focus"
+msgstr "Affichage des tâches"
+
+msgid "Due tomorrow"
+msgstr "Échéance demain"
+
+msgid "No tasks due tomorrow."
+msgstr "Aucune tâche à échéance demain."
+
 msgid "All open tasks"
 msgstr "Toutes les tâches ouvertes"
 

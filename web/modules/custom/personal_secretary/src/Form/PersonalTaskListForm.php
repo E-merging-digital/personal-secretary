@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Form;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Ajax\AjaxResponse;
 use Drupal\Core\Ajax\InvokeCommand;
 use Drupal\Core\Ajax\ReplaceCommand;
@@ -27,12 +30,14 @@ final class PersonalTaskListForm extends FormBase {
   public function __construct(
     protected PersonalTaskQueryService $taskQuery,
     protected PersonalTaskMutationService $taskMutations,
+    protected TimeInterface $time,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('personal_secretary.personal_task_query'),
       $container->get('personal_secretary.personal_task_mutation'),
+      $container->get('datetime.time'),
     );
   }
 
@@ -76,10 +81,11 @@ final class PersonalTaskListForm extends FormBase {
       ],
       'urgency' => [
         '#type' => 'select',
-        '#title' => $this->t('Urgency filter'),
+        '#title' => $this->t('Task focus'),
         '#options' => [
           'all' => $this->t('All open tasks'),
           'overdue' => $this->t('Overdue only'),
+          'tomorrow' => $this->t('Due tomorrow'),
         ],
         '#default_value' => $urgencyFilter,
         '#access' => $statusFilter === 'open',
@@ -179,6 +185,20 @@ final class PersonalTaskListForm extends FormBase {
       ));
     }
 
+    if ($urgencyFilter === 'tomorrow') {
+      // Use the persisted user's local civil date, including DST transitions.
+      // due_label is already normalized into that timezone by the query model.
+      $tomorrow = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+        ->setTimezone(new DateTimeZone($this->taskMutations->currentUserTimezoneId()))
+        ->modify('+1 day')
+        ->format('Y-m-d');
+      $items = array_values(array_filter(
+        $items,
+        static fn (array $item): bool => in_array($item['due_mode'], [PersonalTask::DUE_DATE, PersonalTask::DUE_DATE_TIME], TRUE)
+          && substr((string) $item['due_label'], 0, 10) === $tomorrow,
+      ));
+    }
+
     // Sort only the already-authorized presentation; preserve urgency groups.
     if ($sortFilter === 'title') {
       usort($items, static function (array $left, array $right) use ($statusFilter): int {
@@ -200,6 +220,9 @@ final class PersonalTaskListForm extends FormBase {
             : $this->t('No open tasks.')));
       if ($urgencyFilter === 'overdue' && $titleFilter === '') {
         $emptyMessage = $this->t('No overdue tasks.');
+      }
+      elseif ($urgencyFilter === 'tomorrow' && $titleFilter === '') {
+        $emptyMessage = $this->t('No tasks due tomorrow.');
       }
       $form['live']['empty'] = [
         '#type' => 'html_tag',
@@ -569,8 +592,8 @@ final class PersonalTaskListForm extends FormBase {
       ? $sort
       : 'smart';
     $urgency = $input['urgency'] ?? 'all';
-    $urgency = $status === 'open' && $urgency === 'overdue'
-      ? 'overdue'
+    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'tomorrow'], TRUE)
+      ? $urgency
       : 'all';
     return [$status, $title, $sort, $urgency];
   }
@@ -597,8 +620,8 @@ final class PersonalTaskListForm extends FormBase {
     if ($sort === 'title') {
       $query['sort'] = 'title';
     }
-    if ($status === 'open' && $urgency === 'overdue') {
-      $query['urgency'] = 'overdue';
+    if ($status === 'open' && in_array($urgency, ['overdue', 'tomorrow'], TRUE)) {
+      $query['urgency'] = $urgency;
     }
     return $query;
   }
