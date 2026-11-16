@@ -236,6 +236,20 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertStringContainsString($displayDate, $dateContext->getText());
     $this->assertStringContainsString($model['timezone'], $dateContext->getText());
     $this->assertStringNotContainsString($model['local_date'], $dateContext->getText());
+    // One click from Today reaches the authorized read-only Tomorrow preview.
+    $directTomorrow = '/personal-secretary/assistant?briefing=tomorrow#ps-tomorrow-briefing';
+    $this->assertSession()->linkExists('Talk to the assistant');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/assistant');
+    $this->assertSession()->linkExists('Prepare tomorrow');
+    $this->assertSession()->linkByHrefExists($directTomorrow);
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-assistant__tomorrow'));
+    $this->clickLink('Prepare tomorrow');
+    $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $this->assertSession()->pageTextContains('Tomorrow at a glance');
+    $this->assertSession()->pageTextContains('Tasks due tomorrow:');
+    $this->assertSession()->elementExists('css', '#ps-tomorrow-briefing');
+    $this->assertSame($countsBefore, $this->domainCounts());
+    $this->drupalGet($todayUrl);
     $this->assertSession()->pageTextContains('Tasks');
     $this->assertSession()->pageTextContains('Preparations');
     $this->assertSession()->pageTextContains('Planning');
@@ -759,6 +773,15 @@ final class TodayViewTest extends BrowserTestBase {
       ])
       ->save();
     $this->container->get('language_manager')->reset();
+    $this->drupalGet('/fr/personal-secretary/today');
+    $this->assertSession()->linkExists('Préparer demain');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/assistant?briefing=tomorrow#ps-tomorrow-briefing');
+    $frenchCounts = $this->domainCounts();
+    $this->clickLink('Préparer demain');
+    $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $this->assertSession()->pageTextContains('Demain en bref');
+    $this->assertSession()->elementExists('css', '#ps-tomorrow-briefing');
+    $this->assertSame($frenchCounts, $this->domainCounts());
     $this->drupalGet('/fr/personal-secretary/today');
     $this->assertSession()->linkExists('Voir 2 tâches en retard');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine?urgency=overdue');

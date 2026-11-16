@@ -120,8 +120,9 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->drupalLogin($unlinked);
     $this->drupalGet('/personal-secretary/today');
     $this->assertSession()->linkNotExists('Talk to the assistant');
-    $this->drupalGet($route);
+    $this->drupalGet($route, ['query' => ['briefing' => 'tomorrow']]);
     $this->assertSession()->pageTextContains('Link your account to an authorized Household member');
+    $this->assertSession()->elementNotExists('css', '.ps-guided-assistant__result');
     $this->assertSession()->pageTextNotContains('Synthetic visible Today task');
     $this->assertSession()->elementNotExists('css', 'input[name="op"]');
 
@@ -138,6 +139,30 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists($route);
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-assistant__link'));
     $this->assertSession()->elementExists('css', '.ps-today-assistant ~ .ps-today-section--tasks');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/assistant?briefing=tomorrow#ps-tomorrow-briefing');
+    $landingCounts = $this->domainCounts();
+    $this->clickLink('Prepare tomorrow');
+    $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $this->assertSession()->pageTextContains('Tomorrow at a glance');
+    $this->assertSession()->pageTextContains('Tasks due tomorrow: 2');
+    $this->assertSession()->pageTextContains('Preparations due tomorrow: 1');
+    $this->assertSession()->pageTextContains('Synthetic Tomorrow local activity');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow task');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow activity');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?urgency=tomorrow');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine?urgency=tomorrow');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine?focus=tomorrow');
+    $this->assertSession()->elementExists('css', '#ps-tomorrow-briefing');
+    $this->assertSession()->elementExists('css', 'input[name="intent"][value="GET_TOMORROW"]:checked');
+    $this->assertSame($landingCounts, $this->domainCounts());
+    foreach ([[], ['briefing' => 'invalid'], ['briefing' => ['tomorrow']],
+      ['briefing' => 'tomorrow', 'user_id' => $ordinary->id()]] as $invalidQuery) {
+      $this->drupalGet($route, ['query' => $invalidQuery]);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->elementNotExists('css', '.ps-guided-assistant__result');
+      $this->assertSession()->elementExists('css', 'input[name="intent"][value="GET_TODAY"]:checked');
+      $this->assertSame($landingCounts, $this->domainCounts());
+    }
 
     $this->drupalGet($route, ['query' => [
       'user_id' => $ordinary->id(),
@@ -345,6 +370,21 @@ final class GuidedAssistantTest extends BrowserTestBase {
 
     $this->drupalGet('/fr/personal-secretary/assistant');
     $this->assertSession()->statusCodeEquals(200);
+    $this->drupalGet('/fr/personal-secretary/today');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/assistant?briefing=tomorrow#ps-tomorrow-briefing');
+    $this->clickLink('Préparer demain');
+    $this->assertSession()->pageTextContains('READ_SUCCESS');
+    $this->assertSession()->pageTextContains('Demain en bref');
+    $this->assertSession()->pageTextContains('Tâches à échéance demain: 2');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine?urgency=tomorrow');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/preparations/mine?urgency=tomorrow');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/upcoming/mine?focus=tomorrow');
+    $this->assertSame($before, $this->domainCounts());
+    // Restore the ordinary assistant GET before existing POST behavior checks.
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementNotExists('css', '.ps-guided-assistant__result');
+
     $this->assertSession()->pageTextContains('Choisir une action');
     $this->assertSession()->pageTextContains('Préparer une tâche');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/today');

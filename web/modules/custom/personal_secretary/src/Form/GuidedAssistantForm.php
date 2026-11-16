@@ -103,6 +103,15 @@ final class GuidedAssistantForm extends FormBase {
       return $form;
     }
 
+    // Only an exact GET selector can open this authorized read-only preview.
+    // Never read query instructions on POST or confirmation form rebuilds.
+    $request = \Drupal::request();
+    $query = $request->query->all();
+    $directTomorrow = $request->isMethod('GET')
+      && !$form_state->isSubmitted()
+      && count($query) === 1
+      && ($query['briefing'] ?? NULL) === 'tomorrow';
+
     $form['intent'] = [
       '#type' => 'radios',
       '#title' => $this->tr('Choose an action', 'Choisir une action'),
@@ -117,7 +126,9 @@ final class GuidedAssistantForm extends FormBase {
         self::REOPEN_TASK => $this->tr('Reopen a completed task', 'Rouvrir une tâche terminée'),
         self::EDIT_TASK => $this->tr('Edit an existing task', 'Modifier une tâche existante'),
       ],
-      '#default_value' => ThreeIntentReadProposeService::GET_TODAY,
+      '#default_value' => $directTomorrow
+        ? ThreeIntentReadProposeService::GET_TOMORROW
+        : ThreeIntentReadProposeService::GET_TODAY,
     ];
 
     $form['task'] = [
@@ -446,8 +457,18 @@ final class GuidedAssistantForm extends FormBase {
       '#value' => $this->tr('Show preview', 'Afficher l’aperçu'),
     ];
     $result = $form_state->get('guided_result');
+    if ($directTomorrow) {
+      // Read only: never persist review state or authorize a confirmation.
+      $capabilities = new ThreeIntentReadProposeService(
+        $this->today, $this->activityCreation, $this->captureResolver,
+      );
+      $result = $capabilities->handle(ThreeIntentReadProposeService::GET_TOMORROW, []);
+    }
     if (is_array($result)) {
       $form['result'] = $this->resultBuild($result, $scope);
+      if ($directTomorrow) {
+        $form['result']['#attributes']['id'] = 'ps-tomorrow-briefing';
+      }
       if ($this->taskEditReviewContextValid($result, $form_state->get('task_edit_review'), $scope)) {
         $form['task_edit_confirmation'] = [
           '#type' => 'container',
