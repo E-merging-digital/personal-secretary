@@ -24,10 +24,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class EditActivityLocationForm extends FormBase {
 
   public function __construct(
-    private readonly DomainMutationService $mutations,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly RouteMatchInterface $routeMatch,
-    private readonly RequestStack $requestStack,
+    private readonly DomainMutationService $locationMutations,
+    private readonly EntityTypeManagerInterface $locationEntityTypeManager,
+    private readonly RouteMatchInterface $locationRouteMatch,
+    private readonly RequestStack $locationRequestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -95,7 +95,7 @@ final class EditActivityLocationForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     try {
-      $this->mutations->updateActivitySeriesLocation(
+      $this->locationMutations->updateActivitySeriesLocation(
         $this->currentSeries(),
         (string) $form_state->getValue('location'),
       );
@@ -110,11 +110,11 @@ final class EditActivityLocationForm extends FormBase {
   }
 
   private function currentSeries(): ActivitySeries {
-    $id = $this->routeMatch->getParameter('series');
+    $id = $this->locationRouteMatch->getParameter('series');
     if (!is_string($id) || !ctype_digit($id) || (int) $id <= 0) {
       throw new NotFoundHttpException('This activity is unavailable.');
     }
-    $storage = $this->entityTypeManager->getStorage('personal_sec_activity_series');
+    $storage = $this->locationEntityTypeManager->getStorage('personal_sec_activity_series');
     $series = $storage->load((int) $id);
     if (!$series instanceof ActivitySeries) {
       throw new NotFoundHttpException('This activity is unavailable.');
@@ -123,7 +123,7 @@ final class EditActivityLocationForm extends FormBase {
   }
 
   private function fromMyUpcoming(): bool {
-    return ($this->requestStack->getCurrentRequest()?->query->all()['from'] ?? NULL) === 'mine';
+    return ($this->locationRequestStack->getCurrentRequest()?->query->all()['from'] ?? NULL) === 'mine';
   }
 
   private function returnRoute(): string {
@@ -141,7 +141,7 @@ final class EditActivityLocationForm extends FormBase {
     if (!$this->fromMyUpcoming()) {
       return [];
     }
-    $input = $this->requestStack->getCurrentRequest()?->query->all() ?? [];
+    $input = $this->locationRequestStack->getCurrentRequest()?->query->all() ?? [];
     $query = [];
     if (($input['days'] ?? NULL) === '30') {
       $query['days'] = '30';
