@@ -2233,6 +2233,15 @@ final class GuidedAssistantForm extends FormBase {
       'Un aperçu des éléments actuellement connus, sans synchronisation du calendrier en direct. Les échéances du jour et les retards restent dans Consulter ma journée.',
     ));
     $build['links'] = $this->briefingLinks();
+    if ($data['tasks'] !== []) {
+      $build['links']['tasks']['#title'] = $this->tr(
+        'View tasks due tomorrow',
+        'Voir les tâches à échéance demain',
+      );
+      $build['links']['tasks']['#url'] = Url::fromRoute('personal_secretary.my_tasks', [], [
+        'query' => ['urgency' => 'tomorrow'],
+      ]);
+    }
     return $build;
   }
 
