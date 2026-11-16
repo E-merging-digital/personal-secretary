@@ -169,8 +169,8 @@ final class PersonalTaskTransitionForm extends ConfirmFormBase {
     if (($query['sort'] ?? NULL) === 'title') {
       $filters['sort'] = 'title';
     }
-    if (!isset($filters['status']) && ($query['urgency'] ?? NULL) === 'overdue') {
-      $filters['urgency'] = 'overdue';
+    if (!isset($filters['status']) && in_array($query['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)) {
+      $filters['urgency'] = $query['urgency'];
     }
     return $filters;
   }
