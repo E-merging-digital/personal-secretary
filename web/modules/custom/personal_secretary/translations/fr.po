@@ -1489,3 +1489,12 @@ msgstr "Annuler cette occurrence"
 
 msgid "Only this date will be rescheduled. The recurring activity and its other occurrences stay unchanged."
 msgstr "Seule cette date sera replanifiée. L’activité récurrente et ses autres occurrences resteront inchangées."
+
+msgid "No preparations due tomorrow."
+msgstr "Aucun préparatif à faire demain."
+
+msgid "Showing unprepared preparations due tomorrow."
+msgstr "Affichage des préparatifs non effectués à faire demain."
+
+msgid "Tomorrow only"
+msgstr "Demain uniquement"

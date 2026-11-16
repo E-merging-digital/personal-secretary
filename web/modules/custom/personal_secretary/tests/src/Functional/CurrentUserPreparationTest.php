@@ -159,6 +159,14 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $lifecycleSeries = $this->createSeriesWithRule('Requirement lifecycle preparation activity', (int) $h1->id(), (int) $person->id(), $fixedNow->modify('+6 days'));
     $oldRequirement = $preparationMutations->createPreparationRequirement($lifecycleSeries, 'Old preparation requirement', 5 * 86400, $effectiveFrom);
 
+    // At 00:15 Brussels time, tomorrow is still yesterday in UTC.
+    $tomorrowCivilDate = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('Europe/Brussels'))
+      ->modify('+1 day')->format('Y-m-d');
+    $tomorrowActivityStart = new DateTimeImmutable($tomorrowCivilDate . ' 01:15', new DateTimeZone('Europe/Brussels'));
+    $tomorrowSeries = $this->createSeriesWithRule('Synthetic tomorrow focus activity', (int) $h1->id(), (int) $person->id(), $tomorrowActivityStart);
+    $preparationMutations->createPreparationRequirement($tomorrowSeries, 'Synthetic tomorrow focus preparation', 3600, $effectiveFrom);
+
     $accountSwitcher = $this->container->get('account_switcher');
     $accountSwitcher->switchTo($authorized);
     try {
@@ -264,6 +272,9 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     }
 
     $afterItems = $this->itemsByInstruction($after['items']);
+    $focusDue = new DateTimeImmutable($afterItems['Synthetic tomorrow focus preparation']['due_time_iso']);
+    $this->assertSame($tomorrowCivilDate, $focusDue->format('Y-m-d'));
+    $this->assertNotSame($tomorrowCivilDate, $focusDue->setTimezone($utc)->format('Y-m-d'));
     foreach ([
       'Active overdue preparation',
       'Due now preparation',
@@ -490,6 +501,51 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     parse_str((string) parse_url($this->getSession()->getCurrentUrl(), PHP_URL_QUERY), $returnQuery);
     $this->assertSame('overdue', $returnQuery['urgency'] ?? NULL);
     $this->assertSession()->pageTextContains('Active overdue preparation');
+    $this->assertSame($countsBefore, $this->domainCounts());
+
+    // Focus by the persisted user's civil day while preserving existing navigation.
+    $this->drupalGet($route, ['query' => ['urgency' => 'tomorrow']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'tomorrow');
+    $this->assertSession()->pageTextContains('Synthetic tomorrow focus preparation');
+    foreach (['Active overdue preparation', 'Due now preparation', 'Preparation due on day twenty', 'Unauthorized H2 thirty day lead preparation'] as $excluded) {
+      $this->assertSession()->pageTextNotContains($excluded);
+    }
+    $this->assertSession()->linkByHrefExists(Url::fromRoute(
+      'personal_secretary.my_preparations', [], ['query' => ['days' => 30, 'urgency' => 'tomorrow']],
+    )->toString());
+    $this->clickLink('Add an activity to prepare');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals(Url::fromRoute(
+      'personal_secretary.my_preparations', [], ['query' => ['days' => 7, 'urgency' => 'tomorrow']],
+    ));
+    $focus = $afterItems['Synthetic tomorrow focus preparation'];
+    $focusedDetail = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $focus['_completion_series_id'],
+      'original_occurrence_key' => (string) $focus['_completion_original_occurrence_key'],
+    ], ['query' => ['from' => 'preparations', 'days' => 7, 'urgency' => 'tomorrow']]);
+    $this->assertSession()->linkByHrefExists($focusedDetail->toString());
+    $this->clickLink('Synthetic tomorrow focus preparation');
+    $this->assertSession()->addressEquals($focusedDetail->toString());
+    $this->assertSession()->elementExists('css', 'a.ps-occurrence-detail__back')->click();
+    $this->assertSession()->addressEquals(Url::fromRoute(
+      'personal_secretary.my_preparations', [], ['query' => ['days' => 7, 'urgency' => 'tomorrow']],
+    ));
+    $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'Synthetic tomorrow focus preparation', 'urgency' => 'tomorrow']]);
+    $this->assertSession()->elementExists(
+      'xpath', '//div[contains(@class, "ps-preparation-row--pending")]//input[@value="Mark prepared"]',
+    )->click();
+    $this->assertSession()->pageTextContains('No preparations due tomorrow.');
+    parse_str((string) parse_url($this->getSession()->getCurrentUrl(), PHP_URL_QUERY), $focusQuery);
+    $this->assertSame('tomorrow', $focusQuery['urgency'] ?? NULL);
+    $this->assertSame('30', $focusQuery['days'] ?? NULL);
+    $this->assertSame('Synthetic tomorrow focus preparation', $focusQuery['q'] ?? NULL);
+    $this->drupalGet($route, ['query' => ['q' => 'Synthetic tomorrow focus preparation']]);
+    $this->assertSession()->elementExists(
+      'xpath', '//div[contains(@class, "ps-preparation-row--prepared")]//input[@value="Mark not prepared"]',
+    )->click();
+    $this->assertSame($countsBefore, $this->domainCounts());
+    $this->drupalGet($route, ['query' => ['urgency' => 'tomorrow']]);
+    $this->assertSession()->pageTextContains('Synthetic tomorrow focus preparation');
     $this->assertSame($countsBefore, $this->domainCounts());
 
     // The wider GET-only horizon includes day 20 but excludes day 31,
