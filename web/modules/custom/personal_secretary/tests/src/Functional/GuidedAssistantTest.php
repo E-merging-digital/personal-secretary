@@ -369,7 +369,8 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->container->get('language_manager')->reset();
 
     $this->drupalGet('/fr/personal-secretary/assistant');
-    $this->assertSession()->statusCodeEquals(200);    $this->drupalGet('/fr/personal-secretary/today');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->drupalGet('/fr/personal-secretary/today');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/assistant?briefing=tomorrow#ps-tomorrow-briefing');
     $this->clickLink('Préparer demain');
     $this->assertSession()->pageTextContains('READ_SUCCESS');
@@ -379,6 +380,10 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/preparations/mine?urgency=tomorrow');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/upcoming/mine?focus=tomorrow');
     $this->assertSame($before, $this->domainCounts());
+    // Restore the ordinary assistant GET before existing POST behavior checks.
+    $this->drupalGet('/fr/personal-secretary/assistant');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->elementNotExists('css', '.ps-guided-assistant__result');
 
     $this->assertSession()->pageTextContains('Choisir une action');
     $this->assertSession()->pageTextContains('Préparer une tâche');
