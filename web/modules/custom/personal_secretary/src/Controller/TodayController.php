@@ -98,6 +98,17 @@ final class TodayController extends ControllerBase {
           '#url' => Url::fromRoute('personal_secretary.guided_assistant'),
           '#attributes' => ['class' => ['ps-today-assistant__link']],
         ],
+        'tomorrow' => [
+          '#type' => 'link',
+          '#title' => $this->todayLanguageManager->getCurrentLanguage()->getId() === 'fr'
+            ? $this->t('Préparer demain')
+            : $this->t('Prepare tomorrow'),
+          '#url' => Url::fromRoute('personal_secretary.guided_assistant', [], [
+            'query' => ['briefing' => 'tomorrow'],
+            'fragment' => 'ps-tomorrow-briefing',
+          ]),
+          '#attributes' => ['class' => ['ps-today-assistant__tomorrow']],
+        ],
       ],
       'tasks' => [
         '#type' => 'container',
