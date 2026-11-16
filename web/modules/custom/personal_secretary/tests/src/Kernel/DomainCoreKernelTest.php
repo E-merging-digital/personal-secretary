@@ -135,6 +135,53 @@ final class DomainCoreKernelTest extends KernelTestBase {
     $this->assertFalse(ctype_digit($occurrences[0]->originalOccurrenceKey));
     $this->assertStringContainsString('T18:00:00+02:00', $occurrences[1]->sourceLocalStart);
 
+    // A location edit is metadata: same revision and exact occurrence keys.
+    $exceptions = $this->container->get('personal_secretary.activity_exception');
+    $cancelled = $exceptions->createCancel($loadedSeries, $occurrences[2]);
+    $cancelId = $cancelled->id();
+    $cancelRevision = (string) $cancelled->getRevisionId();
+    $cancelKey = (string) $cancelled->get('original_occurrence_key')->value;
+    $beforeUuid = $loadedSeries->uuid();
+    $beforeEffective = (string) $loadedSeries->get('effective_from')->value;
+    $beforeRecurrence = $loadedSeries->get('recurrence')->first()->getValue();
+    $updatedLocation = $mutations->updateActivitySeriesLocation($loadedSeries, '  Synthetic Studio  ');
+    $this->assertSame('Synthetic Studio', (string) $updatedLocation->get('location')->value);
+    $this->assertSame($beforeUuid, $updatedLocation->uuid());
+    $this->assertSame($initialRevisionId, (string) $updatedLocation->getRevisionId());
+    $this->assertSame($beforeEffective, (string) $updatedLocation->get('effective_from')->value);
+    $this->assertSame($beforeRecurrence, $updatedLocation->get('recurrence')->first()->getValue());
+    $afterOccurrences = $projection->project(
+      $updatedLocation,
+      new DateTimeImmutable('2026-03-01 00:00:00', $sourceTimezone),
+      new DateTimeImmutable('2026-05-01 00:00:00', $sourceTimezone),
+      10,
+    );
+    $this->assertSame(
+      array_map(static fn ($occurrence): string => $occurrence->originalOccurrenceKey, $occurrences),
+      array_map(static fn ($occurrence): string => $occurrence->originalOccurrenceKey, $afterOccurrences),
+    );
+    $cancelAfter = $entityTypeManager->getStorage('personal_sec_activity_exception')->load($cancelId);
+    $this->assertSame($cancelRevision, (string) $cancelAfter->getRevisionId());
+    $this->assertSame($cancelKey, (string) $cancelAfter->get('original_occurrence_key')->value);
+    $this->assertSame('active', (string) $cancelAfter->get('status')->value);
+    try {
+      $mutations->updateActivitySeriesLocation($loadedSeries, 'Stale input');
+      $this->fail('An out-of-date location snapshot must be rejected.');
+    }
+    catch (InvalidArgumentException $exception) {
+      $this->assertStringContainsString('latest unchanged', $exception->getMessage());
+    }
+    try {
+      $mutations->updateActivitySeriesLocation($updatedLocation, str_repeat('x', 256));
+      $this->fail('Locations longer than 255 characters must be rejected.');
+    }
+    catch (InvalidArgumentException $exception) {
+      $this->assertStringContainsString('255', $exception->getMessage());
+    }
+    $updatedLocation = $mutations->updateActivitySeriesLocation($updatedLocation, '');
+    $this->assertSame('', (string) $updatedLocation->get('location')->value);
+    $this->assertSame($initialRevisionId, (string) $updatedLocation->getRevisionId());
+
     $revised = $mutations->updateActivitySeriesRecurrence(
       $loadedSeries,
       new DateTimeImmutable('2026-03-23 18:00:00', $sourceTimezone),

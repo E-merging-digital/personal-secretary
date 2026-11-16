@@ -1525,3 +1525,24 @@ msgstr "Aucune tâche à échéance dans les 7 prochains jours."
 
 msgid "No tasks due within 30 days."
 msgstr "Aucune tâche à échéance dans les 30 prochains jours."
+
+msgid "Change activity location"
+msgstr "Modifier le lieu de l’activité"
+
+msgid "Leave empty to clear the location for all occurrences. This does not change the schedule."
+msgstr "Laissez vide pour supprimer le lieu de toutes les occurrences. Cela ne modifie pas le planning."
+
+msgid "Save location"
+msgstr "Enregistrer le lieu"
+
+msgid "Location must not exceed 255 characters."
+msgstr "Le lieu ne peut pas dépasser 255 caractères."
+
+msgid "The activity changed while this form was open. Reload before saving."
+msgstr "L’activité a changé depuis l’ouverture du formulaire. Rechargez avant d’enregistrer."
+
+msgid "This activity location can no longer be updated safely."
+msgstr "Le lieu de cette activité ne peut plus être modifié en toute sécurité."
+
+msgid "Activity location updated."
+msgstr "Le lieu de l’activité a été modifié."

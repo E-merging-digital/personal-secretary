@@ -144,6 +144,99 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic Today location activity');
     $this->assertSession()->pageTextContains('Synthetic Today Room');
 
+    // Location-only edits preserve recurrence and no ordinary product user may edit.
+    $weeklyId = (int) $weekly->id();
+    $oneOffId = (int) $oneOff->id();
+    $weeklyEdit = '/personal-secretary/activities/' . $weeklyId . '/location/edit';
+    $oneOffEdit = '/personal-secretary/activities/' . $oneOffId . '/location/edit';
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->linkByHrefExists($weeklyEdit);
+    $this->assertSession()->linkByHrefExists($oneOffEdit);
+    $this->drupalGet($weeklyEdit);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldValueEquals('location', 'Synthetic Weekly Hall');
+    $this->assertSession()->fieldExists('location');
+    $this->assertSame('255', $this->assertSession()->fieldExists('location')->getAttribute('maxlength'));
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame('Synthetic Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+
+    $this->drupalGet('/personal-secretary/upcoming/mine', ['query' => [
+      'days' => '30', 'q' => 'Synthetic location', 'focus' => 'tomorrow',
+    ]]);
+    $context = ['from' => 'mine', 'days' => '30', 'q' => 'Synthetic location', 'focus' => 'tomorrow'];
+    $focusedEdit = \Drupal\Core\Url::fromRoute('personal_secretary.edit_activity_location', [
+      'series' => $weeklyId,
+    ], ['query' => $context]);
+    $focusedReturn = \Drupal\Core\Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Synthetic location', 'focus' => 'tomorrow'],
+    ]);
+    $this->assertSession()->linkByHrefExists($focusedEdit->toString());
+    $this->drupalGet($focusedEdit);
+    $this->assertSession()->linkByHrefExists($focusedReturn->toString());
+    $this->submitForm(['location' => '  Synthetic New Weekly Hall  '], 'Save location');
+    $this->assertSession()->addressEquals($focusedReturn);
+    $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+    $this->assertSession()->pageTextContains('Synthetic New Weekly Hall');
+
+    $this->drupalGet($oneOffEdit);
+    $this->submitForm(['location' => ''], 'Save location');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame('', (string) $this->seriesByLabel('Synthetic location one-off')->get('location')->value);
+
+    // A one-off ALL_DAY occurrence uses exactly the same series-level metadata.
+    $day = $nowLocal->modify('+4 days')->setTime(0, 0);
+    $allDay = $domain->createActivitySeries(
+      'Synthetic all-day location',
+      (int) $household->id(),
+      $day,
+      $day->modify('+1 day'),
+      'FREQ=DAILY;COUNT=1',
+      'Synthetic All-day Hall',
+      [(int) $person->id()],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $allDayEdit = '/personal-secretary/activities/' . $allDay->id() . '/location/edit';
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->linkByHrefExists($allDayEdit);
+    $this->drupalGet($allDayEdit);
+    $this->submitForm(['location' => 'Synthetic All-day Studio'], 'Save location');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame('Synthetic All-day Studio', (string) $this->seriesByLabel('Synthetic all-day location')->get('location')->value);
+
+    $ordinary = $this->drupalCreateUser([]);
+    $this->assertInstanceOf(UserInterface::class, $ordinary);
+    $ordinary->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
+    $ordinary->set('timezone', 'Europe/Brussels');
+    $ordinary->save();
+    $this->drupalLogout();
+    $this->drupalLogin($ordinary);
+    $this->drupalGet('/personal-secretary/upcoming/mine');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Synthetic location weekly');
+    $this->assertSession()->linkByHrefNotExists($weeklyEdit);
+    $this->drupalGet($weeklyEdit);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet($oneOffEdit);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalLogout();
+    $this->drupalLogin($authorized);
+
+    $this->drupalGet('/fr/personal-secretary/upcoming');
+    $this->assertSession()->linkExists('Modifier le lieu de l’activité');
+    $this->drupalGet('/fr' . $weeklyEdit);
+    $this->assertSession()->fieldExists('location');
+    $this->assertSession()->pageTextContains('Laissez vide pour supprimer le lieu');
+    $this->assertSession()->linkExists('Annuler');
+
+    // Unknown and forged navigation never becomes a redirect or data write.
+    $this->drupalGet('/personal-secretary/activities/999999/location/edit');
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($weeklyEdit, ['query' => ['from' => ['mine'], 'destination' => 'https://example.invalid']]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+
     $tooLongStart = $nowLocal->modify('+4 days')->setTime(15, 0);
     $this->expectException(InvalidArgumentException::class);
     $this->expectExceptionMessage('Activity location must not exceed 255 characters.');
