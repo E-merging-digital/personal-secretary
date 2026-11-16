@@ -265,8 +265,9 @@ final class MyUpcomingTest extends BrowserTestBase {
       ->target_id;
 
     // Tomorrow is a viewer-local calendar day, not the next 24 UTC hours.
-    $focused = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['focus' => 'tomorrow']])->toString();
-    $this->drupalGet($focused);
+    $focusedUrl = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['focus' => 'tomorrow']]);
+    $focused = $focusedUrl->toString();
+    $this->drupalGet($focusedUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing your local activities tomorrow.');
     $this->assertSession()->pageTextContains('Rule A activity');
@@ -285,21 +286,23 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->addressEquals($focused);
     $this->clickLink('Rule A activity');
     $this->assertSession()->linkByHrefExists($focused);
-    $cancelFormUrl = Url::fromRoute('personal_secretary.cancel_occurrence', [
+    $cancelForm = Url::fromRoute('personal_secretary.cancel_occurrence', [
       'series' => (int) $ruleASeries->id(),
       'original_occurrence_key' => $ruleAOccurrence->originalOccurrenceKey,
-    ], ['query' => ['from' => 'mine', 'focus' => 'tomorrow']])->toString();
-    $rescheduleFormUrl = Url::fromRoute('personal_secretary.reschedule_occurrence', [
+    ], ['query' => ['from' => 'mine', 'focus' => 'tomorrow']]);
+    $cancelFormUrl = $cancelForm->toString();
+    $rescheduleForm = Url::fromRoute('personal_secretary.reschedule_occurrence', [
       'series' => (int) $ruleASeries->id(),
       'original_occurrence_key' => $ruleAOccurrence->originalOccurrenceKey,
-    ], ['query' => ['from' => 'mine', 'focus' => 'tomorrow']])->toString();
+    ], ['query' => ['from' => 'mine', 'focus' => 'tomorrow']]);
+    $rescheduleFormUrl = $rescheduleForm->toString();
     $this->assertSession()->linkByHrefExists($cancelFormUrl);
     $this->assertSession()->linkByHrefExists($rescheduleFormUrl);
-    $this->drupalGet($cancelFormUrl);
+    $this->drupalGet($cancelForm);
     $this->assertSession()->linkByHrefExists($focused);
-    $this->drupalGet($rescheduleFormUrl);
+    $this->drupalGet($rescheduleForm);
     $this->assertSession()->linkByHrefExists($focused);
-    $this->drupalGet($focused);
+    $this->drupalGet($focusedUrl);
     $this->getSession()->getPage()->fillField('q', 'Rule A');
     $this->getSession()->getPage()->pressButton('Search activities');
     $focusedSearch = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'Rule A', 'focus' => 'tomorrow']])->toString();
