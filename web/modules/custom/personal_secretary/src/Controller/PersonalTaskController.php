@@ -208,7 +208,7 @@ final class PersonalTaskController extends ControllerBase {
     if (($query['sort'] ?? NULL) === 'title') {
       $filters['sort'] = 'title';
     }
-    if (!isset($filters['status']) && in_array($query['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)) {
+    if (!isset($filters['status']) && in_array($query['urgency'] ?? NULL, ['overdue', 'tomorrow', 'next7', 'next30'], TRUE)) {
       $filters['urgency'] = $query['urgency'];
     }
     return $filters;
