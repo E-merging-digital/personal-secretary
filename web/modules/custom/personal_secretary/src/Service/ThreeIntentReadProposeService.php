@@ -94,7 +94,7 @@ final class ThreeIntentReadProposeService {
       ];
     }, $day['planning']);
 
-    return $this->result($intent, 'READ', 'READ_SUCCESS', [
+    $data = [
       'timezone' => (string) $day['timezone'],
       'local_date' => (string) $day['local_date'],
       'local_start' => (string) $day['local_start'],
@@ -102,7 +102,13 @@ final class ThreeIntentReadProposeService {
       'tasks' => array_values($tasks),
       'preparations' => array_values($preparations),
       'planning' => array_values($planning),
-    ]);
+    ];
+    // The authorized local activity count never exposes activity or provider data.
+    // GET_TODAY retains its existing read-only presentation contract.
+    if ($intent === self::GET_TOMORROW) {
+      $data['local_activity_count'] = count($day['activities']);
+    }
+    return $this->result($intent, 'READ', 'READ_SUCCESS', $data);
   }
 
   /**

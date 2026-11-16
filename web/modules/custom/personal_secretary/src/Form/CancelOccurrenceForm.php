@@ -151,6 +151,9 @@ final class CancelOccurrenceForm extends ConfirmFormBase {
         $query['q'] = $search;
       }
     }
+    if (($input['focus'] ?? NULL) === 'tomorrow') {
+      $query['focus'] = 'tomorrow';
+    }
     return $query;
   }
 

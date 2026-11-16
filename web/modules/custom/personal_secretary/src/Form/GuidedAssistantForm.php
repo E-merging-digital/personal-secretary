@@ -2251,6 +2251,15 @@ final class GuidedAssistantForm extends FormBase {
         'query' => ['urgency' => 'tomorrow'],
       ]);
     }
+    if (($data['local_activity_count'] ?? 0) > 0) {
+      $build['links']['upcoming']['#title'] = $this->tr(
+        "View tomorrow's activities",
+        'Voir les activités de demain',
+      );
+      $build['links']['upcoming']['#url'] = Url::fromRoute('personal_secretary.my_upcoming', [], [
+        'query' => ['focus' => 'tomorrow'],
+      ]);
+    }
     return $build;
   }
 
