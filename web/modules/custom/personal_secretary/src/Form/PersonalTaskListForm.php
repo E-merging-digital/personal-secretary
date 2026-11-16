@@ -86,6 +86,8 @@ final class PersonalTaskListForm extends FormBase {
           'all' => $this->t('All open tasks'),
           'overdue' => $this->t('Overdue only'),
           'tomorrow' => $this->t('Due tomorrow'),
+          'next7' => $this->t('Due within 7 days'),
+          'next30' => $this->t('Due within 30 days'),
         ],
         '#default_value' => $urgencyFilter,
         '#access' => $statusFilter === 'open',
@@ -199,6 +201,24 @@ final class PersonalTaskListForm extends FormBase {
       ));
     }
 
+    if (in_array($urgencyFilter, ['next7', 'next30'], TRUE)) {
+      // The query already applies current-Person/Household and open-status
+      // authorization. Compare viewer-local civil dates, never UTC seconds.
+      $localStart = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+        ->setTimezone(new DateTimeZone($this->taskMutations->currentUserTimezoneId()))
+        ->setTime(0, 0);
+      $firstDate = $localStart->format('Y-m-d');
+      $endDate = $localStart->modify($urgencyFilter === 'next7' ? '+7 days' : '+30 days')
+        ->format('Y-m-d');
+      $items = array_values(array_filter(
+        $items,
+        static fn (array $item): bool => in_array($item['due_mode'], [PersonalTask::DUE_DATE, PersonalTask::DUE_DATE_TIME], TRUE)
+          && $item['overdue'] !== TRUE
+          && substr((string) $item['due_label'], 0, 10) >= $firstDate
+          && substr((string) $item['due_label'], 0, 10) < $endDate,
+      ));
+    }
+
     // Sort only the already-authorized presentation; preserve urgency groups.
     if ($sortFilter === 'title') {
       usort($items, static function (array $left, array $right) use ($statusFilter): int {
@@ -223,6 +243,12 @@ final class PersonalTaskListForm extends FormBase {
       }
       elseif ($urgencyFilter === 'tomorrow' && $titleFilter === '') {
         $emptyMessage = $this->t('No tasks due tomorrow.');
+      }
+      elseif ($urgencyFilter === 'next7' && $titleFilter === '') {
+        $emptyMessage = $this->t('No tasks due within 7 days.');
+      }
+      elseif ($urgencyFilter === 'next30' && $titleFilter === '') {
+        $emptyMessage = $this->t('No tasks due within 30 days.');
       }
       $form['live']['empty'] = [
         '#type' => 'html_tag',
@@ -592,7 +618,7 @@ final class PersonalTaskListForm extends FormBase {
       ? $sort
       : 'smart';
     $urgency = $input['urgency'] ?? 'all';
-    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'tomorrow'], TRUE)
+    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30'], TRUE)
       ? $urgency
       : 'all';
     return [$status, $title, $sort, $urgency];
@@ -620,7 +646,7 @@ final class PersonalTaskListForm extends FormBase {
     if ($sort === 'title') {
       $query['sort'] = 'title';
     }
-    if ($status === 'open' && in_array($urgency, ['overdue', 'tomorrow'], TRUE)) {
+    if ($status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30'], TRUE)) {
       $query['urgency'] = $urgency;
     }
     return $query;
