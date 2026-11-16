@@ -378,6 +378,16 @@ final class UpcomingController extends ControllerBase {
 
       $isRecurring = $this->pauseRecurringActivity->canPause((int) $scheduleTarget['series_id']);
       $seriesActions = [];
+      $seriesActions['location'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Change activity location'),
+        '#url' => Url::fromRoute('personal_secretary.edit_activity_location', [
+          'series' => $scheduleTarget['series_id'],
+        ], $fromMine
+          ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query, $focus)]
+          : []),
+        '#attributes' => ['class' => ['ps-action-link']],
+      ];
       if ($isRecurring && !$allDay) {
         $seriesActions['schedule'] = [
           '#type' => 'link',

@@ -164,6 +164,39 @@ final class DomainMutationService {
     return $series;
   }
 
+  /**
+   * Updates only current-default non-revisionable location metadata.
+   *
+   * Preserves recurrence/exception target identity and revision chronology.
+   */
+  public function updateActivitySeriesLocation(ActivitySeries $series, string $location): ActivitySeries {
+    if ($series->isNew() || $series->id() === NULL) {
+      throw new InvalidArgumentException('ActivitySeries must be persisted before changing its location.');
+    }
+    $location = $this->optionalLocation($location);
+    $storage = $this->seriesStorage();
+    $storage->resetCache([(int) $series->id()]);
+    $persisted = $storage->load($series->id());
+    $latestRevisionId = $storage->getLatestRevisionId($series->id());
+    if (
+      !$persisted instanceof ActivitySeries
+      || $persisted->uuid() !== $series->uuid()
+      || $latestRevisionId === NULL
+      || (string) $latestRevisionId !== (string) $series->getRevisionId()
+      || (string) $latestRevisionId !== (string) $persisted->getRevisionId()
+      || (string) ($persisted->get('location')->value ?? '') !== (string) ($series->get('location')->value ?? '')
+    ) {
+      throw new InvalidArgumentException('ActivitySeries location update requires the latest unchanged persisted series.');
+    }
+    if ((string) ($persisted->get('location')->value ?? '') === $location) {
+      return $persisted;
+    }
+    $persisted->setNewRevision(FALSE);
+    $persisted->set('location', $location);
+    $persisted->save();
+    return $persisted;
+  }
+
   public function updateActivitySeriesRecurrence(
     ActivitySeries $series,
     DateTimeImmutable $localStart,
