@@ -148,6 +148,13 @@ final class UpcomingController extends ControllerBase {
     $build['horizon'] = $this->horizonLinks($days, $query, $focus);
     $build['focus'] = $this->focusLinks($days, $query, $focus);
     $build['search'] = $this->searchForm($days, $query, $focus);
+    if ($days === 30 || $query !== '' || $focus === 'tomorrow') {
+      $build['clear_filters'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Clear filters'),
+        '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
+      ];
+    }
     $build['add_activity'] = $this->addActivityLink(TRUE, $days, $query, $focus);
 
     if ($items === []) {
