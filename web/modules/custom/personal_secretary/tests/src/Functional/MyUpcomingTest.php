@@ -11,6 +11,7 @@ use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
+use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\UserInterface;
 
@@ -255,6 +256,10 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Not assigned');
     $this->assertSession()->pageTextContains('A Current Person');
     $this->assertSession()->pageTextContains('B Other Person');
+    // The admin-wide view retains its historical expanded groups.
+    $this->assertSession()->elementNotExists('css', '.ps-upcoming-list__item details.ps-action-group');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item .ps-action-group--occurrence h3');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item .ps-action-group--series h3');
 
     $countsBefore = $this->domainCounts();
     $userStorage->resetCache([$authorizedId]);
@@ -270,6 +275,8 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($focusedUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing your local activities tomorrow.');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--occurrence:not([open]) > summary');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--series:not([open]) > summary');
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextContains('Same day A activity');
     foreach (['Rule B activity', 'Override to A activity', 'Later A activity', 'Later B activity'] as $excluded) {
@@ -335,6 +342,45 @@ final class MyUpcomingTest extends BrowserTestBase {
     // Two occurrences on the same civil day share one heading; a later day gets another.
     $cards = $this->getSession()->getPage()->findAll('css', '.ps-upcoming-list > .ps-upcoming-list__item');
     $this->assertCount(3, $cards);
+    // Each authorized card owns two closed Drupal Core disclosures.
+    // Actions remain DOM links with their original URLs and order.
+    foreach ($cards as $card) {
+      $occurrenceGroup = $card->find('css', 'details.ps-action-group--occurrence');
+      $seriesGroup = $card->find('css', 'details.ps-action-group--series');
+      $this->assertNotNull($occurrenceGroup);
+      $this->assertNotNull($seriesGroup);
+      $this->assertNull($occurrenceGroup->getAttribute('open'));
+      $this->assertNull($seriesGroup->getAttribute('open'));
+      $this->assertSame('This occurrence', trim((string) $occurrenceGroup->find('css', 'summary')?->getText()));
+      $this->assertSame('Activity settings', trim((string) $seriesGroup->find('css', 'summary')?->getText()));
+      $this->assertNotEmpty($occurrenceGroup->findAll('css', '.ps-action-group__links a'));
+      $this->assertNotEmpty($seriesGroup->findAll('css', '.ps-action-group__links a'));
+      $this->assertNotNull($card->find('css', '.ps-upcoming-card__title-link'));
+    }
+    $ruleAReschedule = Url::fromRoute('personal_secretary.reschedule_occurrence', [
+      'series' => (int) $ruleASeries->id(),
+      'original_occurrence_key' => $ruleAOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'mine']])->toString();
+    $ruleACancel = Url::fromRoute('personal_secretary.cancel_occurrence', [
+      'series' => (int) $ruleASeries->id(),
+      'original_occurrence_key' => $ruleAOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'mine']])->toString();
+    $ruleALocation = Url::fromRoute('personal_secretary.edit_activity_location', [
+      'series' => (int) $ruleASeries->id(),
+    ], ['query' => ['from' => 'mine']])->toString();
+    $occurrenceLinks = array_map(
+      static fn ($link): string => (string) $link->getAttribute('href'),
+      $cards[0]->findAll('css', 'details.ps-action-group--occurrence .ps-action-group__links a'),
+    );
+    $seriesLinks = array_map(
+      static fn ($link): string => (string) $link->getAttribute('href'),
+      $cards[0]->findAll('css', 'details.ps-action-group--series .ps-action-group__links a'),
+    );
+    $this->assertContains($ruleAReschedule, $occurrenceLinks);
+    $this->assertContains($ruleACancel, $occurrenceLinks);
+    $this->assertContains($ruleALocation, $seriesLinks);
+    $this->assertLessThan(array_search($ruleACancel, $occurrenceLinks, TRUE), array_search($ruleAReschedule, $occurrenceLinks, TRUE));
+    $this->assertNotNull($cards[0]->find('css', '.ps-upcoming-day-heading'));
     $this->assertNotNull($cards[0]->find('css', 'h3.ps-upcoming-day-heading'));
     $this->assertNull($cards[1]->find('css', 'h3.ps-upcoming-day-heading'));
     $this->assertNotNull($cards[2]->find('css', 'h3.ps-upcoming-day-heading'));
@@ -370,6 +416,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30']]));
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 30 days.');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--occurrence:not([open]) > summary');
     $this->assertSession()->pageTextContains('Later A activity');
     $this->assertCount(3, $this->getSession()->getPage()->findAll('css', '.ps-upcoming-day-heading'));
     $this->assertSession()->pageTextNotContains('Later B activity');
@@ -406,6 +453,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->getSession()->getPage()->pressButton('Search activities');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--occurrence:not([open]) > summary');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-upcoming-day-heading'));
     $this->assertSession()->pageTextNotContains('Override to A activity');
     $this->assertSession()->pageTextNotContains('Rule B activity');
@@ -571,6 +619,8 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists($myUpcomingUrl);
     $this->assertSession()->pageTextContains('This occurrence');
     $this->assertSession()->pageTextContains('Activity settings');
+    $this->assertSession()->elementNotExists('css', '.ps-upcoming-list__item details.ps-action-group');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item .ps-action-group--occurrence h3');
     $this->assertSame($countsBefore, $this->domainCounts());
 
     $this->drupalGet($overrideToADetailUrl);
@@ -583,6 +633,27 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
     $this->assertSession()->pageTextNotContains('Rule B activity');
     $this->assertSession()->pageTextNotContains('B Other Person');
+    $this->assertSame($countsBefore, $this->domainCounts());
+
+    // A regular Household user sees only owned occurrence actions, never
+    // admin-only series actions, without a change to the authorized projection.
+    $ordinary = $this->drupalCreateUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
+    $this->assertInstanceOf(UserInterface::class, $ordinary);
+    $ordinary->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $personA->id()]);
+    $ordinary->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $household->id()]]);
+    $ordinary->set('timezone', 'Europe/Brussels');
+    $ordinary->save();
+    $this->drupalLogout();
+    $this->drupalLogin($ordinary);
+    $this->drupalGet($myUpcomingUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Rule A activity');
+    $this->assertSession()->pageTextNotContains('Rule B activity');
+    $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--occurrence:not([open]) > summary');
+    $this->assertSession()->elementNotExists('css', '.ps-upcoming-list__item .ps-action-group--series');
+    $this->assertSession()->linkByHrefExists($ruleACancel);
+    $this->assertSession()->linkByHrefExists($ruleAReschedule);
+    $this->assertSession()->linkByHrefNotExists($ruleALocation);
     $this->assertSame($countsBefore, $this->domainCounts());
 
     $unlinked = $this->drupalCreateUser(['administer personal secretary domain']);
@@ -717,6 +788,26 @@ final class MyUpcomingTest extends BrowserTestBase {
       ],
     ])->save();
 
+    FieldStorageConfig::create([
+      'field_name' => HouseholdAuthorizationService::FIELD_NAME,
+      'entity_type' => 'user',
+      'type' => 'entity_reference',
+      'settings' => ['target_type' => 'personal_secretary_household'],
+      'cardinality' => -1,
+      'translatable' => FALSE,
+    ])->save();
+    FieldConfig::create([
+      'field_name' => HouseholdAuthorizationService::FIELD_NAME,
+      'entity_type' => 'user',
+      'bundle' => 'user',
+      'label' => 'Synthetic allowed Households',
+      'required' => FALSE,
+      'translatable' => FALSE,
+      'settings' => [
+        'handler' => 'default:personal_secretary_household',
+        'handler_settings' => [],
+      ],
+    ])->save();
     $this->container->get('entity_field.manager')->clearCachedFieldDefinitions();
   }
 

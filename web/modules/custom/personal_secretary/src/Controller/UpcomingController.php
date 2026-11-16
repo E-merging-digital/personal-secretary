@@ -365,11 +365,21 @@ final class UpcomingController extends ControllerBase {
 
       if ($occurrenceActions !== []) {
         $build[$delta]['occurrence_actions'] = [
-          '#type' => 'container',
+          '#type' => $includeDetailLinks ? 'details' : 'container',
           '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--occurrence']],
-          'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('This occurrence')],
           'links' => ['#type' => 'container', '#attributes' => ['class' => ['ps-action-group__links']]] + $occurrenceActions,
         ];
+        if ($includeDetailLinks) {
+          // Native keyboard-accessible disclosure, scoped to this list card.
+          $build[$delta]['occurrence_actions']['#title'] = $this->t('This occurrence');
+          $build[$delta]['occurrence_actions']['#open'] = FALSE;
+        }
+        else {
+          // Keep administrative global Upcoming and detail markup unchanged.
+          $build[$delta]['occurrence_actions']['title'] = [
+            '#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('This occurrence'),
+          ];
+        }
       }
 
       if (!$includeAdminMutationLinks) {
@@ -423,11 +433,19 @@ final class UpcomingController extends ControllerBase {
 
       if ($seriesActions !== []) {
         $build[$delta]['series_actions'] = [
-          '#type' => 'container',
+          '#type' => $includeDetailLinks ? 'details' : 'container',
           '#attributes' => ['class' => ['ps-action-group', 'ps-action-group--series']],
-          'title' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('Activity settings')],
           'links' => ['#type' => 'container', '#attributes' => ['class' => ['ps-action-group__links']]] + $seriesActions,
         ];
+        if ($includeDetailLinks) {
+          $build[$delta]['series_actions']['#title'] = $this->t('Activity settings');
+          $build[$delta]['series_actions']['#open'] = FALSE;
+        }
+        else {
+          $build[$delta]['series_actions']['title'] = [
+            '#type' => 'html_tag', '#tag' => 'h3', '#value' => $this->t('Activity settings'),
+          ];
+        }
       }
     }
 
