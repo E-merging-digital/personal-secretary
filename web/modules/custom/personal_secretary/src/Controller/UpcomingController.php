@@ -436,7 +436,7 @@ final class UpcomingController extends ControllerBase {
       '#url' => Url::fromRoute('personal_secretary.occurrence_detail', [
         'series' => $target['series_id'],
         'original_occurrence_key' => $target['original_occurrence_key'],
-      ], $this->upcomingUrlOptions($days, $query)),
+      ], $this->upcomingUrlOptions($days, $query, $focus)),
       '#attributes' => ['class' => ['ps-action-link', 'ps-action-link--primary']],
     ];
   }
