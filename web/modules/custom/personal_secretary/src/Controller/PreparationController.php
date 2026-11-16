@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\personal_secretary\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Form\FormState;
 use Drupal\Core\Url;
@@ -40,10 +42,12 @@ final class PreparationController extends ControllerBase {
     if (mb_strlen($search) > 100) {
       $search = '';
     }
-    $urgency = ($query['urgency'] ?? NULL) === 'overdue' ? 'overdue' : 'all';
+    $urgency = in_array($query['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)
+      ? $query['urgency'] : 'all';
+    $urgencyQuery = $urgency === 'all' ? [] : ['urgency' => $urgency];
     $returnQuery = ['days' => $windowDays]
       + ($search === '' ? [] : ['q' => $search])
-      + ($urgency === 'overdue' ? ['urgency' => 'overdue'] : []);
+      + $urgencyQuery;
 
     try {
       $model = $this->currentUserPreparations->mine(NULL, $windowDays);
@@ -92,6 +96,17 @@ final class PreparationController extends ControllerBase {
         static fn(array $item): bool => ($item['overdue'] ?? FALSE) === TRUE,
       ));
     }
+    elseif ($urgency === 'tomorrow') {
+      // Match the local civil date in the existing authorized projection.
+      $tomorrow = (new DateTimeImmutable((string) $model['due_window_start']))
+        ->setTimezone(new DateTimeZone((string) $model['timezone']))
+        ->modify('+1 day')->format('Y-m-d');
+      $toPrepare = array_values(array_filter(
+        $toPrepare,
+        static fn(array $item): bool => substr((string) $item['due_time_iso'], 0, 10) === $tomorrow,
+      ));
+      $prepared = [];
+    }
 
     $build = [
       '#type' => 'container',
@@ -109,7 +124,7 @@ final class PreparationController extends ControllerBase {
           '#title' => $this->t('7 days'),
           '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
             'query' => ['days' => 7] + ($search === '' ? [] : ['q' => $search])
-              + ($urgency === 'overdue' ? ['urgency' => 'overdue'] : []),
+              + $urgencyQuery,
           ]),
           '#attributes' => [
             'class' => $windowDays === 7 ? ['button', 'button--primary'] : ['button'],
@@ -120,7 +135,7 @@ final class PreparationController extends ControllerBase {
           '#title' => $this->t('30 days'),
           '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
             'query' => ['days' => 30] + ($search === '' ? [] : ['q' => $search])
-              + ($urgency === 'overdue' ? ['urgency' => 'overdue'] : []),
+              + $urgencyQuery,
           ]),
           '#attributes' => [
             'class' => $windowDays === 30 ? ['button', 'button--primary'] : ['button'],
@@ -145,9 +160,11 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-preparation-window']],
-        '#value' => $windowDays === 30
-          ? $this->t('Showing active overdue preparations and preparations due in the next 30 days.')
-          : $this->t('Showing active overdue preparations and preparations due in the next 7 days.'),
+        '#value' => $urgency === 'tomorrow'
+          ? $this->t('Showing unprepared preparations due tomorrow.')
+          : ($windowDays === 30
+            ? $this->t('Showing active overdue preparations and preparations due in the next 30 days.')
+            : $this->t('Showing active overdue preparations and preparations due in the next 7 days.')),
       ],
       'feedback' => [
         '#type' => 'container',
@@ -184,17 +201,19 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-empty-state']],
-        '#value' => $urgency === 'overdue'
-          ? $this->t('No overdue preparations.')
+        '#value' => $urgency === 'tomorrow'
+          ? $this->t('No preparations due tomorrow.')
+          : ($urgency === 'overdue'
+            ? $this->t('No overdue preparations.')
           : ($items === [] && $search !== ''
           ? $this->t('No preparations match this search.')
           : ($items === []
             ? ($windowDays === 30
               ? $this->t('No upcoming preparations are assigned to you in the next 30 days.')
               : $this->t('No upcoming preparations are assigned to you in the next 7 days.'))
-            : $this->t('Nothing currently needs preparation.'))),
+            : $this->t('Nothing currently needs preparation.')))),
       ];
-      if ($items === [] && $search === '' && $urgency !== 'overdue') {
+      if ($items === [] && $search === '' && $urgency === 'all') {
         $build['to_prepare']['explanation'] = [
           '#type' => 'html_tag',
           '#tag' => 'p',
@@ -328,6 +347,12 @@ final class PreparationController extends ControllerBase {
           '#value' => $this->t('Overdue only'),
           '#attributes' => ['value' => 'overdue'] + ($urgency === 'overdue' ? ['selected' => 'selected'] : []),
         ],
+        'tomorrow' => [
+          '#type' => 'html_tag',
+          '#tag' => 'option',
+          '#value' => $this->t('Tomorrow only'),
+          '#attributes' => ['value' => 'tomorrow'] + ($urgency === 'tomorrow' ? ['selected' => 'selected'] : []),
+        ],
       ],
       'submit' => [
         '#type' => 'html_tag',
@@ -336,10 +361,10 @@ final class PreparationController extends ControllerBase {
         '#attributes' => ['type' => 'submit'],
       ],
     ];
-    if ($search !== '' || $urgency === 'overdue') {
+    if ($search !== '' || $urgency !== 'all') {
       $form['clear'] = [
         '#type' => 'link',
-        '#title' => $urgency === 'overdue'
+        '#title' => $urgency !== 'all'
           ? $this->t('Clear filters')
           : $this->t('Clear search'),
         '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [

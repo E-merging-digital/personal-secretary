@@ -209,8 +209,8 @@ final class UpcomingController extends ControllerBase {
           $returnQuery['q'] = $search;
         }
       }
-      if (($input['urgency'] ?? NULL) === 'overdue') {
-        $returnQuery['urgency'] = 'overdue';
+      if (in_array($input['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)) {
+        $returnQuery['urgency'] = $input['urgency'];
       }
       $backTitle = $this->t('My preparations');
       $backUrl = Url::fromRoute('personal_secretary.my_preparations', [], ['query' => $returnQuery]);

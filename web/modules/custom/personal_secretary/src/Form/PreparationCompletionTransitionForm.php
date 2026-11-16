@@ -301,20 +301,21 @@ final class PreparationCompletionTransitionForm extends FormBase {
     if (mb_strlen($search) > 100) {
       $search = '';
     }
-    $urgency = ($input['urgency'] ?? NULL) === 'overdue' ? 'overdue' : 'all';
+    $urgency = in_array($input['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)
+      ? $input['urgency'] : 'all';
 
     $query = [];
     if (($input['days'] ?? NULL) === '30') {
       $query['days'] = 30;
     }
-    elseif (($input['days'] ?? NULL) === '7' && ($search !== '' || $urgency === 'overdue')) {
+    elseif (($input['days'] ?? NULL) === '7' && ($search !== '' || $urgency !== 'all')) {
       $query['days'] = 7;
     }
     if ($search !== '') {
       $query['q'] = $search;
     }
-    if ($urgency === 'overdue') {
-      $query['urgency'] = 'overdue';
+    if ($urgency !== 'all') {
+      $query['urgency'] = $urgency;
     }
     return $query === [] ? [] : ['query' => $query];
   }

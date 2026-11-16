@@ -106,6 +106,11 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $responsibility->createResponsibilityRule(
       $forbiddenSeries, (int) $person->id(), $tomorrowStart, $tomorrowEnd, 'FREQ=DAILY;COUNT=1',
     );
+    $preparation->createPreparationRequirement(
+      $forbiddenSeries, 'Synthetic forbidden Tomorrow preparation',
+      $tomorrowStart->getTimestamp() - $dueAt->getTimestamp(),
+      $tomorrowStart->modify('-10 days'),
+    );
 
     $this->drupalLogin($ordinary);
     $this->drupalGet($route);
@@ -203,8 +208,19 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
     $this->assertSession()->linkExists('View tasks due tomorrow');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?urgency=tomorrow');
-    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-guided-assistant__briefing-links a[href*="urgency=tomorrow"]'));
+    $this->assertSession()->linkExists('View preparations due tomorrow');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine?urgency=tomorrow');
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-guided-assistant__briefing-links a[href*="urgency=tomorrow"]'));
     $this->assertSame($before, $this->domainCounts(), 'Tomorrow preview must be read-only.');
+
+    // Existing authorized read, with the same civil date and Household access.
+    $this->clickLink('View preparations due tomorrow');
+    $this->assertSession()->fieldValueEquals('urgency', 'tomorrow');
+    $this->assertSession()->pageTextContains('Synthetic Tomorrow preparation');
+    $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow preparation');
+    $this->assertSame($before, $this->domainCounts());
+    $this->drupalGet($route);
+    $this->submitForm(['intent' => 'GET_TOMORROW'], 'Show preview');
 
     // The existing My tasks list applies the authorized tomorrow focus.
     $this->clickLink('View tasks due tomorrow');
@@ -349,7 +365,9 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Synthetic forbidden Tomorrow task');
     $this->assertSession()->linkExists('Voir les tâches à échéance demain');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine?urgency=tomorrow');
-    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-guided-assistant__briefing-links a[href*="urgency=tomorrow"]'));
+    $this->assertSession()->linkExists('Voir les préparatifs à faire demain');
+    $this->assertSession()->linkByHrefExists('/fr/personal-secretary/preparations/mine?urgency=tomorrow');
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-guided-assistant__briefing-links a[href*="urgency=tomorrow"]'));
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/upcoming/mine');
     $this->assertSame($before, $this->domainCounts());
     $this->submitForm($task, 'Afficher l’aperçu');
@@ -398,6 +416,8 @@ final class GuidedAssistantTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Tasks due tomorrow: 0');
     $this->assertSession()->linkExists('My tasks');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkExists('My preparations');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-guided-assistant__briefing-links a[href*="urgency=tomorrow"]'));
     $this->assertSame($before, $this->domainCounts());
   }

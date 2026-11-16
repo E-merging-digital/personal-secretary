@@ -2242,6 +2242,15 @@ final class GuidedAssistantForm extends FormBase {
         'query' => ['urgency' => 'tomorrow'],
       ]);
     }
+    if ($data['preparations'] !== []) {
+      $build['links']['preparations']['#title'] = $this->tr(
+        'View preparations due tomorrow',
+        'Voir les préparatifs à faire demain',
+      );
+      $build['links']['preparations']['#url'] = Url::fromRoute('personal_secretary.my_preparations', [], [
+        'query' => ['urgency' => 'tomorrow'],
+      ]);
+    }
     return $build;
   }
 
