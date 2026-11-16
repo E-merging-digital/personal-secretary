@@ -6,10 +6,12 @@ namespace Drupal\Tests\personal_secretary\Functional;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\personal_secretary\Entity\ActivitySeries;
 use Drupal\personal_secretary\Service\CurrentPersonResolver;
+use Drupal\personal_secretary\Service\HouseholdAuthorizationService;
 use Drupal\Tests\BrowserTestBase;
 use Drupal\user\UserInterface;
 use InvalidArgumentException;
@@ -205,9 +207,10 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSame('Synthetic All-day Studio', (string) $this->seriesByLabel('Synthetic all-day location')->get('location')->value);
 
-    $ordinary = $this->drupalCreateUser([]);
+    $ordinary = $this->drupalCreateUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
     $this->assertInstanceOf(UserInterface::class, $ordinary);
     $ordinary->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
+    $ordinary->set(HouseholdAuthorizationService::FIELD_NAME, [['target_id' => (int) $household->id()]]);
     $ordinary->set('timezone', 'Europe/Brussels');
     $ordinary->save();
     $this->drupalLogout();
@@ -303,6 +306,26 @@ final class ActivityLocationTest extends BrowserTestBase {
       ],
     ])->save();
 
+    FieldStorageConfig::create([
+      'field_name' => HouseholdAuthorizationService::FIELD_NAME,
+      'entity_type' => 'user',
+      'type' => 'entity_reference',
+      'settings' => ['target_type' => 'personal_secretary_household'],
+      'cardinality' => FieldStorageDefinitionInterface::CARDINALITY_UNLIMITED,
+      'translatable' => FALSE,
+    ])->save();
+    FieldConfig::create([
+      'field_name' => HouseholdAuthorizationService::FIELD_NAME,
+      'entity_type' => 'user',
+      'bundle' => 'user',
+      'label' => 'Personal Secretary Households',
+      'required' => FALSE,
+      'translatable' => FALSE,
+      'settings' => [
+        'handler' => 'default:personal_secretary_household',
+        'handler_settings' => [],
+      ],
+    ])->save();
     $this->container->get('entity_field.manager')->clearCachedFieldDefinitions();
   }
 
