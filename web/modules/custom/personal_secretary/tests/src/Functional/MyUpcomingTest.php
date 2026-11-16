@@ -305,8 +305,11 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($focusedUrl);
     $this->getSession()->getPage()->fillField('q', 'Rule A');
     $this->getSession()->getPage()->pressButton('Search activities');
-    $focusedSearch = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'Rule A', 'focus' => 'tomorrow']])->toString();
-    $this->assertSession()->addressEquals($focusedSearch);
+    // GET forms may encode spaces as + rather than %20; compare decoded state.
+    parse_str((string) parse_url($this->getSession()->getCurrentUrl(), PHP_URL_QUERY), $submittedQuery);
+    $this->assertSame('Rule A', $submittedQuery['q'] ?? NULL);
+    $this->assertSame('tomorrow', $submittedQuery['focus'] ?? NULL);
+    $this->assertCount(2, $submittedQuery);
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextNotContains('Same day A activity');
     $focusedSearch30 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'Rule A', 'focus' => 'tomorrow']])->toString();
