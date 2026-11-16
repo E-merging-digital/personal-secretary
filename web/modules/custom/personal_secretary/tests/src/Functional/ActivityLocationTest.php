@@ -183,6 +183,28 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
     $this->assertSession()->pageTextContains('Synthetic New Weekly Hall');
 
+    // A and B share the same revision because location is non-revisionable.
+    // A stale Form API POST must never silently overwrite an intervening edit.
+    $this->drupalGet($weeklyEdit);
+    $this->assertSession()->fieldValueEquals('location', 'Synthetic New Weekly Hall');
+    $originalRevision = (string) $this->seriesByLabel('Synthetic location weekly')->getRevisionId();
+    $intervening = $domain->updateActivitySeriesLocation(
+      $this->seriesByLabel('Synthetic location weekly'), 'Synthetic Concurrent Hall',
+    );
+    $this->assertSame($originalRevision, (string) $intervening->getRevisionId());
+    $this->submitForm(['location' => 'Synthetic Stale Hall'], 'Save location');
+    $this->assertSession()->pageTextContains('The activity changed while this form was open. Reload before saving.');
+    $this->assertSession()->fieldValueEquals('location', 'Synthetic Stale Hall');
+    $this->assertSame('Synthetic Concurrent Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+    $this->assertSame($originalRevision, (string) $this->seriesByLabel('Synthetic location weekly')->getRevisionId());
+
+    // A new GET supplies a fresh trusted snapshot and allows the next edit.
+    $this->drupalGet($weeklyEdit);
+    $this->assertSession()->fieldValueEquals('location', 'Synthetic Concurrent Hall');
+    $this->submitForm(['location' => 'Synthetic New Weekly Hall'], 'Save location');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+
     $this->drupalGet($oneOffEdit);
     $this->submitForm(['location' => ''], 'Save location');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');

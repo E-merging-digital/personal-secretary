@@ -45,6 +45,14 @@ final class EditActivityLocationForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $series = $this->currentSeries();
+    // Persist the original rendered snapshot in Drupal's server-side Form API
+    // cache, not in client-editable hidden values. A normal POST must restore
+    // this state; absent/expired cache fails closed during validation.
+    if ($this->locationRequestStack->getCurrentRequest()?->isMethod('GET')) {
+      $form_state->setCached(TRUE);
+      $form_state->set('original_location', (string) ($series->get('location')->value ?? ''));
+      $form_state->set('original_revision_id', (string) $series->getRevisionId());
+    }
     $form['#action'] = Url::fromRoute(
       'personal_secretary.edit_activity_location',
       ['series' => (int) $series->id()],
@@ -88,15 +96,36 @@ final class EditActivityLocationForm extends FormBase {
       $form_state->setErrorByName('location', $this->t('Location must not exceed 255 characters.'));
       return;
     }
-    if ((string) $form_state->getValue('revision_id') !== (string) $this->currentSeries()->getRevisionId()) {
+    $originalLocation = $form_state->get('original_location');
+    $originalRevision = $form_state->get('original_revision_id');
+    $persisted = $this->currentSeries();
+    if (
+      !is_string($originalLocation)
+      || !is_string($originalRevision)
+      || (string) $form_state->getValue('revision_id') !== $originalRevision
+      || (string) $persisted->getRevisionId() !== $originalRevision
+      || (string) ($persisted->get('location')->value ?? '') !== $originalLocation
+    ) {
       $form_state->setErrorByName('location', $this->t('The activity changed while this form was open. Reload before saving.'));
     }
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     try {
+      $originalLocation = $form_state->get('original_location');
+      $originalRevision = $form_state->get('original_revision_id');
+      if (!is_string($originalLocation) || !is_string($originalRevision)) {
+        throw new InvalidArgumentException('Original location form snapshot is unavailable.');
+      }
+      $series = $this->currentSeries();
+      if ((string) $series->getRevisionId() !== $originalRevision) {
+        throw new InvalidArgumentException('ActivitySeries revision changed since form render.');
+      }
+      // Retain the trusted GET snapshot when entering the mutation service:
+      // its persisted-location guard must also catch changes after validate.
+      $series->set('location', $originalLocation);
       $this->locationMutations->updateActivitySeriesLocation(
-        $this->currentSeries(),
+        $series,
         (string) $form_state->getValue('location'),
       );
     }
@@ -115,6 +144,7 @@ final class EditActivityLocationForm extends FormBase {
       throw new NotFoundHttpException('This activity is unavailable.');
     }
     $storage = $this->locationEntityTypeManager->getStorage('personal_sec_activity_series');
+    $storage->resetCache([(int) $id]);
     $series = $storage->load((int) $id);
     if (!$series instanceof ActivitySeries) {
       throw new NotFoundHttpException('This activity is unavailable.');
