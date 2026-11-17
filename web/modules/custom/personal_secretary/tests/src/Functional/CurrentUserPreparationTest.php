@@ -166,6 +166,17 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $tomorrowActivityStart = new DateTimeImmutable($tomorrowCivilDate . ' 01:15', new DateTimeZone('Europe/Brussels'));
     $tomorrowSeries = $this->createSeriesWithRule('Synthetic tomorrow focus activity', (int) $h1->id(), (int) $person->id(), $tomorrowActivityStart);
     $preparationMutations->createPreparationRequirement($tomorrowSeries, 'Synthetic tomorrow focus preparation', 3600, $effectiveFrom);
+    $todayMidnightLocal = (new DateTimeImmutable($tomorrowCivilDate . ' 00:15', new DateTimeZone('Europe/Brussels')))
+      ->modify('-1 day');
+    $preparationMutations->createPreparationRequirement(
+      $tomorrowSeries, 'Synthetic today local midnight preparation',
+      $tomorrowActivityStart->getTimestamp() - $todayMidnightLocal->getTimestamp(), $effectiveFrom,
+    );
+    $todayLateLocal = new DateTimeImmutable($todayMidnightLocal->format('Y-m-d') . ' 23:55', new DateTimeZone('Europe/Brussels'));
+    $preparationMutations->createPreparationRequirement(
+      $tomorrowSeries, 'Synthetic today late preparation',
+      $tomorrowActivityStart->getTimestamp() - $todayLateLocal->getTimestamp(), $effectiveFrom,
+    );
 
     $accountSwitcher = $this->container->get('account_switcher');
     $accountSwitcher->switchTo($authorized);
@@ -275,6 +286,10 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $focusDue = new DateTimeImmutable($afterItems['Synthetic tomorrow focus preparation']['due_time_iso']);
     $this->assertSame($tomorrowCivilDate, $focusDue->format('Y-m-d'));
     $this->assertNotSame($tomorrowCivilDate, $focusDue->setTimezone($utc)->format('Y-m-d'));
+    $todayMidnightDue = new DateTimeImmutable($afterItems['Synthetic today local midnight preparation']['due_time_iso']);
+    $this->assertSame($todayMidnightLocal->format('Y-m-d'), $todayMidnightDue->format('Y-m-d'));
+    $this->assertNotSame($todayMidnightLocal->format('Y-m-d'), $todayMidnightDue->setTimezone($utc)->format('Y-m-d'));
+    $this->assertSame($todayLateLocal->format('Y-m-d'), substr((string) $afterItems['Synthetic today late preparation']['due_time_iso'], 0, 10));
     foreach ([
       'Active overdue preparation',
       'Due now preparation',
@@ -529,6 +544,84 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Active overdue preparation');
     $this->assertSame($countsBefore, $this->domainCounts());
 
+    // Today focus reuses the authorized bounded projection and viewer-local date.
+    $this->drupalGet($route, ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->assertSession()->pageTextContains('Showing unprepared preparations due today.');
+    foreach (['Synthetic today local midnight preparation', 'Synthetic today late preparation', 'Due now preparation'] as $included) {
+      $this->assertSession()->elementExists(
+        'xpath',
+        '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="' . $included . '"]]',
+      );
+    }
+    foreach (['Active overdue preparation', 'Synthetic tomorrow focus preparation', 'Preparation due on day twenty', 'Unauthorized H2 thirty day lead preparation'] as $excluded) {
+      $this->assertSession()->pageTextNotContains($excluded);
+    }
+    $this->assertSession()->elementNotExists('css', '#ps-preparation-live .ps-preparation-row--prepared');
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSession()->linkByHrefExists(Url::fromRoute(
+      'personal_secretary.my_preparations', [], ['query' => ['days' => 30, 'urgency' => 'today']],
+    )->toString());
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Today GET must not write domain data.');
+
+    $this->drupalGet($route, ['query' => [
+      'days' => '30', 'q' => 'Synthetic today local midnight preparation', 'urgency' => 'today',
+    ]]);
+    $todayReset = Url::fromRoute('personal_secretary.my_preparations', [], [
+      'query' => ['days' => 30, 'urgency' => 'today'],
+    ])->toString();
+    $this->assertSame($todayReset, $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'));
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals($todayReset);
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $todayItem = $afterItems['Synthetic today local midnight preparation'];
+    $todayDetailUrl = Url::fromRoute('personal_secretary.occurrence_detail', [
+      'series' => (int) $todayItem['_completion_series_id'],
+      'original_occurrence_key' => (string) $todayItem['_completion_original_occurrence_key'],
+    ], ['query' => ['from' => 'preparations', 'days' => 30, 'urgency' => 'today']]);
+    $this->assertSession()->linkByHrefExists($todayDetailUrl->toString());
+    $this->clickLink('Synthetic today local midnight preparation');
+    $this->assertSession()->elementExists('css', 'a.ps-occurrence-detail__back')->click();
+    $this->assertSession()->addressEquals($todayReset);
+    $this->clickLink('Add an activity to prepare');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todayReset);
+
+    $this->drupalGet($route, ['query' => [
+      'days' => '30', 'q' => 'Synthetic today local midnight preparation', 'urgency' => 'today',
+    ]]);
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--pending")]'
+      . '[.//h3[normalize-space()="Synthetic today local midnight preparation"]]'
+      . '//input[@value="Mark prepared"]',
+    )->click();
+    $this->assertSession()->pageTextContains('No preparations match this search.');
+    $this->assertSession()->pageTextNotContains('Synthetic today local midnight preparation');
+    parse_str((string) parse_url($this->getSession()->getCurrentUrl(), PHP_URL_QUERY), $todayReturn);
+    $this->assertSame('today', $todayReturn['urgency'] ?? NULL);
+    $this->assertSame('30', $todayReturn['days'] ?? NULL);
+    $this->assertSame('Synthetic today local midnight preparation', $todayReturn['q'] ?? NULL);
+    $this->drupalGet($route, ['query' => ['q' => 'Synthetic today local midnight preparation']]);
+    $this->assertSession()->elementExists(
+      'xpath',
+      '//div[contains(@class, "ps-preparation-row--prepared")]//input[@value="Mark not prepared"]',
+    )->click();
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Reversing a completion restores source-only baseline.');
+    $this->drupalGet($route, ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->pageTextContains('Synthetic today local midnight preparation');
+    $this->clickLink('Clear filters');
+    $this->assertSession()->addressEquals($route);
+    $this->assertSession()->linkNotExists('Clear filters');
+
+    foreach ([['urgency' => 'not-valid'], ['urgency' => ['today']]] as $invalidToday) {
+      $this->drupalGet($route, ['query' => $invalidToday]);
+      $this->assertSession()->fieldValueEquals('urgency', 'all');
+      $this->assertSession()->pageTextContains('Active overdue preparation');
+      $this->assertSession()->linkNotExists('Clear filters');
+    }
+
     // Focus by the persisted user's civil day while preserving existing navigation.
     $this->drupalGet($route, ['query' => ['urgency' => 'tomorrow']]);
     $this->assertSession()->fieldValueEquals('urgency', 'tomorrow');
@@ -745,6 +838,9 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 7 days.');
     $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->pageTextContains('No upcoming preparations are assigned to you in the next 30 days.');
+    $this->drupalGet($route, ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->pageTextContains('No preparations due today.');
+    $this->assertSession()->pageTextContains('Showing unprepared preparations due today.');
     $this->assertSession()->pageTextContains('No preparation shown in this period has been marked prepared.');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
     $this->assertSession()->pageTextContains('Add an activity to prepare');
@@ -824,6 +920,15 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Aucun préparatif en retard.');
     $this->assertSession()->fieldValueEquals('urgency', 'overdue');
     $this->assertSession()->linkExists('Effacer les filtres');
+    $this->drupalGet('/fr/personal-secretary/preparations/mine', ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->pageTextContains('Aujourd’hui uniquement');
+    $this->assertSession()->pageTextContains('Aucun préparatif à faire aujourd’hui.');
+    $this->assertSession()->pageTextContains('Affichage des préparatifs non effectués à faire aujourd’hui.');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->drupalGet('/en/personal-secretary/preparations/mine', ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->pageTextContains('Today only');
+    $this->assertSession()->pageTextContains('No preparations due today.');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
 
     $this->drupalGet('/fr/personal-secretary/preparations/mine', [
       'query' => ['days' => '30', 'q' => 'introuvable'],
