@@ -153,6 +153,7 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->elementExists('css', 'select[name="responsible_person_id"]');
+    $this->assertSession()->elementExists('css', 'input[name="activity_type"][value="one_off"]:checked');
     $this->assertSession()->pageTextNotContains('The activity will belong to the selected household.');
     $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
     $this->clickLink('Cancel');
@@ -311,6 +312,26 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/add');
     $this->assertSession()->pageTextContains('Creation Household');
     $this->assertSession()->elementNotExists('css', 'select[name="household_id"]');
+    $this->assertSession()->elementExists('css', 'input[name="activity_type"][value="one_off"]:checked');
+
+    // An explicitly selected Weekly option persists after Form API reports
+    // an invalid end time; no accidental fallback to the new default.
+    $beforeInvalid = $this->creationCounts();
+    $this->submitForm([
+      'activity_type' => 'weekly',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'activity_label' => 'Invalid explicit weekly activity',
+      'first_occurrence_date' => $weeklyDate,
+      'start_local_time' => '10:00',
+      'end_local_time' => '09:00',
+      'source_timezone' => 'Europe/Brussels',
+    ], 'Add activity');
+    $this->assertSession()->pageTextContains('End time must be after start time.');
+    $this->assertSession()->elementExists('css', 'input[name="activity_type"][value="weekly"]:checked');
+    $this->assertSame($beforeInvalid, $this->creationCounts());
+    $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->elementExists('css', 'input[name="activity_type"][value="one_off"]:checked');
+
     // Ordinary users retain their current Person, not an admin select.
     // This hidden value is intentionally forged. It is not mutation authority.
     $hiddenResponsible = $this->getSession()
@@ -357,6 +378,7 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
 
     $oneOffDate = $nowLocal->modify('+3 days')->format('Y-m-d');
     $this->drupalGet('/personal-secretary/activities/add');
+    $this->assertSession()->elementExists('css', 'input[name="activity_type"][value="one_off"]:checked');
     $hiddenResponsible = $this->getSession()
       ->getPage()
       ->find(
@@ -366,8 +388,8 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->assertNotNull($hiddenResponsible);
     $hiddenResponsible->setValue((string) $concerned->id());
 
+    // Submit the native checked radio, without explicitly setting activity_type.
     $this->submitForm([
-      'activity_type' => 'one_off',
       'time_mode' => ActivitySeries::TIME_MODE_TIMED,
       'activity_label' => 'Authorized one-off creation',
       'first_occurrence_date' => $oneOffDate,
@@ -387,6 +409,8 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $oneOff = $this->seriesByLabel('Authorized one-off creation');
     $this->assertSame([], $this->concernedIds($oneOff));
     $this->assertSame('FREQ=DAILY;COUNT=1', $oneOff->get('recurrence')->first()?->getValue()['rrule'] ?? NULL);
+    $this->assertCount(1, $this->container->get('personal_secretary.effective_occurrence_projection')
+      ->project($oneOff, $nowUtc, $nowUtc->modify('+30 days')));
     $this->assertSeriesResponsibleTo($oneOff, (int) $current->id(), $nowUtc);
 
     $this->assertCount(
