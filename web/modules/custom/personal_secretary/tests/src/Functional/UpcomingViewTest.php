@@ -293,6 +293,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->submitForm([
       'household_id' => (string) $household->id(),
       'responsible_person_id' => (string) $person->id(),
+      'activity_type' => 'weekly',
       'activity_label' => 'Synthetic second weekly activity',
       'first_occurrence_date' => $secondDate,
       'start_local_time' => '14:00',
