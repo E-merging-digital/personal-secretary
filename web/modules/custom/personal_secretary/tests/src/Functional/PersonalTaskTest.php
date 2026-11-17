@@ -684,6 +684,83 @@ final class PersonalTaskTest extends BrowserTestBase {
       ),
     );
 
+    // Undated focus is a read-only subset of the authorized open projection.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'undated']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSame(
+      [(int) $undated->id()],
+      array_map(
+        static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+        $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+      ),
+    );
+    foreach (['Synthetic overdue task', 'Synthetic future task', 'Synthetic archive 100%_ marker', 'Synthetic foreign same household'] as $excluded) {
+      $this->assertSession()->pageTextNotContains($excluded);
+    }
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSame($baselineCount, (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute());
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic undated', 'sort' => 'title', 'urgency' => 'undated',
+    ]]);
+    $undatedReturn = '/personal-secretary/tasks/mine?sort=title&urgency=undated';
+    $this->assertSession()->fieldValueEquals('title', 'Synthetic undated');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSame($undatedReturn, $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'));
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks', [], [
+      'query' => ['sort' => 'title', 'urgency' => 'undated'],
+    ]));
+    $this->assertSession()->fieldValueEquals('title', '');
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $undated->id() . '?sort=title&urgency=undated');
+    $this->clickLink('Synthetic undated task');
+    $this->assertSession()->linkByHrefExists($undatedReturn);
+    $this->clickLink('Edit task');
+    $this->assertSession()->linkByHrefExists($undatedReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->clickLink('Add task');
+    $this->assertSession()->linkByHrefExists($undatedReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->clickLink('Synthetic undated task');
+    $this->clickLink('Delete task');
+    $this->assertSession()->linkByHrefExists($undatedReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->clickLink('Synthetic undated task');
+    $this->clickLink('Mark complete');
+    $this->assertSession()->linkByHrefExists($undatedReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'urgency' => 'undated', 'q' => 'not present',
+    ]]);
+    $this->assertSession()->pageTextContains('No tasks match this search.');
+    $this->assertSession()->pageTextNotContains('No open tasks without a due date.');
+    foreach (['completed', 'all'] as $nonOpen) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+        'status' => $nonOpen, 'urgency' => 'undated',
+      ]]);
+      $this->assertSession()->elementNotExists('css', 'select[name="urgency"]');
+      $this->assertSession()->pageTextContains('Synthetic archive 100%_ marker');
+    }
+    foreach ([['urgency' => ['undated']], ['urgency' => 'forged']] as $invalid) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $invalid]);
+      $this->assertSession()->fieldValueEquals('urgency', 'all');
+      $this->assertSession()->pageTextContains('Synthetic overdue task');
+    }
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'undated']]);
+    $this->clickLink('Clear filters');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks'));
+    $this->assertSession()->fieldValueEquals('urgency', 'all');
+    $this->assertSession()->linkNotExists('Clear filters');
+    $this->assertSame($baselineCount, (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute());
+
     // Urgency narrows only the authorized open view and preserves other filters.
     $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
       'sort' => 'title',
@@ -1383,6 +1460,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Échéance demain');
     $this->assertSession()->pageTextContains('Échéance dans les 7 prochains jours');
     $this->assertSession()->pageTextContains('Échéance dans les 30 prochains jours');
+    $this->assertSession()->pageTextContains('Sans échéance');
     $this->assertSession()->fieldValueEquals('urgency', 'all');
     $this->assertSession()->pageTextContains('Tâches en retard');
     $this->assertSession()->pageTextContains('Autres tâches ouvertes');
@@ -1420,6 +1498,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Due tomorrow');
     $this->assertSession()->pageTextContains('Due within 7 days');
     $this->assertSession()->pageTextContains('Due within 30 days');
+    $this->assertSession()->pageTextContains('No due date');
     $this->assertSession()->pageTextContains('Overdue tasks');
     $this->assertSession()->pageTextContains('Other open tasks');
     $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['urgency' => 'tomorrow']]);
@@ -1438,6 +1517,12 @@ final class PersonalTaskTest extends BrowserTestBase {
       $this->assertSession()->fieldValueEquals('urgency', $focus);
       $this->assertSession()->pageTextContains($message);
     }
+    $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['urgency' => 'undated']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSession()->pageTextContains('Aucune tâche ouverte sans échéance.');
+    $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['urgency' => 'undated']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSession()->pageTextContains('No open tasks without a due date.');
     $this->drupalGet('/en/personal-secretary/tasks/mine');
     $this->assertSession()->pageTextContains($englishDate);
     $this->assertSession()->pageTextNotContains('2020-01-01');

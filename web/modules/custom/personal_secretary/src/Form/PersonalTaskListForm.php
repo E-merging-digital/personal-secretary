@@ -88,6 +88,7 @@ final class PersonalTaskListForm extends FormBase {
           'tomorrow' => $this->t('Due tomorrow'),
           'next7' => $this->t('Due within 7 days'),
           'next30' => $this->t('Due within 30 days'),
+          'undated' => $this->t('No due date'),
         ],
         '#default_value' => $urgencyFilter,
         '#access' => $statusFilter === 'open',
@@ -190,6 +191,13 @@ final class PersonalTaskListForm extends FormBase {
     }
 
     // Restrict the already-authorized open-task presentation when requested.
+    if ($urgencyFilter === 'undated') {
+      $items = array_values(array_filter(
+        $items,
+        static fn (array $item): bool => $item['due_mode'] === PersonalTask::DUE_NONE,
+      ));
+    }
+
     if ($urgencyFilter === 'overdue') {
       $items = array_values(array_filter(
         $items,
@@ -248,7 +256,10 @@ final class PersonalTaskListForm extends FormBase {
           : ($statusFilter === 'all'
             ? $this->t('No tasks found.')
             : $this->t('No open tasks.')));
-      if ($urgencyFilter === 'overdue' && $titleFilter === '') {
+      if ($urgencyFilter === 'undated' && $titleFilter === '') {
+        $emptyMessage = $this->t('No open tasks without a due date.');
+      }
+      elseif ($urgencyFilter === 'overdue' && $titleFilter === '') {
         $emptyMessage = $this->t('No overdue tasks.');
       }
       elseif ($urgencyFilter === 'tomorrow' && $titleFilter === '') {
@@ -628,7 +639,7 @@ final class PersonalTaskListForm extends FormBase {
       ? $sort
       : 'smart';
     $urgency = $input['urgency'] ?? 'all';
-    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30'], TRUE)
+    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30', 'undated'], TRUE)
       ? $urgency
       : 'all';
     return [$status, $title, $sort, $urgency];
@@ -656,7 +667,7 @@ final class PersonalTaskListForm extends FormBase {
     if ($sort === 'title') {
       $query['sort'] = 'title';
     }
-    if ($status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30'], TRUE)) {
+    if ($status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30', 'undated'], TRUE)) {
       $query['urgency'] = $urgency;
     }
     return $query;

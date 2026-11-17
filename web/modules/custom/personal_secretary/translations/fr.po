@@ -1546,3 +1546,9 @@ msgstr "Le lieu de cette activité ne peut plus être modifié en toute sécurit
 
 msgid "Activity location updated."
 msgstr "Le lieu de l’activité a été modifié."
+
+msgid "No due date"
+msgstr "Sans échéance"
+
+msgid "No open tasks without a due date."
+msgstr "Aucune tâche ouverte sans échéance."
