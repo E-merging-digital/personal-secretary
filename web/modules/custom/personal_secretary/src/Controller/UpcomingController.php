@@ -125,30 +125,35 @@ final class UpcomingController extends ControllerBase {
       ));
     }
 
-    if ($focus === 'tomorrow') {
-      // Filter the existing authorized projection by viewer-local civil day.
-      // Offsets in display_start_iso/display_end_iso make this DST safe.
+    if ($focus === 'today' || $focus === 'tomorrow') {
+      // Filter authorized occurrences by the viewer-local civil day, not UTC.
+      // The existing offset-aware display bounds also cover all-day overlaps.
       $timezone = new DateTimeZone(\Drupal::service('personal_secretary.current_user_timezone')->effectiveTimezone());
-      $tomorrowStart = (new DateTimeImmutable('@' . \Drupal::time()->getCurrentTime()))
-        ->setTimezone($timezone)->setTime(0, 0)->modify('+1 day');
-      $tomorrowEnd = $tomorrowStart->modify('+1 day');
+      $dayStart = (new DateTimeImmutable('@' . \Drupal::time()->getCurrentTime()))
+        ->setTimezone($timezone)->setTime(0, 0);
+      if ($focus === 'tomorrow') {
+        $dayStart = $dayStart->modify('+1 day');
+      }
+      $dayEnd = $dayStart->modify('+1 day');
       $items = array_values(array_filter(
         $items,
         static fn(array $item): bool =>
-          new DateTimeImmutable((string) $item['display_start_iso']) < $tomorrowEnd
-          && new DateTimeImmutable((string) $item['display_end_iso']) > $tomorrowStart,
+          new DateTimeImmutable((string) $item['display_start_iso']) < $dayEnd
+          && new DateTimeImmutable((string) $item['display_end_iso']) > $dayStart,
       ));
     }
 
     $build = $this->windowBuild(
-      (string) ($focus === 'tomorrow'
-        ? $this->t('Showing your local activities tomorrow.')
-        : $this->t('Showing My upcoming activities for the next @days days.', ['@days' => $days])),
+      (string) ($focus === 'today'
+        ? $this->t('Showing your local activities today.')
+        : ($focus === 'tomorrow'
+          ? $this->t('Showing your local activities tomorrow.')
+          : $this->t('Showing My upcoming activities for the next @days days.', ['@days' => $days]))),
     );
     $build['horizon'] = $this->horizonLinks($days, $query, $focus);
     $build['focus'] = $this->focusLinks($days, $query, $focus);
     $build['search'] = $this->searchForm($days, $query, $focus);
-    if ($days === 30 || $query !== '' || $focus === 'tomorrow') {
+    if ($days === 30 || $query !== '' || $focus !== 'all') {
       $build['clear_filters'] = [
         '#type' => 'link',
         '#title' => $this->t('Clear filters'),
@@ -161,13 +166,17 @@ final class UpcomingController extends ControllerBase {
       $build['empty'] = [
         '#type' => 'html_tag',
         '#tag' => 'p',
-        '#value' => $focus === 'tomorrow'
+        '#value' => $focus === 'today'
           ? ($query !== ''
-            ? $this->t('No tomorrow activities match this search.')
-            : $this->t('No local activities tomorrow.'))
-          : ($query !== ''
-            ? $this->t('No upcoming activities match this search.')
-            : $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days])),
+            ? $this->t('No today activities match this search.')
+            : $this->t('No local activities today.'))
+          : ($focus === 'tomorrow'
+            ? ($query !== ''
+              ? $this->t('No tomorrow activities match this search.')
+              : $this->t('No local activities tomorrow.'))
+            : ($query !== ''
+              ? $this->t('No upcoming activities match this search.')
+              : $this->t('No upcoming activities are assigned to you in the next @days days.', ['@days' => $days]))),
       ];
       return $build;
     }
@@ -525,8 +534,8 @@ final class UpcomingController extends ControllerBase {
    * @return array<string, mixed>
    */
   private function selectedFocus(): string {
-    return ($this->requestStack->getCurrentRequest()?->query->all()['focus'] ?? NULL) === 'tomorrow'
-      ? 'tomorrow' : 'all';
+    $focus = $this->requestStack->getCurrentRequest()?->query->all()['focus'] ?? NULL;
+    return in_array($focus, ['today', 'tomorrow'], TRUE) ? $focus : 'all';
   }
 
   private function horizonLinks(int $activeDays, string $query, string $focus = 'all'): array {
@@ -572,7 +581,7 @@ final class UpcomingController extends ControllerBase {
       '#attributes' => ['class' => ['ps-upcoming-focus'], 'role' => 'navigation',
         'aria-label' => (string) $this->t('Choose activity focus')],
     ];
-    foreach (['all' => $this->t('All upcoming'), 'tomorrow' => $this->t('Tomorrow only')] as $value => $label) {
+    foreach (['all' => $this->t('All upcoming'), 'today' => $this->t('Today only'), 'tomorrow' => $this->t('Tomorrow only')] as $value => $label) {
       $links[$value] = [
         '#type' => 'link',
         '#title' => $label,
@@ -606,8 +615,8 @@ final class UpcomingController extends ControllerBase {
     if ($query !== '') {
       $options['q'] = $query;
     }
-    if ($focus === 'tomorrow') {
-      $options['focus'] = 'tomorrow';
+    if (in_array($focus, ['today', 'tomorrow'], TRUE)) {
+      $options['focus'] = $focus;
     }
     return $options;
   }
@@ -661,11 +670,11 @@ final class UpcomingController extends ControllerBase {
       ],
     ];
 
-    if ($focus === 'tomorrow') {
+    if (in_array($focus, ['today', 'tomorrow'], TRUE)) {
       $form['focus'] = [
         '#type' => 'html_tag',
         '#tag' => 'input',
-        '#attributes' => ['type' => 'hidden', 'name' => 'focus', 'value' => 'tomorrow'],
+        '#attributes' => ['type' => 'hidden', 'name' => 'focus', 'value' => $focus],
       ];
     }
     if ($days === 30) {

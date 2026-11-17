@@ -688,7 +688,222 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($myUpcomingUrl);
     $this->assertRemediationOnly();
 
+    // The local Today focus is an overlap against the existing authorized
+    // horizon. An all-day occurrence that began at local midnight remains
+    // visible even though its UTC start predates the current rolling window.
+    $currentUtc = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('UTC'));
+    $currentLocal = $currentUtc->setTimezone($sourceTimezone);
+    $todayStart = $currentLocal->setTime(0, 0);
+    $todayEnd = $todayStart->modify('+1 day');
+    $this->assertNotSame(
+      $todayStart->format('Y-m-d'),
+      $todayStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d'),
+      'Local midnight starts on the preceding UTC day.',
+    );
+    $todaySeries = $domain->createActivitySeries(
+      'Synthetic today all-day activity', (int) $household->id(),
+      $todayStart, $todayEnd, 'FREQ=DAILY;COUNT=1', '', [],
+      ActivitySeries::TIME_MODE_ALL_DAY,
+    );
+    $responsibilityMutations->createResponsibilityRule(
+      $todaySeries, (int) $personA->id(), $todayStart, $todayEnd,
+      'FREQ=DAILY;COUNT=1',
+    );
+    // A remaining timed occurrence is also retained when it still starts
+    // within the same local day (skip only at the midnight edge).
+    $remainingTodayStart = $currentLocal->modify('+30 minutes');
+    $remainingToday = $remainingTodayStart->format('Y-m-d') === $currentLocal->format('Y-m-d');
+    $remainingSeries = NULL;
+    if ($remainingToday) {
+      $remainingSeries = $this->createSeriesWithRule(
+        'Synthetic remaining today activity',
+        (int) $household->id(), (int) $personA->id(), $remainingTodayStart,
+      );
+    }
+
+    $this->drupalLogout();
+    $this->drupalLogin($authorized);
+    $todayCounts = $this->domainCounts();
+    $todayUrl = Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['focus' => 'today'],
+    ]);
+    $this->drupalGet($todayUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Showing your local activities today.');
+    $this->assertSession()->pageTextContains('Synthetic today all-day activity');
+    if ($remainingToday) {
+      $this->assertSession()->pageTextContains('Synthetic remaining today activity');
+    }
+    foreach (['Rule A activity', 'Same day A activity', 'Rule B activity', 'Later A activity', 'Later B activity'] as $excluded) {
+      $this->assertSession()->pageTextNotContains($excluded);
+    }
+    $this->assertSession()->linkExists('Today only');
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->elementExists('css', 'form.ps-upcoming-search input[type="hidden"][name="focus"][value="today"]');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30&focus=today');
+    $this->assertSame($todayCounts, $this->domainCounts(), 'Today focus GET does not write domain data.');
+
+    $todaySearch = Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Synthetic today all-day', 'focus' => 'today'],
+    ]);
+    $this->drupalGet($todaySearch);
+    $this->assertSession()->pageTextContains('Synthetic today all-day activity');
+    $this->assertSession()->pageTextNotContains('Synthetic remaining today activity');
+    $this->assertSession()->linkExists('Clear search');
+    $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30&focus=today');
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'focus' => 'today'],
+    ]));
+    $this->assertSession()->pageTextContains('Synthetic today all-day activity');
+    $this->drupalGet($todaySearch);
+
+    $todayOccurrence = $effectiveProjection->projectOverlapping(
+      $todaySeries, $currentUtc, $currentUtc->modify('+7 days'),
+    )[0];
+    $todayQuery = ['days' => '30', 'q' => 'Synthetic today all-day', 'focus' => 'today'];
+    $todayDetail = $this->detailUrl($todaySeries, $todayOccurrence->originalOccurrenceKey, $todayQuery);
+    $todayCancel = Url::fromRoute('personal_secretary.cancel_occurrence', [
+      'series' => (int) $todaySeries->id(),
+      'original_occurrence_key' => $todayOccurrence->originalOccurrenceKey,
+    ], ['query' => ['from' => 'mine'] + $todayQuery]);
+    $todayLocation = Url::fromRoute('personal_secretary.edit_activity_location', [
+      'series' => (int) $todaySeries->id(),
+    ], ['query' => ['from' => 'mine'] + $todayQuery]);
+    $this->assertSession()->linkByHrefExists($todayDetail);
+    $this->assertSession()->linkByHrefExists($todayCancel->toString());
+    // Reschedule is intentionally unavailable for all-day occurrences.
+    $this->assertSession()->linkByHrefExists($todayLocation->toString());
+    $this->clickLink('Synthetic today all-day activity');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertMyUpcomingReturn($todayQuery);
+    foreach ([$todayCancel, $todayLocation] as $boundedForm) {
+      $this->drupalGet($boundedForm);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertMyUpcomingReturn($todayQuery);
+    }
+    if ($remainingSeries !== NULL) {
+      $remainingOccurrence = $effectiveProjection->project(
+        $remainingSeries, $currentUtc, $currentUtc->modify('+7 days'),
+      )[0];
+      $remainingReschedule = Url::fromRoute('personal_secretary.reschedule_occurrence', [
+        'series' => (int) $remainingSeries->id(),
+        'original_occurrence_key' => $remainingOccurrence->originalOccurrenceKey,
+      ], ['query' => ['from' => 'mine', 'days' => '30', 'focus' => 'today']]);
+      $today30 = Url::fromRoute('personal_secretary.my_upcoming', [], [
+        'query' => ['days' => '30', 'focus' => 'today'],
+      ]);
+      $this->drupalGet($today30);
+      $this->assertSession()->linkByHrefExists($remainingReschedule->toString());
+      $this->drupalGet($remainingReschedule);
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertMyUpcomingReturn(['days' => '30', 'focus' => 'today']);
+    }
+
+    // The existing Add Activity form must round-trip today, including Save.
+    $this->drupalGet($todaySearch);
+    $this->clickLink('Add activity');
+    $this->assertMyUpcomingReturn($todayQuery);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todaySearch);
+    $this->clickLink('Add activity');
+    $this->submitForm([
+      'household_id' => (string) $household->id(),
+      'activity_type' => 'one_off',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'responsible_person_id' => (string) $personA->id(),
+      'activity_label' => 'Synthetic activity created from today',
+      'first_occurrence_date' => $nowLocal->modify('+4 days')->format('Y-m-d'),
+      'start_local_time' => '10:00',
+      'end_local_time' => '11:00',
+      'source_timezone' => 'Europe/Brussels',
+      'preparation_instruction' => '',
+      'preparation_lead_minutes' => '0',
+    ], 'Add activity');
+    $this->assertSession()->addressEquals($todaySearch);
+    $this->assertSession()->pageTextContains('Activity "Synthetic activity created from today" added.');
+    $this->assertSame($todayCounts['series'] + 1, $this->domainCounts()['series']);
+
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['focus' => 'today', 'q' => 'unmatched focus'],
+    ]));
+    $this->assertSession()->pageTextContains('No today activities match this search.');
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Synthetic today all-day', 'focus' => 'today'],
+    ]));
+    $this->clickLink('Clear filters');
+    $this->assertSession()->addressEquals($myUpcomingUrl);
+    foreach ([['focus' => 'forged'], ['focus' => ['today']]] as $invalidFocus) {
+      $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], [
+        'query' => $invalidFocus,
+      ]));
+      $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+      $this->assertSession()->linkNotExists('Clear filters');
+    }
+
+    // Bilingual empty and search-empty messaging reuses Core locale and the
+    // module's existing French catalog, without any new test framework.
+    $emptyTodayUser = $this->drupalCreateUser([HouseholdAuthorizationService::ADMIN_PERMISSION]);
+    $this->assertInstanceOf(UserInterface::class, $emptyTodayUser);
+    $emptyTodayUser->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $personB->id()]);
+    $emptyTodayUser->set('timezone', 'Europe/Brussels')->save();
+    $this->drupalLogout();
+    if (\Drupal\language\Entity\ConfigurableLanguage::load('fr') === NULL) {
+      \Drupal\language\Entity\ConfigurableLanguage::createFromLangcode('fr')->save();
+    }
+    require_once DRUPAL_ROOT . '/modules/custom/personal_secretary/personal_secretary.install';
+    personal_secretary_import_french_catalog();
+    $this->config('system.site')->set('default_langcode', 'fr')->save();
+    $this->config('language.negotiation')
+      ->set('url.source', 'path_prefix')
+      ->set('url.prefixes', ['fr' => 'fr', 'en' => 'en'])
+      ->set('url.domains', ['fr' => '', 'en' => ''])
+      ->set('selected_langcode', 'site_default')
+      ->save();
+    $this->config('language.types')
+      ->set('negotiation.language_interface.enabled', [
+        'language-url' => 0,
+        'language-user' => 1,
+        'language-selected' => 2,
+      ])->save();
+    $this->container->get('language_manager')->reset();
+    $this->drupalLogin($emptyTodayUser);
+    $this->drupalGet('/fr/personal-secretary/upcoming/mine', ['query' => ['focus' => 'today']]);
+    $this->assertSession()->pageTextContains('Aujourd’hui uniquement');
+    $this->assertSession()->pageTextContains('Affichage de vos activités locales d’aujourd’hui.');
+    $this->assertSession()->pageTextContains('Aucune activité locale aujourd’hui.');
+    $this->drupalGet('/fr/personal-secretary/upcoming/mine', ['query' => [
+      'focus' => 'today', 'q' => 'introuvable',
+    ]]);
+    $this->assertSession()->pageTextContains('Aucune activité d’aujourd’hui ne correspond à cette recherche.');
+    $this->drupalGet('/en/personal-secretary/upcoming/mine', ['query' => ['focus' => 'today']]);
+    $this->assertSession()->pageTextContains('Today only');
+    $this->assertSession()->pageTextContains('Showing your local activities today.');
+    $this->assertSession()->pageTextContains('No local activities today.');
+    $this->assertSession()->statusCodeEquals(200);
+
     $this->assertInstanceOf(ActivitySeries::class, $noneSeries);
+  }
+
+  /**
+   * The protected return URL can be absolute or relative; compare its route
+   * and bounded query instead of the host/encoding of the rendered href.
+   *
+   * @param array<string, string> $expected
+   */
+  private function assertMyUpcomingReturn(array $expected): void {
+    $actual = [];
+    foreach ($this->getSession()->getPage()->findAll('css', 'a[href*="/personal-secretary/upcoming/mine"]') as $link) {
+      $href = (string) $link->getAttribute('href');
+      $path = parse_url($href, PHP_URL_PATH);
+      parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
+      $actual[] = ['path' => $path, 'query' => $query];
+      if ($path === '/personal-secretary/upcoming/mine' && $query === $expected) {
+        return;
+      }
+    }
+    $this->fail('No bounded My upcoming return link matches ' . json_encode($expected) . '; actual: ' . json_encode($actual));
   }
 
   /**

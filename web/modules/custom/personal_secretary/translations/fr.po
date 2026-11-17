@@ -1568,3 +1568,12 @@ msgstr "Affichage des préparatifs non effectués à faire aujourd’hui."
 
 msgid "No preparations due today."
 msgstr "Aucun préparatif à faire aujourd’hui."
+
+msgid "Showing your local activities today."
+msgstr "Affichage de vos activités locales d’aujourd’hui."
+
+msgid "No local activities today."
+msgstr "Aucune activité locale aujourd’hui."
+
+msgid "No today activities match this search."
+msgstr "Aucune activité d’aujourd’hui ne correspond à cette recherche."
