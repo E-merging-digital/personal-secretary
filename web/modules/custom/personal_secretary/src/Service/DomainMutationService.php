@@ -92,6 +92,52 @@ final class DomainMutationService {
     return $household;
   }
 
+
+  /**
+   * Corrects only the name of the same persisted Household.
+   *
+   * $original must originate from the private server-side GET snapshot.
+   *
+   * @param array{id:int, uuid:string, name:string, members:array} $original
+   */
+  public function renameHousehold(int $id, string $name, array $original): Household {
+    $name = trim($name);
+    if ($id <= 0 || $name === '' || mb_strlen($name) > 255) {
+      throw new InvalidArgumentException('Household name must contain between 1 and 255 characters.');
+    }
+    if (
+      !isset($original['id'], $original['uuid'], $original['name'], $original['members'])
+      || !is_int($original['id'])
+      || !is_string($original['uuid'])
+      || !is_string($original['name'])
+      || !is_array($original['members'])
+      || $original['id'] !== $id
+    ) {
+      throw new InvalidArgumentException('Trusted Household snapshot is invalid.');
+    }
+
+    $storage = $this->entityTypeManager->getStorage('personal_secretary_household');
+    $storage->resetCache([$id]);
+    $persisted = $storage->load($id);
+    if (
+      !$persisted instanceof Household
+      || (int) $persisted->id() !== $id
+      || $persisted->uuid() !== $original['uuid']
+      || (string) $persisted->get('name')->value !== $original['name']
+      || $persisted->get('members')->getValue() !== $original['members']
+      || !$persisted->access('update')
+    ) {
+      throw new InvalidArgumentException('Household changed or update authority is unavailable.');
+    }
+
+    if ((string) $persisted->get('name')->value === $name) {
+      return $persisted;
+    }
+    $persisted->set('name', $name);
+    $persisted->save();
+    return $persisted;
+  }
+
   public function addHouseholdMember(Household $household, Person $person): Household {
     if ($household->isNew() || $household->id() === NULL) {
       throw new InvalidArgumentException('Household must be persisted before a member can be added.');
