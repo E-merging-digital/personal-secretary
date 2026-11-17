@@ -714,8 +714,9 @@ final class MyUpcomingTest extends BrowserTestBase {
     // within the same local day (skip only at the midnight edge).
     $remainingTodayStart = $currentLocal->modify('+30 minutes');
     $remainingToday = $remainingTodayStart->format('Y-m-d') === $currentLocal->format('Y-m-d');
+    $remainingSeries = NULL;
     if ($remainingToday) {
-      $this->createSeriesWithRule(
+      $remainingSeries = $this->createSeriesWithRule(
         'Synthetic remaining today activity',
         (int) $household->id(), (int) $personA->id(), $remainingTodayStart,
       );
@@ -767,22 +768,34 @@ final class MyUpcomingTest extends BrowserTestBase {
       'series' => (int) $todaySeries->id(),
       'original_occurrence_key' => $todayOccurrence->originalOccurrenceKey,
     ], ['query' => ['from' => 'mine'] + $todayQuery]);
-    $todayReschedule = Url::fromRoute('personal_secretary.reschedule_occurrence', [
-      'series' => (int) $todaySeries->id(),
-      'original_occurrence_key' => $todayOccurrence->originalOccurrenceKey,
-    ], ['query' => ['from' => 'mine'] + $todayQuery]);
     $todayLocation = Url::fromRoute('personal_secretary.edit_activity_location', [
       'series' => (int) $todaySeries->id(),
     ], ['query' => ['from' => 'mine'] + $todayQuery]);
     $this->assertSession()->linkByHrefExists($todayDetail);
     $this->assertSession()->linkByHrefExists($todayCancel->toString());
-    $this->assertSession()->linkByHrefExists($todayReschedule->toString());
+    // Reschedule is intentionally unavailable for all-day occurrences.
     $this->assertSession()->linkByHrefExists($todayLocation->toString());
     $this->clickLink('Synthetic today all-day activity');
     $this->assertSession()->linkByHrefExists($todaySearch->toString());
-    foreach ([$todayCancel, $todayReschedule, $todayLocation] as $boundedForm) {
+    foreach ([$todayCancel, $todayLocation] as $boundedForm) {
       $this->drupalGet($boundedForm);
       $this->assertSession()->linkByHrefExists($todaySearch->toString());
+    }
+    if ($remainingSeries !== NULL) {
+      $remainingOccurrence = $effectiveProjection->project(
+        $remainingSeries, $currentUtc, $currentUtc->modify('+7 days'),
+      )[0];
+      $remainingReschedule = Url::fromRoute('personal_secretary.reschedule_occurrence', [
+        'series' => (int) $remainingSeries->id(),
+        'original_occurrence_key' => $remainingOccurrence->originalOccurrenceKey,
+      ], ['query' => ['from' => 'mine', 'days' => '30', 'focus' => 'today']]);
+      $today30 = Url::fromRoute('personal_secretary.my_upcoming', [], [
+        'query' => ['days' => '30', 'focus' => 'today'],
+      ]);
+      $this->drupalGet($today30);
+      $this->assertSession()->linkByHrefExists($remainingReschedule->toString());
+      $this->drupalGet($remainingReschedule);
+      $this->assertSession()->linkByHrefExists($today30->toString());
     }
 
     // The existing Add Activity form must round-trip today, including Save.
