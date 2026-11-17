@@ -651,6 +651,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->drupalLogin($user);
     $this->drupalGet('/personal-secretary/tasks/mine');
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSession()->linkNotExists('Clear filters');
     $this->assertSession()->pageTextContains('Synthetic overdue task');
     $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
     $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
@@ -698,6 +700,26 @@ final class PersonalTaskTest extends BrowserTestBase {
     );
     $this->assertSession()->elementNotExists('css', '.ps-task-group__heading');
     $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+
+    // Clear search keeps the authorized overdue focus and title ordering.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'q' => 'Synthetic overdue',
+      'sort' => 'title',
+      'urgency' => 'overdue',
+    ]]);
+    $urgentReturn = '/personal-secretary/tasks/mine?sort=title&urgency=overdue';
+    $this->assertSame($urgentReturn, $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'));
+    $this->assertSession()->linkExists('Clear filters');
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks', [], [
+      'query' => ['sort' => 'title', 'urgency' => 'overdue'],
+    ]));
+    $this->assertSession()->fieldValueEquals('title', '');
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+
     $this->clickLink('Synthetic overdue task');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?sort=title&urgency=overdue');
     $this->clickLink('Back to My tasks');
@@ -811,6 +833,26 @@ final class PersonalTaskTest extends BrowserTestBase {
       'Title ordering is deterministic and cannot reveal unauthorized tasks.',
     );
     $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+
+    // Clear search in the combined status/sort view must not reset either.
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => [
+      'status' => 'all', 'q' => 'Synthetic', 'sort' => 'title',
+    ]]);
+    $this->assertSame(
+      '/personal-secretary/tasks/mine?status=all&sort=title',
+      $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'),
+    );
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks', [], [
+      'query' => ['status' => 'all', 'sort' => 'title'],
+    ]));
+    $this->assertSession()->fieldValueEquals('status', 'all');
+    $this->assertSession()->fieldValueEquals('title', '');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->pageTextNotContains('Synthetic foreign same household');
+
     $this->getSession()->getPage()->clickLink('Synthetic future task');
     $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine?status=all&sort=title');
     $this->getSession()->getPage()->clickLink('Back to My tasks');
@@ -837,15 +879,26 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('No tasks match this search.');
     $this->assertSession()->fieldValueEquals('status', 'completed');
     $this->assertSession()->fieldValueEquals('title', 'not present');
+    $this->assertSame(
+      '/personal-secretary/tasks/mine?status=completed',
+      $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'),
+    );
 
-    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => 'unknown', 'q' => ['forged']]]);
-    $this->assertSession()->pageTextContains('Synthetic overdue task');
-    $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
-    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => ['completed']]]);
-    $this->assertSession()->pageTextContains('Synthetic overdue task');
-    $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
-    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['q' => str_repeat('x', 101)]]);
-    $this->assertSession()->pageTextContains('Synthetic overdue task');
+    // Only effective normalized filters are allowed to show reset links.
+    foreach ([
+      ['status' => 'unknown', 'q' => ['forged']],
+      ['status' => ['completed']],
+      ['q' => str_repeat('x', 101)],
+      ['q' => '   '],
+      ['sort' => ['title']],
+      ['urgency' => ['overdue']],
+    ] as $invalidOnly) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $invalidOnly]);
+      $this->assertSession()->pageTextContains('Synthetic overdue task');
+      $this->assertSession()->pageTextNotContains('Synthetic archive 100%_ marker');
+      $this->assertSession()->linkNotExists('Clear search');
+      $this->assertSession()->linkNotExists('Clear filters');
+    }
 
     $this->drupalGet('/personal-secretary/tasks/mine');
     // Keep the diagnostic bounded to synthetic field names and response metadata.
@@ -878,6 +931,12 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
     $this->clickLink('Clear filters');
     $this->assertSession()->addressMatches('#/personal-secretary/tasks/mine$#');
+    $this->assertSession()->fieldValueEquals('status', 'open');
+    $this->assertSession()->fieldValueEquals('title', '');
+    $this->assertSession()->fieldValueEquals('sort', 'smart');
+    $this->assertSession()->fieldValueEquals('urgency', 'all');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSession()->linkNotExists('Clear filters');
     $this->assertSession()->pageTextContains('Synthetic overdue task');
 
     $storage->resetCache([(int) $completed->id()]);
@@ -1316,6 +1375,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->fieldValueEquals('sort', 'smart');
     $this->assertSession()->pageTextContains('Aucune tâche terminée.');
     $this->assertSession()->linkExists('Effacer les filtres');
+    $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['status' => 'completed', 'q' => 'historique']]);
+    $this->assertSession()->linkExists('Effacer la recherche');
     $this->drupalGet('/fr/personal-secretary/tasks/mine');
     $this->assertSession()->pageTextContains('Affichage des tâches');
     $this->assertSession()->pageTextContains('En retard uniquement');
@@ -1341,6 +1402,8 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->fieldValueEquals('sort', 'smart');
     $this->assertSession()->pageTextContains('No completed tasks.');
     $this->assertSession()->linkExists('Clear filters');
+    $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['status' => 'completed', 'q' => 'history']]);
+    $this->assertSession()->linkExists('Clear search');
 
     $completed = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
       'Synthetic bilingual completed history', (int) $household->id(), PersonalTask::DUE_NONE,
