@@ -776,10 +776,12 @@ final class MyUpcomingTest extends BrowserTestBase {
     // Reschedule is intentionally unavailable for all-day occurrences.
     $this->assertSession()->linkByHrefExists($todayLocation->toString());
     $this->clickLink('Synthetic today all-day activity');
-    $this->assertSession()->linkByHrefExists($todaySearch->toString());
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertMyUpcomingReturn($todayQuery);
     foreach ([$todayCancel, $todayLocation] as $boundedForm) {
       $this->drupalGet($boundedForm);
-      $this->assertSession()->linkByHrefExists($todaySearch->toString());
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertMyUpcomingReturn($todayQuery);
     }
     if ($remainingSeries !== NULL) {
       $remainingOccurrence = $effectiveProjection->project(
@@ -795,13 +797,14 @@ final class MyUpcomingTest extends BrowserTestBase {
       $this->drupalGet($today30);
       $this->assertSession()->linkByHrefExists($remainingReschedule->toString());
       $this->drupalGet($remainingReschedule);
-      $this->assertSession()->linkByHrefExists($today30->toString());
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertMyUpcomingReturn(['days' => '30', 'focus' => 'today']);
     }
 
     // The existing Add Activity form must round-trip today, including Save.
     $this->drupalGet($todaySearch);
     $this->clickLink('Add activity');
-    $this->assertSession()->linkByHrefExists($todaySearch->toString());
+    $this->assertMyUpcomingReturn($todayQuery);
     $this->clickLink('Cancel');
     $this->assertSession()->addressEquals($todaySearch);
     $this->clickLink('Add activity');
@@ -881,6 +884,26 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
 
     $this->assertInstanceOf(ActivitySeries::class, $noneSeries);
+  }
+
+  /**
+   * The protected return URL can be absolute or relative; compare its route
+   * and bounded query instead of the host/encoding of the rendered href.
+   *
+   * @param array<string, string> $expected
+   */
+  private function assertMyUpcomingReturn(array $expected): void {
+    $actual = [];
+    foreach ($this->getSession()->getPage()->findAll('css', 'a[href*="/personal-secretary/upcoming/mine"]') as $link) {
+      $href = (string) $link->getAttribute('href');
+      $path = parse_url($href, PHP_URL_PATH);
+      parse_str((string) parse_url($href, PHP_URL_QUERY), $query);
+      $actual[] = ['path' => $path, 'query' => $query];
+      if ($path === '/personal-secretary/upcoming/mine' && $query === $expected) {
+        return;
+      }
+    }
+    $this->fail('No bounded My upcoming return link matches ' . json_encode($expected) . '; actual: ' . json_encode($actual));
   }
 
   /**
