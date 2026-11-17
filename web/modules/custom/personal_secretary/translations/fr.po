@@ -1577,3 +1577,12 @@ msgstr "Aucune activité locale aujourd’hui."
 
 msgid "No today activities match this search."
 msgstr "Aucune activité d’aujourd’hui ne correspond à cette recherche."
+
+msgid "View today's tasks"
+msgstr "Voir mes tâches d’aujourd’hui"
+
+msgid "View today's preparations"
+msgstr "Voir mes préparatifs d’aujourd’hui"
+
+msgid "View today's personal activities"
+msgstr "Voir mes activités personnelles d’aujourd’hui"
