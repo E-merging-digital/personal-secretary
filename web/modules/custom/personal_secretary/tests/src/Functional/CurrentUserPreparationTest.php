@@ -841,6 +841,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalGet($route, ['query' => ['urgency' => 'today']]);
     $this->assertSession()->pageTextContains('No preparations due today.');
     $this->assertSession()->pageTextContains('Showing unprepared preparations due today.');
+    $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->pageTextContains('No preparation shown in this period has been marked prepared.');
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
     $this->assertSession()->pageTextContains('Add an activity to prepare');
