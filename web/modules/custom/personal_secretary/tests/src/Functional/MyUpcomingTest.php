@@ -275,6 +275,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($focusedUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing your local activities tomorrow.');
+    $this->assertSession()->linkExists('Clear filters');
     $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--occurrence:not([open]) > summary');
     $this->assertSession()->elementExists('css', '.ps-upcoming-list__item details.ps-action-group--series:not([open]) > summary');
     $this->assertSession()->pageTextContains('Rule A activity');
@@ -321,16 +322,27 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Same day A activity');
     $focusedSearch30 = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'Rule A', 'focus' => 'tomorrow']])->toString();
     $this->assertSession()->linkByHrefExists($focusedSearch30);
+    $this->assertSession()->linkExists('Clear filters');
     $this->getSession()->getPage()->clickLink('30 days');
     $this->assertSession()->linkByHrefExists($myUpcomingUrl . '?days=30&focus=tomorrow');
     $this->assertSession()->linkExists('Clear search');
     $this->getSession()->getPage()->clickLink('Clear search');
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextContains('Same day A activity');
+    // A combined horizon/search/tomorrow context resets in a single GET.
+    $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Rule A', 'focus' => 'tomorrow'],
+    ]));
+    $this->assertSession()->linkExists('Clear filters');
+    $this->getSession()->getPage()->clickLink('Clear filters');
+    $this->assertSession()->addressEquals($myUpcomingUrl);
+    $this->assertSession()->pageTextContains('Override to A activity');
+    $this->assertSession()->linkNotExists('Clear filters');
     foreach ([['focus' => 'unknown'], ['focus' => ['tomorrow']]] as $invalidFocus) {
       $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => $invalidFocus]));
       $this->assertSession()->pageTextContains('Override to A activity');
       $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+      $this->assertSession()->linkNotExists('Clear filters');
     }
     $this->assertSame($countsBefore, $this->domainCounts(), 'Tomorrow focus must not mutate domain data.');
 
@@ -338,6 +350,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextContains('Same day A activity');
+    $this->assertSession()->linkNotExists('Clear filters');
     $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
     // Two occurrences on the same civil day share one heading; a later day gets another.
     $cards = $this->getSession()->getPage()->findAll('css', '.ps-upcoming-list > .ps-upcoming-list__item');
@@ -423,6 +436,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->assertSession()->pageTextNotContains('Later other-household activity');
     $this->assertSession()->pageTextNotContains('Outside horizon A activity');
     $this->assertSession()->linkByHrefExists($laterOwnedDetailUrl . '?days=30');
+    $this->assertSession()->linkExists('Clear filters');
     $this->assertSession()->elementExists('css', '.ps-upcoming-horizon a[aria-current="page"][href$="days=30"]');
     $this->assertSession()->linkByHrefExists($myUpcomingUrl);
 
@@ -539,6 +553,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     // Location lookup is limited to the same authorized projection and horizon.
     $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['q' => 'rIvAgE']]));
     $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkExists('Clear filters');
     $this->assertSession()->pageTextContains('Rule A activity');
     $this->assertSession()->pageTextNotContains('Rule B activity');
     $this->assertSession()->pageTextNotContains('Same day A activity');
@@ -596,6 +611,7 @@ final class MyUpcomingTest extends BrowserTestBase {
       $this->drupalGet(Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => $malformed]]));
       $this->assertSession()->statusCodeEquals(200);
       $this->assertSession()->pageTextContains('Showing My upcoming activities for the next 7 days.');
+      $this->assertSession()->linkNotExists('Clear filters');
       $this->assertSession()->pageTextNotContains('Later A activity');
     }
     $this->assertSame($countsBefore, $this->domainCounts());
