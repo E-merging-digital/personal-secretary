@@ -301,7 +301,7 @@ final class PreparationCompletionTransitionForm extends FormBase {
     if (mb_strlen($search) > 100) {
       $search = '';
     }
-    $urgency = in_array($input['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)
+    $urgency = in_array($input['urgency'] ?? NULL, ['overdue', 'today', 'tomorrow'], TRUE)
       ? $input['urgency'] : 'all';
 
     $query = [];

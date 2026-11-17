@@ -241,7 +241,7 @@ final class UpcomingController extends ControllerBase {
           $returnQuery['q'] = $search;
         }
       }
-      if (in_array($input['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)) {
+      if (in_array($input['urgency'] ?? NULL, ['overdue', 'today', 'tomorrow'], TRUE)) {
         $returnQuery['urgency'] = $input['urgency'];
       }
       $backTitle = $this->t('My preparations');

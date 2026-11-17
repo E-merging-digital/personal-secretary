@@ -1559,3 +1559,12 @@ msgstr "Échéance aujourd’hui"
 
 msgid "No tasks due today."
 msgstr "Aucune tâche à échéance aujourd’hui."
+
+msgid "Today only"
+msgstr "Aujourd’hui uniquement"
+
+msgid "Showing unprepared preparations due today."
+msgstr "Affichage des préparatifs non effectués à faire aujourd’hui."
+
+msgid "No preparations due today."
+msgstr "Aucun préparatif à faire aujourd’hui."

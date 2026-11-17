@@ -569,7 +569,7 @@ final class AddActivityForm extends FormBase {
         $query['q'] = $search;
       }
     }
-    if ($this->fromPreparations() && in_array($input['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)) {
+    if ($this->fromPreparations() && in_array($input['urgency'] ?? NULL, ['overdue', 'today', 'tomorrow'], TRUE)) {
       $query['urgency'] = $input['urgency'];
     }
     if ($this->fromMyUpcoming() && ($input['focus'] ?? NULL) === 'tomorrow') {

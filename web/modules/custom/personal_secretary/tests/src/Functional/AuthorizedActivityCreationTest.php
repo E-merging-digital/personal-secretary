@@ -250,6 +250,36 @@ final class AuthorizedActivityCreationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Activity "Returnable preparation activity" added.');
     $this->assertSame($before['series'] + 2, $this->creationCounts()['series']);
 
+    // Today's preparation focus also survives both Cancel and Create.
+    $todayPreparationQuery = ['days' => '30', 'q' => 'Returnable', 'urgency' => 'today'];
+    $todayPreparations = Url::fromRoute('personal_secretary.my_preparations', [], [
+      'query' => $todayPreparationQuery,
+    ]);
+    $todayAdd = Url::fromRoute('personal_secretary.add_activity', [], [
+      'query' => ['from' => 'preparations'] + $todayPreparationQuery,
+    ]);
+    $this->drupalGet($todayAdd);
+    $this->assertSession()->linkByHrefExists($todayPreparations->toString());
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($todayPreparations->toString());
+    $this->drupalGet($todayAdd);
+    $this->submitForm([
+      'household_id' => (string) $household->id(),
+      'activity_type' => 'one_off',
+      'time_mode' => ActivitySeries::TIME_MODE_TIMED,
+      'responsible_person_id' => (string) $current->id(),
+      'activity_label' => 'Returnable today preparation activity',
+      'first_occurrence_date' => $nowLocal->modify('+4 days')->format('Y-m-d'),
+      'start_local_time' => '10:00',
+      'end_local_time' => '11:00',
+      'source_timezone' => 'Europe/Brussels',
+      'preparation_instruction' => '',
+      'preparation_lead_minutes' => '0',
+    ], 'Add activity');
+    $this->assertSession()->addressEquals($todayPreparations->toString());
+    $this->assertSession()->pageTextContains('Activity "Returnable today preparation activity" added.');
+    $this->assertSame($before['series'] + 3, $this->creationCounts()['series']);
+
     // A forged origin cannot introduce an untrusted return route.
     $this->drupalGet(Url::fromRoute('personal_secretary.add_activity', [], [
       'query' => ['from' => ['preparations'], 'destination' => '/admin'],
