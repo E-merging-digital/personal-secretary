@@ -324,7 +324,9 @@ final class ActivityLocationTest extends BrowserTestBase {
     }
 
     $this->drupalGet($weeklyNameEdit);
-    $this->submitForm(['snapshot_id' => str_repeat('0', 32), 'name' => 'Synthetic forged name'], 'Save name');
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')
+      ->setValue(str_repeat('0', 32));
+    $this->submitForm(['name' => 'Synthetic forged name'], 'Save name');
     $this->assertSession()->pageTextContains('The activity changed while this form was open. Reload before saving.');
     $this->assertSame($weeklyContract, $contract($weekly));
 
