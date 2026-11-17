@@ -197,6 +197,50 @@ final class DomainMutationService {
     return $persisted;
   }
 
+  /**
+   * Corrects only the latest revision's label, never the semantic timeline.
+   *
+   * $originalName must come from the private GET snapshot, not a POST field.
+   */
+  public function renameActivitySeries(ActivitySeries $series, string $name, string $originalName): ActivitySeries {
+    if ($series->isNew() || $series->id() === NULL) {
+      throw new InvalidArgumentException('ActivitySeries must be persisted before renaming.');
+    }
+    $name = trim($name);
+    if ($name === '' || mb_strlen($name) > 255) {
+      throw new InvalidArgumentException('Activity name must contain between 1 and 255 characters.');
+    }
+
+    $storage = $this->seriesStorage();
+    $storage->resetCache([(int) $series->id()]);
+    $persisted = $storage->load($series->id());
+    $latestRevisionId = $storage->getLatestRevisionId($series->id());
+    if (
+      !$persisted instanceof ActivitySeries
+      || $persisted->uuid() !== $series->uuid()
+      || $latestRevisionId === NULL
+      || (string) $persisted->getRevisionId() !== (string) $latestRevisionId
+      || (string) $series->getRevisionId() !== (string) $latestRevisionId
+      || (string) $persisted->get('name')->value !== $originalName
+      || !$persisted->access('update')
+    ) {
+      throw new InvalidArgumentException('Activity rename requires the latest unchanged authorized series.');
+    }
+
+    if ((string) $persisted->get('name')->value === $name) {
+      return $persisted;
+    }
+    // Do not create a new semantic revision or change effective_from: all
+    // exception/occurrence identities include the persisted revision ID.
+    $persisted->setNewRevision(FALSE);
+    $persisted->set('name', $name);
+    $persisted->save();
+    if ((string) $persisted->getRevisionId() !== (string) $latestRevisionId) {
+      throw new RuntimeException('Activity rename unexpectedly created a semantic revision.');
+    }
+    return $persisted;
+  }
+
   public function updateActivitySeriesRecurrence(
     ActivitySeries $series,
     DateTimeImmutable $localStart,

@@ -1589,3 +1589,24 @@ msgstr "Voir mes activités personnelles d’aujourd’hui"
 
 msgid "View tasks without a due date"
 msgstr "Voir les tâches sans échéance"
+
+msgid "Change activity name"
+msgstr "Modifier le nom de l’activité"
+
+msgid "Activity name"
+msgstr "Nom de l’activité"
+
+msgid "Save name"
+msgstr "Enregistrer le nom"
+
+msgid "Activity name must contain between 1 and 255 characters."
+msgstr "Le nom de l’activité doit contenir entre 1 et 255 caractères."
+
+msgid "Activity name updated."
+msgstr "Le nom de l’activité a été modifié."
+
+msgid "Activity name is unchanged."
+msgstr "Le nom de l’activité est inchangé."
+
+msgid "This activity name can no longer be updated safely."
+msgstr "Le nom de cette activité ne peut plus être modifié en toute sécurité."

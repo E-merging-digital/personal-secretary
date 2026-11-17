@@ -230,6 +230,163 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSame('Synthetic All-day Studio', (string) $this->seriesByLabel('Synthetic all-day location')->get('location')->value);
 
+    // Rename metadata cannot alter recurring targets or revision timeline.
+    $storage = $this->container->get('entity_type.manager')->getStorage('personal_sec_activity_series');
+    $baseProjection = $this->container->get('personal_secretary.occurrence_projection');
+    $effective = $this->container->get('personal_secretary.effective_occurrence_projection');
+    $timeline = $this->container->get('personal_secretary.revision_timeline');
+    $exceptions = $this->container->get('personal_secretary.activity_exception');
+    $windowEnd = $nowUtc->modify('+30 days');
+    $weeklyBase = $baseProjection->project($weekly, $nowUtc, $windowEnd);
+    $this->assertGreaterThanOrEqual(2, count($weeklyBase));
+    $cancel = $exceptions->createCancel($weekly, $weeklyBase[1]);
+    $oneOffBase = $baseProjection->project($oneOff, $nowUtc, $windowEnd);
+    $this->assertCount(1, $oneOffBase);
+    $reschedule = $exceptions->createReschedule(
+      $oneOff, $oneOffBase[0],
+      (new DateTimeImmutable($oneOffBase[0]->utcStart))->modify('+30 minutes'),
+      (new DateTimeImmutable($oneOffBase[0]->utcEnd))->modify('+30 minutes'),
+      $oneOffBase[0]->sourceTimezone,
+    );
+    $preparation = $this->container->get('personal_secretary.preparation_requirement_mutation')
+      ->createPreparationRequirement($weekly, 'Synthetic rename preparation', 3600, $nowUtc->modify('-1 day'));
+
+    // The earlier semantic revision must remain historically named.
+    $historyStart = $nowLocal->modify('+1 day')->setTime(14, 0);
+    $history = $domain->createActivitySeries(
+      'Synthetic history series', (int) $household->id(),
+      $historyStart, $historyStart->modify('+1 hour'),
+      'FREQ=WEEKLY;INTERVAL=1', 'Synthetic History Hall', [(int) $person->id()],
+    );
+    $firstHistoryRevision = (string) $history->getRevisionId();
+    $boundary = $historyStart->modify('+14 days');
+    $history = $domain->updateActivitySeriesRecurrence(
+      $history, $boundary, $boundary->modify('+1 hour'), 'FREQ=WEEKLY;INTERVAL=1', $boundary,
+    );
+    $this->assertCount(2, $timeline->timeline($history));
+
+    $contract = function (ActivitySeries $series) use ($storage, $effective, $timeline, $nowUtc, $windowEnd): array {
+      $storage->resetCache([(int) $series->id()]);
+      $current = $storage->load($series->id());
+      $this->assertInstanceOf(ActivitySeries::class, $current);
+      return [
+        'uuid' => $current->uuid(),
+        'revision' => (string) $current->getRevisionId(),
+        'revisions' => array_keys($storage->getQuery()->accessCheck(FALSE)
+          ->condition('id', $series->id())->allRevisions()->execute()),
+        'household' => $current->get('household')->getValue(),
+        'persons' => $current->get('concerned_persons')->getValue(),
+        'recurrence' => $current->get('recurrence')->getValue(),
+        'effective_from' => $current->get('effective_from')->getValue(),
+        'location' => $current->get('location')->getValue(),
+        'time_mode' => $current->get('time_mode')->getValue(),
+        'timeline' => array_map(
+          static fn(array $item): array => [
+            $item['revision_id'], $item['effective_from']->format(DATE_ATOM),
+            $item['effective_until']?->format(DATE_ATOM),
+          ], $timeline->timeline($current),
+        ),
+        'occurrences' => array_map(
+          static fn(object $occurrence): array => get_object_vars($occurrence),
+          $effective->project($current, $nowUtc, $windowEnd),
+        ),
+      ];
+    };
+    $weeklyContract = $contract($weekly);
+    $oneOffContract = $contract($oneOff);
+    $historyContract = $contract($history);
+    $weeklyNameEdit = '/personal-secretary/activities/' . $weeklyId . '/name/edit';
+    $oneOffNameEdit = '/personal-secretary/activities/' . $oneOffId . '/name/edit';
+    $historyNameEdit = '/personal-secretary/activities/' . $history->id() . '/name/edit';
+
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->linkByHrefExists($weeklyNameEdit);
+    $this->assertSession()->linkByHrefExists($oneOffNameEdit);
+    $this->assertSession()->linkByHrefExists($historyNameEdit);
+    $this->drupalGet($weeklyNameEdit);
+    $this->assertSession()->fieldValueEquals('name', 'Synthetic location weekly');
+    $this->assertSame('255', $this->assertSession()->fieldExists('name')->getAttribute('maxlength'));
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame($weeklyContract, $contract($weekly));
+
+    $this->drupalGet($weeklyNameEdit);
+    $this->submitForm(['name' => '  Synthetic location weekly  '], 'Save name');
+    $this->assertSession()->pageTextContains('Activity name is unchanged.');
+    $this->assertSame($weeklyContract, $contract($weekly));
+
+    foreach (['   ', str_repeat('x', 256)] as $invalid) {
+      $this->drupalGet($weeklyNameEdit);
+      $this->submitForm(['name' => $invalid], 'Save name');
+      $this->assertSession()->statusCodeEquals(200);
+      $this->assertSession()->fieldExists('name');
+      $this->assertSame($weeklyContract, $contract($weekly));
+    }
+
+    $this->drupalGet($weeklyNameEdit);
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')
+      ->setValue(str_repeat('0', 32));
+    $this->submitForm(['name' => 'Synthetic forged name'], 'Save name');
+    $this->assertSession()->pageTextContains('The activity changed while this form was open. Reload before saving.');
+    $this->assertSame($weeklyContract, $contract($weekly));
+
+    // An intervening title edit keeps the old GET snapshot stale.
+    $this->drupalGet($weeklyNameEdit);
+    $storage->resetCache([$weeklyId]);
+    $concurrent = $storage->load($weeklyId);
+    $this->assertInstanceOf(ActivitySeries::class, $concurrent);
+    $concurrent->setNewRevision(FALSE);
+    $concurrent->set('name', 'Synthetic concurrent weekly');
+    $concurrent->save();
+    $this->submitForm(['name' => 'Synthetic stale name'], 'Save name');
+    $this->assertSession()->pageTextContains('The activity changed while this form was open. Reload before saving.');
+    $this->assertSame($weeklyContract, $contract($weekly));
+
+    $this->drupalGet($weeklyNameEdit);
+    $this->assertSession()->fieldValueEquals('name', 'Synthetic concurrent weekly');
+    $this->submitForm(['name' => '  Synthetic renamed weekly  '], 'Save name');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->pageTextContains('Synthetic renamed weekly');
+    $this->assertSame($weeklyContract, $contract($weekly));
+
+    $focusedName = \Drupal\Core\Url::fromRoute('personal_secretary.rename_activity', [
+      'series' => $oneOffId,
+    ], ['query' => ['from' => 'mine', 'days' => '30', 'q' => 'Synthetic', 'focus' => 'today']]);
+    $focusedReturn = \Drupal\Core\Url::fromRoute('personal_secretary.my_upcoming', [], [
+      'query' => ['days' => '30', 'q' => 'Synthetic', 'focus' => 'today'],
+    ]);
+    $this->drupalGet($focusedName);
+    $this->assertSession()->linkByHrefExists($focusedReturn->toString());
+    $this->submitForm(['name' => '  Synthetic renamed one-off  '], 'Save name');
+    $this->assertSession()->addressEquals($focusedReturn);
+    $this->assertSame($oneOffContract, $contract($oneOff));
+    $this->drupalGet('/personal-secretary/upcoming/mine', ['query' => ['days' => '30']]);
+    $this->assertSession()->pageTextContains('Synthetic renamed one-off');
+    $this->assertSession()->pageTextContains('Synthetic renamed weekly');
+
+    $this->drupalGet($historyNameEdit);
+    $this->submitForm(['name' => 'Synthetic renamed history'], 'Save name');
+    $this->assertSame($historyContract, $contract($history));
+    $historic = $storage->loadRevision($firstHistoryRevision);
+    $this->assertInstanceOf(ActivitySeries::class, $historic);
+    $this->assertSame('Synthetic history series', (string) $historic->label());
+    $storage->resetCache([(int) $history->id()]);
+    $this->assertSame('Synthetic renamed history', (string) $storage->load($history->id())->label());
+
+    $this->assertSame((int) $cancel->id(), (int) $exceptions->activeForSeries($storage->load($weeklyId))[0]->id());
+    $this->assertSame((int) $reschedule->id(), (int) $exceptions->activeForSeries($storage->load($oneOffId))[0]->id());
+    $this->assertSame((string) $weeklyContract['revision'], (string) $cancel->get('target_revision_id')->value);
+    $this->assertSame((string) $oneOffContract['revision'], (string) $reschedule->get('target_revision_id')->value);
+    $this->assertSame($weeklyId, (int) $preparation->get('series')->target_id);
+    $this->assertNotNull($this->container->get('entity_type.manager')->getStorage('personal_sec_prep_req')->load($preparation->id()));
+
+    $this->drupalGet($weeklyNameEdit, ['query' => [
+      'from' => ['mine'], 'destination' => 'https://example.invalid', 'q' => str_repeat('x', 101),
+    ]]);
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
+    $this->drupalGet('/personal-secretary/activities/999999/name/edit');
+    $this->assertSession()->statusCodeEquals(404);
+
     $ordinary = $this->drupalCreateUser([HouseholdAuthorizationService::PRODUCT_USE_PERMISSION]);
     $this->assertInstanceOf(UserInterface::class, $ordinary);
     $ordinary->set(CurrentPersonResolver::FIELD_NAME, ['target_id' => (int) $person->id()]);
@@ -240,11 +397,16 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->drupalLogin($ordinary);
     $this->drupalGet('/personal-secretary/upcoming/mine');
     $this->assertSession()->statusCodeEquals(200);
-    $this->assertSession()->pageTextContains('Synthetic location weekly');
+    $this->assertSession()->pageTextContains('Synthetic renamed weekly');
     $this->assertSession()->linkByHrefNotExists($weeklyEdit);
+    $this->assertSession()->linkByHrefNotExists($weeklyNameEdit);
     $this->drupalGet($weeklyEdit);
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalGet($oneOffEdit);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet($weeklyNameEdit);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet($oneOffNameEdit);
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalLogout();
     $this->drupalLogin($authorized);
@@ -271,7 +433,14 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->container->get('language_manager')->reset();
 
     $this->drupalGet('/fr/personal-secretary/upcoming');
+    $this->assertSession()->linkExists('Modifier le nom de l’activité');
     $this->assertSession()->linkExists('Modifier le lieu de l’activité');
+    $this->drupalGet('/fr' . $weeklyNameEdit);
+    $this->assertSession()->pageTextContains('Nom de l’activité');
+    $this->assertSession()->linkExists('Annuler');
+    $this->drupalGet('/en' . $weeklyNameEdit);
+    $this->assertSession()->pageTextContains('Activity name');
+    $this->assertSession()->fieldValueEquals('name', 'Synthetic renamed weekly');
     $this->drupalGet('/fr' . $weeklyEdit);
     $this->assertSession()->fieldExists('location');
     $this->assertSession()->pageTextContains('Laissez vide pour supprimer le lieu');
@@ -282,7 +451,7 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
     $this->drupalGet($weeklyEdit, ['query' => ['from' => ['mine'], 'destination' => 'https://example.invalid']]);
     $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming');
-    $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+    $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic renamed weekly')->get('location')->value);
 
     $tooLongStart = $nowLocal->modify('+4 days')->setTime(15, 0);
     $this->expectException(InvalidArgumentException::class);
