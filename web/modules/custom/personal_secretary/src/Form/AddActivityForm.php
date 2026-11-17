@@ -129,7 +129,7 @@ final class AddActivityForm extends FormBase {
         self::TYPE_ONE_OFF => $this->t('One-off'),
         self::TYPE_WEEKLY => $this->t('Weekly'),
       ],
-      '#default_value' => self::TYPE_WEEKLY,
+      '#default_value' => self::TYPE_ONE_OFF,
       '#required' => TRUE,
     ];
     $form['time_mode'] = [
