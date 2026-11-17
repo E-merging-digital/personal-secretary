@@ -123,6 +123,11 @@ final class TodayController extends ControllerBase {
           '#title' => $this->t('My tasks'),
           '#url' => Url::fromRoute('personal_secretary.my_tasks'),
         ],
+        'today' => [
+          '#type' => 'link',
+          '#title' => $this->t("View today's tasks"),
+          '#url' => Url::fromRoute('personal_secretary.my_tasks', [], ['query' => ['urgency' => 'today']]),
+        ],
         'add' => [
           '#type' => 'link',
           '#title' => $this->t('Add task'),
@@ -236,6 +241,11 @@ final class TodayController extends ControllerBase {
         '#title' => $this->t('My preparations'),
         '#url' => Url::fromRoute('personal_secretary.my_preparations'),
       ],
+      'today' => [
+        '#type' => 'link',
+        '#title' => $this->t("View today's preparations"),
+        '#url' => Url::fromRoute('personal_secretary.my_preparations', [], ['query' => ['urgency' => 'today']]),
+      ],
     ];
     $build['preparations']['add_activity'] = [
       '#type' => 'link',
@@ -329,6 +339,11 @@ final class TodayController extends ControllerBase {
         '#type' => 'link',
         '#title' => $this->t('My upcoming'),
         '#url' => Url::fromRoute('personal_secretary.my_upcoming'),
+      ],
+      'today' => [
+        '#type' => 'link',
+        '#title' => $this->t("View today's personal activities"),
+        '#url' => Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['focus' => 'today']]),
       ],
       'add' => [
         '#type' => 'link',
