@@ -490,7 +490,7 @@ final class RenameHouseholdMemberTest extends BrowserTestBase {
     $this->assertSame('Concurrent Household Name', $households->load($firstId)->label());
 
     $this->drupalGet($url);
-    $this->getSession()->getPage()->findField('snapshot_id')->setValue(str_repeat('f', 32));
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue(str_repeat('f', 32));
     $this->submitForm([
       'household_id' => (string) $secondId,
       'new_name' => 'Should Not Accept Forged Snapshot',
