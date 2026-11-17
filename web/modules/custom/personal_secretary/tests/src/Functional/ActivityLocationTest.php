@@ -347,10 +347,10 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Synthetic renamed weekly');
     $this->assertSame($weeklyContract, $contract($weekly));
 
-    $focusedName = \\Drupal\\Core\\Url::fromRoute('personal_secretary.rename_activity', [
+    $focusedName = \Drupal\Core\Url::fromRoute('personal_secretary.rename_activity', [
       'series' => $oneOffId,
     ], ['query' => ['from' => 'mine', 'days' => '30', 'q' => 'Synthetic', 'focus' => 'today']]);
-    $focusedReturn = \\Drupal\\Core\\Url::fromRoute('personal_secretary.my_upcoming', [], [
+    $focusedReturn = \Drupal\Core\Url::fromRoute('personal_secretary.my_upcoming', [], [
       'query' => ['days' => '30', 'q' => 'Synthetic', 'focus' => 'today'],
     ]);
     $this->drupalGet($focusedName);
