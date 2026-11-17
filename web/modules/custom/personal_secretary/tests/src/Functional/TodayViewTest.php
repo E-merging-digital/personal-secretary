@@ -712,6 +712,17 @@ final class TodayViewTest extends BrowserTestBase {
     $url = '/personal-secretary/today';
     $this->drupalGet($url);
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
+    $undatedUrl = '/personal-secretary/tasks/mine?urgency=undated';
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="' . $undatedUrl . '"]'));
+    $this->assertSession()->linkExists('View tasks without a due date');
+    $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="' . $undatedUrl . '"], .ps-today-section--activities a[href="' . $undatedUrl . '"]'));
+    $emptyCounts = $this->domainCounts();
+    $this->clickLink('View tasks without a due date');
+    $this->assertSession()->addressEquals($undatedUrl);
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSession()->pageTextContains('No open tasks without a due date.');
+    $this->assertSame($emptyCounts, $this->domainCounts());
+    $this->drupalGet($url);
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="/personal-secretary/tasks/mine?urgency=today"]'));
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/preparations/mine?urgency=today"]'));
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--activities a[href="/personal-secretary/upcoming/mine?focus=today"]'));
@@ -736,6 +747,7 @@ final class TodayViewTest extends BrowserTestBase {
       $oldest = $mutations->createTask('Synthetic Today oldest overdue', (int) $household->id(), PersonalTask::DUE_DATE, $olderDate);
       $recent = $mutations->createTask('Synthetic Today recent overdue', (int) $household->id(), PersonalTask::DUE_DATE, $overdueDate);
       $mutations->createTask('Synthetic Today future excluded', (int) $household->id(), PersonalTask::DUE_DATE, $tomorrowDate);
+      $undated = $mutations->createTask('Synthetic Today undated backlog', (int) $household->id(), PersonalTask::DUE_NONE);
     }
     finally {
       $switcher->switchBack();
@@ -743,12 +755,31 @@ final class TodayViewTest extends BrowserTestBase {
     $switcher->switchTo($foreignUser);
     try {
       $mutations->createTask('Synthetic Today private excluded', (int) $otherHousehold->id(), PersonalTask::DUE_DATE, $overdueDate);
+      $mutations->createTask('Synthetic Today foreign undated', (int) $otherHousehold->id(), PersonalTask::DUE_NONE);
     }
     finally {
       $switcher->switchBack();
     }
 
-    // A single non-empty group keeps the original flat rendering.
+    // Today's undated backlog shortcut uses the existing authorized open
+    // projection and validated task-edit return context, not Today's cards.
+    $this->drupalGet($url);
+    $this->assertSession()->pageTextNotContains('Synthetic Today undated backlog');
+    $undatedCounts = $this->domainCounts();
+    $this->clickLink('View tasks without a due date');
+    $this->assertSession()->addressEquals($undatedUrl);
+    $this->assertSession()->fieldValueEquals('urgency', 'undated');
+    $this->assertSession()->pageTextContains('Synthetic Today undated backlog');
+    $this->assertSession()->pageTextNotContains('Synthetic Today foreign undated');
+    $this->assertSession()->pageTextNotContains('Synthetic Today oldest overdue');
+    $this->assertSession()->pageTextNotContains('Synthetic Today future excluded');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $undated->id() . '/edit?urgency=undated');
+    $this->clickLink('Edit');
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->fieldValueEquals('due_mode', PersonalTask::DUE_NONE);
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($undatedUrl);
+    $this->assertSame($undatedCounts, $this->domainCounts(), 'Undated shortcut and edit Cancel do not mutate domain data.');
     $this->drupalGet($url);
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
     $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '.ps-task-card'));
@@ -827,11 +858,15 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->elementExists('css', '#ps-tomorrow-briefing');
     $this->assertSame($frenchCounts, $this->domainCounts());
     $this->drupalGet('/fr/personal-secretary/today');
+    $this->assertSession()->linkExists('Voir les tâches sans échéance');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="/fr/personal-secretary/tasks/mine?urgency=undated"]'));
     $this->assertSession()->linkExists('Voir 2 tâches en retard');
     $this->assertSession()->linkByHrefExists('/fr/personal-secretary/tasks/mine?urgency=overdue');
     $this->assertSession()->pageTextContains('Tâches en retard');
     $this->assertSession()->pageTextContains('À faire aujourd’hui');
     $this->drupalGet('/en/personal-secretary/today');
+    $this->assertSession()->linkExists('View tasks without a due date');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="/en/personal-secretary/tasks/mine?urgency=undated"]'));
     $this->assertSession()->linkExists('View 2 overdue tasks');
     $this->assertSession()->linkByHrefExists('/en/personal-secretary/tasks/mine?urgency=overdue');
     $this->assertSession()->pageTextContains('Overdue tasks');
@@ -859,6 +894,7 @@ final class TodayViewTest extends BrowserTestBase {
     }
     $this->drupalGet('/en/personal-secretary/today');
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
+    $this->assertSession()->linkExists('View tasks without a due date');
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href*="urgency=overdue"]'));
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-task-group__heading'));
   }
