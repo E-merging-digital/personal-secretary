@@ -253,6 +253,38 @@ final class TodayViewTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Tasks');
     $this->assertSession()->pageTextContains('Preparations');
     $this->assertSession()->pageTextContains('Planning');
+    // The three native Today shortcuts lead to the existing authorized,
+    // read-only local-day projections without changing Today itself.
+    foreach ([
+      ['ps-today-section--tasks', "View today's tasks", '/personal-secretary/tasks/mine?urgency=today'],
+      ['ps-today-section--preparations', "View today's preparations", '/personal-secretary/preparations/mine?urgency=today'],
+      ['ps-today-section--activities', "View today's personal activities", '/personal-secretary/upcoming/mine?focus=today'],
+    ] as [$section, $label, $url]) {
+      $this->assertCount(1, $this->getSession()->getPage()->findAll(
+        'css', '.' . $section . ' a[href="' . $url . '"]',
+      ));
+      $this->clickLink($label);
+      $this->assertSession()->addressEquals($url);
+      $this->assertSession()->statusCodeEquals(200);
+      if ($section === 'ps-today-section--tasks') {
+        $this->assertSession()->fieldValueEquals('urgency', 'today');
+        $this->assertSession()->pageTextContains('Today route task');
+      }
+      elseif ($section === 'ps-today-section--preparations') {
+        $this->assertSession()->fieldValueEquals('urgency', 'today');
+        $this->assertSession()->pageTextNotContains('Today unauthorized H2 preparation');
+      }
+      else {
+        $this->assertSession()->pageTextContains('Showing your local activities today.');
+        $this->assertSession()->pageTextNotContains('Today unauthorized H2 activity');
+      }
+      $this->assertSame($countsBefore, $this->domainCounts(), 'Today shortcut GET is read-only.');
+      $this->drupalGet($todayUrl);
+    }
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/mine');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/upcoming/mine');
+
     $this->assertSession()->linkExists('My preparations');
     $this->assertSession()->linkByHrefExists('/personal-secretary/preparations/mine');
     $overduePreparationsUrl = '/personal-secretary/preparations/mine?urgency=overdue';
@@ -588,6 +620,15 @@ final class TodayViewTest extends BrowserTestBase {
     $formatter = $this->container->get('date.formatter');
     foreach (['fr', 'en'] as $langcode) {
       $this->drupalGet('/' . $langcode . '/personal-secretary/today');
+      foreach ([
+        ['ps-today-section--tasks', $langcode === 'fr' ? 'Voir mes tâches d’aujourd’hui' : "View today's tasks", '/personal-secretary/tasks/mine?urgency=today'],
+        ['ps-today-section--preparations', $langcode === 'fr' ? 'Voir mes préparatifs d’aujourd’hui' : "View today's preparations", '/personal-secretary/preparations/mine?urgency=today'],
+        ['ps-today-section--activities', $langcode === 'fr' ? 'Voir mes activités personnelles d’aujourd’hui' : "View today's personal activities", '/personal-secretary/upcoming/mine?focus=today'],
+      ] as [$section, $label, $destination]) {
+        $link = $this->assertSession()->elementExists('css',
+          '.' . $section . ' a[href="/' . $langcode . $destination . '"]');
+        $this->assertSame($label, trim($link->getText()));
+      }
       $this->assertSession()->linkExists($langcode === 'fr' ? 'Voir ' . $overduePreparationsCount . ' préparatifs en retard' : 'View ' . $overduePreparationsCount . ' overdue preparations');
       $this->assertSession()->linkByHrefExists('/' . $langcode . '/personal-secretary/preparations/mine?urgency=overdue');
       $planning = $this->assertSession()->elementExists('css', '.ps-today-section--activities');
@@ -671,6 +712,9 @@ final class TodayViewTest extends BrowserTestBase {
     $url = '/personal-secretary/today';
     $this->drupalGet($url);
     $this->assertSession()->pageTextContains('No tasks are due or overdue today.');
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href="/personal-secretary/tasks/mine?urgency=today"]'));
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href="/personal-secretary/preparations/mine?urgency=today"]'));
+    $this->assertCount(1, $this->getSession()->getPage()->findAll('css', '.ps-today-section--activities a[href="/personal-secretary/upcoming/mine?focus=today"]'));
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--tasks a[href*="urgency=overdue"]'));
     $this->assertSame([], $this->getSession()->getPage()->findAll('css', '.ps-today-section--preparations a[href*="urgency=overdue"]'));
     $this->assertSession()->pageTextContains('Preparations are added through activities. You can include a preparation when adding an activity.');
