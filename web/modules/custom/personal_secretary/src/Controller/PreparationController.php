@@ -42,7 +42,7 @@ final class PreparationController extends ControllerBase {
     if (mb_strlen($search) > 100) {
       $search = '';
     }
-    $urgency = in_array($query['urgency'] ?? NULL, ['overdue', 'tomorrow'], TRUE)
+    $urgency = in_array($query['urgency'] ?? NULL, ['overdue', 'today', 'tomorrow'], TRUE)
       ? $query['urgency'] : 'all';
     $urgencyQuery = $urgency === 'all' ? [] : ['urgency' => $urgency];
     $returnQuery = ['days' => $windowDays]
@@ -96,14 +96,17 @@ final class PreparationController extends ControllerBase {
         static fn(array $item): bool => ($item['overdue'] ?? FALSE) === TRUE,
       ));
     }
-    elseif ($urgency === 'tomorrow') {
-      // Match the local civil date in the existing authorized projection.
-      $tomorrow = (new DateTimeImmutable((string) $model['due_window_start']))
-        ->setTimezone(new DateTimeZone((string) $model['timezone']))
-        ->modify('+1 day')->format('Y-m-d');
+    elseif ($urgency === 'today' || $urgency === 'tomorrow') {
+      // The existing authorized projection already carries viewer-local dates.
+      $focusDate = (new DateTimeImmutable((string) $model['due_window_start']))
+        ->setTimezone(new DateTimeZone((string) $model['timezone']));
+      if ($urgency === 'tomorrow') {
+        $focusDate = $focusDate->modify('+1 day');
+      }
+      $civilDate = $focusDate->format('Y-m-d');
       $toPrepare = array_values(array_filter(
         $toPrepare,
-        static fn(array $item): bool => substr((string) $item['due_time_iso'], 0, 10) === $tomorrow,
+        static fn(array $item): bool => substr((string) $item['due_time_iso'], 0, 10) === $civilDate,
       ));
       $prepared = [];
     }
@@ -166,11 +169,13 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-preparation-window']],
-        '#value' => $urgency === 'tomorrow'
-          ? $this->t('Showing unprepared preparations due tomorrow.')
+        '#value' => $urgency === 'today'
+          ? $this->t('Showing unprepared preparations due today.')
+          : ($urgency === 'tomorrow'
+            ? $this->t('Showing unprepared preparations due tomorrow.')
           : ($windowDays === 30
             ? $this->t('Showing active overdue preparations and preparations due in the next 30 days.')
-            : $this->t('Showing active overdue preparations and preparations due in the next 7 days.')),
+            : $this->t('Showing active overdue preparations and preparations due in the next 7 days.'))),
       ],
       'feedback' => [
         '#type' => 'container',
@@ -207,8 +212,12 @@ final class PreparationController extends ControllerBase {
         '#type' => 'html_tag',
         '#tag' => 'p',
         '#attributes' => ['class' => ['ps-empty-state']],
-        '#value' => $urgency === 'tomorrow'
-          ? $this->t('No preparations due tomorrow.')
+        '#value' => $urgency === 'today'
+          ? ($search !== ''
+            ? $this->t('No preparations match this search.')
+            : $this->t('No preparations due today.'))
+          : ($urgency === 'tomorrow'
+            ? $this->t('No preparations due tomorrow.')
           : ($urgency === 'overdue'
             ? $this->t('No overdue preparations.')
           : ($items === [] && $search !== ''
@@ -217,7 +226,7 @@ final class PreparationController extends ControllerBase {
             ? ($windowDays === 30
               ? $this->t('No upcoming preparations are assigned to you in the next 30 days.')
               : $this->t('No upcoming preparations are assigned to you in the next 7 days.'))
-            : $this->t('Nothing currently needs preparation.')))),
+            : $this->t('Nothing currently needs preparation.'))))),
       ];
       if ($items === [] && $search === '' && $urgency === 'all') {
         $build['to_prepare']['explanation'] = [
@@ -352,6 +361,12 @@ final class PreparationController extends ControllerBase {
           '#tag' => 'option',
           '#value' => $this->t('Overdue only'),
           '#attributes' => ['value' => 'overdue'] + ($urgency === 'overdue' ? ['selected' => 'selected'] : []),
+        ],
+        'today' => [
+          '#type' => 'html_tag',
+          '#tag' => 'option',
+          '#value' => $this->t('Today only'),
+          '#attributes' => ['value' => 'today'] + ($urgency === 'today' ? ['selected' => 'selected'] : []),
         ],
         'tomorrow' => [
           '#type' => 'html_tag',
