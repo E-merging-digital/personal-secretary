@@ -28,7 +28,7 @@ final class RenameActivityForm extends FormBase {
   public function __construct(
     private readonly DomainMutationService $mutations,
     private readonly EntityTypeManagerInterface $entities,
-    private readonly RouteMatchInterface $routeMatch,
+    private readonly RouteMatchInterface $nameRouteMatch,
     private readonly RequestStack $requests,
     private readonly PrivateTempStoreFactory $snapshots,
   ) {}
@@ -159,7 +159,7 @@ final class RenameActivityForm extends FormBase {
   }
 
   private function currentSeries(): ActivitySeries {
-    $id = $this->routeMatch->getParameter('series');
+    $id = $this->nameRouteMatch->getParameter('series');
     if (!is_string($id) || !ctype_digit($id) || (int) $id <= 0) {
       throw new NotFoundHttpException('This activity is unavailable.');
     }
