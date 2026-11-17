@@ -347,6 +347,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalGet($route);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 7 days.');
+    $this->assertSession()->linkNotExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
     $this->assertSession()->linkByHrefExists($route . '?days=7');
     $this->assertSession()->linkByHrefExists($route . '?days=30');
     $this->assertSession()->elementExists('xpath', '//a[@aria-current="page"][contains(@href, "days=7")]');
@@ -440,6 +442,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       ['query' => ['days' => 30, 'urgency' => 'overdue']],
     )->toString());
     $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSame($route, $this->getSession()->getPage()->findLink('Clear filters')?->getAttribute('href'));
     $this->assertSame($countsBefore, $this->domainCounts());
 
     $this->drupalGet($route, ['query' => ['days' => '30', 'q' => 'Long lead', 'urgency' => 'overdue']]);
@@ -448,10 +452,32 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       'xpath',
       '//div[contains(@class, "ps-preparation-row--pending")][.//h3[normalize-space()="Active overdue preparation"]]',
     );
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->linkExists('Clear search');
+    $this->assertSame($route, $this->getSession()->getPage()->findLink('Clear filters')?->getAttribute('href'));
+    $searchReset = Url::fromRoute('personal_secretary.my_preparations', [], [
+      'query' => ['days' => 30, 'urgency' => 'overdue'],
+    ])->toString();
+    $this->assertSame($searchReset, $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'));
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals($searchReset);
+    $this->assertSession()->fieldValueEquals('urgency', 'overdue');
+    $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 30 days.');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->clickLink('Clear filters');
+    $this->assertSession()->addressEquals($route);
+    $this->assertSession()->pageTextContains('Due now preparation');
+    $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
+    $this->assertSession()->pageTextNotContains('Unauthorized H2 thirty day lead preparation');
+    $this->assertSession()->linkNotExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSame($countsBefore, $this->domainCounts(), 'Filter reset GET must not mutate domain data.');
     foreach ([['urgency' => 'unknown'], ['urgency' => ['overdue']]] as $invalidUrgency) {
       $this->drupalGet($route, ['query' => $invalidUrgency]);
       $this->assertSession()->fieldValueEquals('urgency', 'all');
       $this->assertSession()->pageTextContains('Due now preparation');
+      $this->assertSession()->linkNotExists('Clear filters');
+      $this->assertSession()->linkNotExists('Clear search');
     }
 
     // Non-JavaScript transitions retain search, horizon and urgency.
@@ -506,6 +532,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     // Focus by the persisted user's civil day while preserving existing navigation.
     $this->drupalGet($route, ['query' => ['urgency' => 'tomorrow']]);
     $this->assertSession()->fieldValueEquals('urgency', 'tomorrow');
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
     $this->assertSession()->pageTextContains('Synthetic tomorrow focus preparation');
     foreach (['Active overdue preparation', 'Due now preparation', 'Preparation due on day twenty', 'Unauthorized H2 thirty day lead preparation'] as $excluded) {
       $this->assertSession()->pageTextNotContains($excluded);
@@ -553,6 +581,9 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $this->drupalGet($route, ['query' => ['days' => '30']]);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 30 days.');
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSession()->linkNotExists('Clear search');
+    $this->assertSame($route, $this->getSession()->getPage()->findLink('Clear filters')?->getAttribute('href'));
     $this->assertSession()->elementExists('xpath', '//a[@aria-current="page"][contains(@href, "days=30")]');
     $this->assertSession()->pageTextContains('Preparation due on day twenty');
     $this->assertSession()->pageTextContains('Active overdue preparation');
@@ -565,6 +596,11 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       '//div[contains(@class, "ps-preparation-row--prepared")][.//h3[normalize-space()="All-day preparation"]]',
     );
     $this->assertSame($countsBefore, $this->domainCounts(), 'Thirty-day GET must not write domain data.');
+    $this->clickLink('Clear filters');
+    $this->assertSession()->addressEquals($route);
+    $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 7 days.');
+    $this->assertSession()->linkNotExists('Clear filters');
+    $this->assertSame($countsBefore, $this->domainCounts());
 
     // A forged, array-valued or unsupported horizon fails back to seven days.
     foreach ([['days' => '7'], ['days' => 'invalid'], ['days' => '-7'], ['days' => '31'], ['days' => ['30']]] as $query) {
@@ -572,6 +608,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       $this->assertSession()->statusCodeEquals(200);
       $this->assertSession()->pageTextContains('Showing active overdue preparations and preparations due in the next 7 days.');
       $this->assertSession()->pageTextNotContains('Preparation due on day twenty');
+      $this->assertSession()->linkNotExists('Clear filters');
       $this->assertSame($countsBefore, $this->domainCounts(), 'Reading a malformed horizon must not mutate domain data.');
     }
     // Search only the authorized due-window projection, using a real GET form.
@@ -597,6 +634,8 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
     $visibleInstructions = array_map(static fn($row): string => trim($row->getText()), $rows);
     $this->assertSame(['Due now preparation'], $visibleInstructions, 'Search must filter the displayed preparation rows.');
     $this->assertSession()->linkExists('Clear search');
+    $this->assertSession()->linkExists('Clear filters');
+    $this->assertSame($route, $this->getSession()->getPage()->findLink('Clear filters')?->getAttribute('href'));
     $this->assertSession()->linkByHrefExists($route . '?days=7');
     $this->assertSession()->linkByHrefExists(Url::fromRoute(
       'personal_secretary.my_preparations',
@@ -653,6 +692,7 @@ final class CurrentUserPreparationTest extends BrowserTestBase {
       $this->assertSession()->linkByHrefExists($route . '?days=7');
       $this->assertSession()->linkByHrefExists($route . '?days=30');
       $this->assertSession()->linkNotExists('Clear search');
+      $this->assertSession()->linkNotExists('Clear filters');
       $this->assertSession()->pageTextNotContains('No preparations match this search.');
     }
 
