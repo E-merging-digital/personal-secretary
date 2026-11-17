@@ -85,6 +85,7 @@ final class PersonalTaskListForm extends FormBase {
         '#options' => [
           'all' => $this->t('All open tasks'),
           'overdue' => $this->t('Overdue only'),
+          'today' => $this->t('Due today', [], ['context' => 'Personal task focus']),
           'tomorrow' => $this->t('Due tomorrow'),
           'next7' => $this->t('Due within 7 days'),
           'next30' => $this->t('Due within 30 days'),
@@ -205,6 +206,18 @@ final class PersonalTaskListForm extends FormBase {
       ));
     }
 
+    if ($urgencyFilter === 'today') {
+      // Compare local civil dates, including due times already past today.
+      $today = (new DateTimeImmutable('@' . $this->time->getCurrentTime()))
+        ->setTimezone(new DateTimeZone($this->taskMutations->currentUserTimezoneId()))
+        ->format('Y-m-d');
+      $items = array_values(array_filter(
+        $items,
+        static fn (array $item): bool => in_array($item['due_mode'], [PersonalTask::DUE_DATE, PersonalTask::DUE_DATE_TIME], TRUE)
+          && substr((string) $item['due_label'], 0, 10) === $today,
+      ));
+    }
+
     if ($urgencyFilter === 'tomorrow') {
       // Use the persisted user's local civil date, including DST transitions.
       // due_label is already normalized into that timezone by the query model.
@@ -258,6 +271,9 @@ final class PersonalTaskListForm extends FormBase {
             : $this->t('No open tasks.')));
       if ($urgencyFilter === 'undated' && $titleFilter === '') {
         $emptyMessage = $this->t('No open tasks without a due date.');
+      }
+      elseif ($urgencyFilter === 'today' && $titleFilter === '') {
+        $emptyMessage = $this->t('No tasks due today.');
       }
       elseif ($urgencyFilter === 'overdue' && $titleFilter === '') {
         $emptyMessage = $this->t('No overdue tasks.');
@@ -639,7 +655,7 @@ final class PersonalTaskListForm extends FormBase {
       ? $sort
       : 'smart';
     $urgency = $input['urgency'] ?? 'all';
-    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30', 'undated'], TRUE)
+    $urgency = $status === 'open' && in_array($urgency, ['overdue', 'today', 'tomorrow', 'next7', 'next30', 'undated'], TRUE)
       ? $urgency
       : 'all';
     return [$status, $title, $sort, $urgency];
@@ -667,7 +683,7 @@ final class PersonalTaskListForm extends FormBase {
     if ($sort === 'title') {
       $query['sort'] = 'title';
     }
-    if ($status === 'open' && in_array($urgency, ['overdue', 'tomorrow', 'next7', 'next30', 'undated'], TRUE)) {
+    if ($status === 'open' && in_array($urgency, ['overdue', 'today', 'tomorrow', 'next7', 'next30', 'undated'], TRUE)) {
       $query['urgency'] = $urgency;
     }
     return $query;

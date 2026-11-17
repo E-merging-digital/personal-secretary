@@ -1119,6 +1119,13 @@ final class PersonalTaskTest extends BrowserTestBase {
     $todayTask = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
       'Synthetic tomorrow excluded today', (int) $shared->id(), PersonalTask::DUE_DATE, $today,
     ));
+    $todayMidnight = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic today local midnight', (int) $shared->id(), PersonalTask::DUE_DATE_TIME, NULL, $today . ' 00:15',
+    ));
+    $this->assertSame($yesterday, substr((string) $todayMidnight->get('due_at')->value, 0, 10));
+    $todayEvening = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic today evening', (int) $shared->id(), PersonalTask::DUE_DATE_TIME, NULL, $today . ' 23:55',
+    ));
     $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
       'Synthetic tomorrow excluded overdue', (int) $shared->id(), PersonalTask::DUE_DATE, $yesterday,
     ));
@@ -1156,8 +1163,18 @@ final class PersonalTaskTest extends BrowserTestBase {
     $outside30 = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
       'Synthetic window day thirty', (int) $shared->id(), PersonalTask::DUE_DATE, $day30,
     ));
-    $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+    $pastTodayTime = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
       'Synthetic window past today time', (int) $shared->id(), PersonalTask::DUE_DATE_TIME, NULL, $today . ' 00:00',
+    ));
+    $completedToday = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic completed today', (int) $shared->id(), PersonalTask::DUE_DATE, $today,
+    ));
+    $this->assertTrue($this->asUser($user, fn (): bool => $mutations->completeTask((int) $completedToday->id())));
+    $this->asUser($otherUser, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic foreign today shared', (int) $shared->id(), PersonalTask::DUE_DATE, $today,
+    ));
+    $this->asUser($otherUser, fn (): PersonalTask => $mutations->createTask(
+      'Synthetic foreign today private', (int) $private->id(), PersonalTask::DUE_DATE_TIME, NULL, $today . ' 12:00',
     ));
     $day6Local = $this->asUser($user, fn (): PersonalTask => $mutations->createTask(
       'Synthetic window local midnight', (int) $shared->id(), PersonalTask::DUE_DATE_TIME, NULL, $day6 . ' 00:15',
@@ -1167,6 +1184,84 @@ final class PersonalTaskTest extends BrowserTestBase {
       'The local midnight deadline belongs to the previous UTC date.');
 
     $this->drupalLogin($user);
+
+    // Today is the viewer's civil date, not a UTC date or a future-only window.
+    $countsBeforeToday = (int) $this->container->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID)->getQuery()->accessCheck(FALSE)->count()->execute();
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $visibleToday = array_map(
+      static fn ($element): int => (int) $element->getAttribute('data-ps-task-id'),
+      $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'),
+    );
+    $this->assertCount(4, $visibleToday);
+    foreach ([$todayTask, $todayMidnight, $todayEvening, $pastTodayTime] as $included) {
+      $this->assertContains((int) $included->id(), $visibleToday);
+    }
+    foreach (['excluded overdue', 'excluded later', 'excluded undated', 'tomorrow date task', 'tomorrow local midnight', 'completed today', 'foreign today shared', 'foreign today private'] as $excluded) {
+      $this->assertSession()->pageTextNotContains('Synthetic ' . $excluded);
+    }
+    $this->assertSame($countsBeforeToday, (int) $this->container->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID)->getQuery()->accessCheck(FALSE)->count()->execute());
+
+    $this->submitForm([
+      'title' => 'Synthetic today',
+      'status' => 'open',
+      'sort' => 'title',
+      'urgency' => 'today',
+    ], 'Search tasks');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertCount(2, $this->getSession()->getPage()->findAll('css', '[data-ps-task-id]'));
+    $todayReturn = '/personal-secretary/tasks/mine?sort=title&urgency=today';
+    $this->assertSame($todayReturn, $this->getSession()->getPage()->findLink('Clear search')?->getAttribute('href'));
+    $this->clickLink('Clear search');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks', [], [
+      'query' => ['sort' => 'title', 'urgency' => 'today'],
+    ]));
+    $this->assertSession()->fieldValueEquals('title', '');
+    $this->assertSession()->fieldValueEquals('sort', 'title');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/tasks/' . $todayMidnight->id() . '?sort=title&urgency=today');
+    $this->clickLink('Synthetic today local midnight');
+    $this->assertSession()->linkByHrefExists($todayReturn);
+    $this->clickLink('Edit task');
+    $this->assertSession()->linkByHrefExists($todayReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->clickLink('Add task');
+    $this->assertSession()->linkByHrefExists($todayReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->clickLink('Synthetic today local midnight');
+    $this->clickLink('Delete task');
+    $this->assertSession()->linkByHrefExists($todayReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->clickLink('Synthetic today local midnight');
+    $this->clickLink('Mark complete');
+    $this->assertSession()->linkByHrefExists($todayReturn);
+    $this->clickLink('Cancel');
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'today', 'q' => 'unmatched']]);
+    $this->assertSession()->pageTextContains('No tasks match this search.');
+    foreach (['completed', 'all'] as $nonOpen) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['status' => $nonOpen, 'urgency' => 'today']]);
+      $this->assertSession()->elementNotExists('css', 'select[name="urgency"]');
+      $this->assertSession()->pageTextContains('Synthetic completed today');
+    }
+    foreach ([['urgency' => ['today']], ['urgency' => 'not-valid']] as $invalid) {
+      $this->drupalGet('/personal-secretary/tasks/mine', ['query' => $invalid]);
+      $this->assertSession()->fieldValueEquals('urgency', 'all');
+      $this->assertSession()->pageTextContains('Synthetic tomorrow excluded undated');
+    }
+    $this->drupalGet('/personal-secretary/tasks/mine', ['query' => ['urgency' => 'today']]);
+    $this->clickLink('Clear filters');
+    $this->assertSession()->addressEquals(Url::fromRoute('personal_secretary.my_tasks'));
+    $this->assertSession()->fieldValueEquals('urgency', 'all');
+    $this->assertSame($countsBeforeToday, (int) $this->container->get('entity_type.manager')
+      ->getStorage(PersonalTask::ENTITY_TYPE_ID)->getQuery()->accessCheck(FALSE)->count()->execute());
 
     // Reuse the same authorized tomorrow fixtures to prove the exact local
     // seven- and thirty-day bounds and existing navigation.
@@ -1458,6 +1553,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Affichage des tâches');
     $this->assertSession()->pageTextContains('En retard uniquement');
     $this->assertSession()->pageTextContains('Échéance demain');
+    $this->assertSession()->pageTextContains('Échéance aujourd’hui');
     $this->assertSession()->pageTextContains('Échéance dans les 7 prochains jours');
     $this->assertSession()->pageTextContains('Échéance dans les 30 prochains jours');
     $this->assertSession()->pageTextContains('Sans échéance');
@@ -1496,6 +1592,7 @@ final class PersonalTaskTest extends BrowserTestBase {
     $this->assertSession()->pageTextContains('Task focus');
     $this->assertSession()->pageTextContains('Overdue only');
     $this->assertSession()->pageTextContains('Due tomorrow');
+    $this->assertSession()->pageTextContains('Due today');
     $this->assertSession()->pageTextContains('Due within 7 days');
     $this->assertSession()->pageTextContains('Due within 30 days');
     $this->assertSession()->pageTextContains('No due date');
@@ -1517,6 +1614,12 @@ final class PersonalTaskTest extends BrowserTestBase {
       $this->assertSession()->fieldValueEquals('urgency', $focus);
       $this->assertSession()->pageTextContains($message);
     }
+    $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->assertSession()->pageTextContains('Aucune tâche à échéance aujourd’hui.');
+    $this->drupalGet('/en/personal-secretary/tasks/mine', ['query' => ['urgency' => 'today']]);
+    $this->assertSession()->fieldValueEquals('urgency', 'today');
+    $this->assertSession()->pageTextContains('No tasks due today.');
     $this->drupalGet('/fr/personal-secretary/tasks/mine', ['query' => ['urgency' => 'undated']]);
     $this->assertSession()->fieldValueEquals('urgency', 'undated');
     $this->assertSession()->pageTextContains('Aucune tâche ouverte sans échéance.');

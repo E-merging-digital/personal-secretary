@@ -1552,3 +1552,10 @@ msgstr "Sans échéance"
 
 msgid "No open tasks without a due date."
 msgstr "Aucune tâche ouverte sans échéance."
+
+msgctxt "Personal task focus"
+msgid "Due today"
+msgstr "Échéance aujourd’hui"
+
+msgid "No tasks due today."
+msgstr "Aucune tâche à échéance aujourd’hui."
