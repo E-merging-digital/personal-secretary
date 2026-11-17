@@ -143,6 +143,12 @@ final class PreparationController extends ControllerBase {
         ],
       ],
       'search' => $this->searchForm($windowDays, $search, $urgency),
+      'clear_filters' => [
+        '#type' => 'link',
+        '#title' => $this->t('Clear filters'),
+        '#url' => Url::fromRoute('personal_secretary.my_preparations'),
+        '#access' => $windowDays === 30 || $search !== '' || $urgency !== 'all',
+      ],
       'add_activity' => [
         '#type' => 'container',
         '#access' => $search === '' && $urgency !== 'overdue',
@@ -361,14 +367,12 @@ final class PreparationController extends ControllerBase {
         '#attributes' => ['type' => 'submit'],
       ],
     ];
-    if ($search !== '' || $urgency !== 'all') {
+    if ($search !== '') {
       $form['clear'] = [
         '#type' => 'link',
-        '#title' => $urgency !== 'all'
-          ? $this->t('Clear filters')
-          : $this->t('Clear search'),
+        '#title' => $this->t('Clear search'),
         '#url' => Url::fromRoute('personal_secretary.my_preparations', [], [
-          'query' => ['days' => $days],
+          'query' => ['days' => $days] + ($urgency === 'all' ? [] : ['urgency' => $urgency]),
         ]),
       ];
     }
