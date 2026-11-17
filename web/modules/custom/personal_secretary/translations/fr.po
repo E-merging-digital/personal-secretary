@@ -1586,3 +1586,6 @@ msgstr "Voir mes préparatifs d’aujourd’hui"
 
 msgid "View today's personal activities"
 msgstr "Voir mes activités personnelles d’aujourd’hui"
+
+msgid "View tasks without a due date"
+msgstr "Voir les tâches sans échéance"
