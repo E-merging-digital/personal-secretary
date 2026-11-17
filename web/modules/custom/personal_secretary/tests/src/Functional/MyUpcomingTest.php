@@ -691,8 +691,16 @@ final class MyUpcomingTest extends BrowserTestBase {
     // The local Today focus is an overlap against the existing authorized
     // horizon. An all-day occurrence that began at local midnight remains
     // visible even though its UTC start predates the current rolling window.
-    $todayStart = $nowLocal->setTime(0, 0);
+    $currentUtc = (new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime()))
+      ->setTimezone(new DateTimeZone('UTC'));
+    $currentLocal = $currentUtc->setTimezone($sourceTimezone);
+    $todayStart = $currentLocal->setTime(0, 0);
     $todayEnd = $todayStart->modify('+1 day');
+    $this->assertNotSame(
+      $todayStart->format('Y-m-d'),
+      $todayStart->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d'),
+      'Local midnight starts on the preceding UTC day.',
+    );
     $todaySeries = $domain->createActivitySeries(
       'Synthetic today all-day activity', (int) $household->id(),
       $todayStart, $todayEnd, 'FREQ=DAILY;COUNT=1', '', [],
@@ -704,8 +712,8 @@ final class MyUpcomingTest extends BrowserTestBase {
     );
     // A remaining timed occurrence is also retained when it still starts
     // within the same local day (skip only at the midnight edge).
-    $remainingTodayStart = $nowLocal->modify('+2 minutes');
-    $remainingToday = $remainingTodayStart->format('Y-m-d') === $nowLocal->format('Y-m-d');
+    $remainingTodayStart = $currentLocal->modify('+30 minutes');
+    $remainingToday = $remainingTodayStart->format('Y-m-d') === $currentLocal->format('Y-m-d');
     if ($remainingToday) {
       $this->createSeriesWithRule(
         'Synthetic remaining today activity',
@@ -751,7 +759,7 @@ final class MyUpcomingTest extends BrowserTestBase {
     $this->drupalGet($todaySearch);
 
     $todayOccurrence = $effectiveProjection->projectOverlapping(
-      $todaySeries, $nowUtc, $nowUtc->modify('+7 days'),
+      $todaySeries, $currentUtc, $currentUtc->modify('+7 days'),
     )[0];
     $todayQuery = ['days' => '30', 'q' => 'Synthetic today all-day', 'focus' => 'today'];
     $todayDetail = $this->detailUrl($todaySeries, $todayOccurrence->originalOccurrenceKey, $todayQuery);
