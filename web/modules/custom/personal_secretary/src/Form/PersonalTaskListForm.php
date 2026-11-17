@@ -102,6 +102,16 @@ final class PersonalTaskListForm extends FormBase {
         '#type' => 'link',
         '#title' => $this->t('Clear filters'),
         '#url' => Url::fromRoute('personal_secretary.my_tasks'),
+        '#access' => $statusFilter !== 'open' || $titleFilter !== ''
+          || $sortFilter !== 'smart' || $urgencyFilter !== 'all',
+      ],
+      'clear_search' => [
+        '#type' => 'link',
+        '#title' => $this->t('Clear search'),
+        '#url' => Url::fromRoute('personal_secretary.my_tasks', [], [
+          'query' => $this->filterQuery($statusFilter, '', $sortFilter, $urgencyFilter),
+        ]),
+        '#access' => $titleFilter !== '',
       ],
     ];
 
