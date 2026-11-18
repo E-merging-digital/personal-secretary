@@ -414,6 +414,16 @@ final class UpcomingController extends ControllerBase {
           : []),
         '#attributes' => ['class' => ['ps-action-link']],
       ];
+      $seriesActions['add_preparation'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Add a preparation'),
+        '#url' => Url::fromRoute('personal_secretary.add_activity_preparation', [
+          'series' => $scheduleTarget['series_id'],
+        ], $fromMine
+          ? ['query' => ['from' => 'mine'] + $this->upcomingQuery($days, $query, $focus)]
+          : []),
+        '#attributes' => ['class' => ['ps-action-link']],
+      ];
       $seriesActions['location'] = [
         '#type' => 'link',
         '#title' => $this->t('Change activity location'),
