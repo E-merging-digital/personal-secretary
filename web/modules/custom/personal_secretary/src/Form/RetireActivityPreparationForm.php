@@ -183,7 +183,7 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   private function currentSeries(): ActivitySeries {
-    $id = $this->preparationRouteMatch->getParameter('series');
+    $id = $this->preparationRouteMatch->getRawParameter('series');
     if (!is_string($id) || !ctype_digit($id) || (int) $id <= 0) {
       throw new NotFoundHttpException('This activity is unavailable.');
     }
@@ -197,7 +197,7 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   private function currentRequirement(): PreparationRequirement {
-    $id = $this->preparationRouteMatch->getParameter('preparation_requirement');
+    $id = $this->preparationRouteMatch->getRawParameter('preparation_requirement');
     if (!is_string($id) || !ctype_digit($id) || (int) $id <= 0) {
       throw new NotFoundHttpException('This preparation is unavailable.');
     }
