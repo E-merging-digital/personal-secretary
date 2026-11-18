@@ -304,7 +304,7 @@ final class UpcomingViewTest extends BrowserTestBase {
           (string) ($routeDetails['preparation_requirement'] ?? 'NONE'),
         );
       }
-      catch (\\Throwable $e) {
+      catch (\Throwable $e) {
         $routeInfo = 'unmatched=' . get_class($e);
       }
       $current = $preparationStorage->load($existingId);
