@@ -1634,3 +1634,21 @@ msgstr "Le nom du foyer est inchangé."
 
 msgid "Household name updated."
 msgstr "Le nom du foyer a été modifié."
+
+msgid "Add a preparation"
+msgstr "Ajouter un préparatif"
+
+msgid "Add preparation"
+msgstr "Ajouter le préparatif"
+
+msgid "Enter a preparation instruction of 1 to 255 characters."
+msgstr "Saisissez une instruction de préparatif de 1 à 255 caractères."
+
+msgid "Enter a whole number of minutes between 0 and 35791394."
+msgstr "Saisissez un nombre entier de minutes entre 0 et 35791394."
+
+msgid "This preparation could not be added safely. Reload before trying again."
+msgstr "Ce préparatif n’a pas pu être ajouté en toute sécurité. Rechargez la page avant de réessayer."
+
+msgid "Preparation added to this activity."
+msgstr "Préparatif ajouté à cette activité."

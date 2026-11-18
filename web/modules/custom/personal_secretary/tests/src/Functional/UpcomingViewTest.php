@@ -145,6 +145,157 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->linkNotExists('Cancel occurrence');
   }
 
+
+  public function testAddPreparationToExistingActivityPreservesReferencesAndRejectsReplays(): void {
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    /** @var \Drupal\personal_secretary\Service\ResponsibilityMutationService $responsibilities */
+    $responsibilities = $this->container->get('personal_secretary.responsibility_mutation');
+    /** @var \Drupal\personal_secretary\Service\PreparationRequirementMutationService $preparations */
+    $preparations = $this->container->get('personal_secretary.preparation_requirement_mutation');
+    /** @var \Drupal\personal_secretary\Service\EffectiveOccurrenceProjectionService $projection */
+    $projection = $this->container->get('personal_secretary.effective_occurrence_projection');
+    /** @var \Drupal\personal_secretary\Service\PreparationEligibilityService $eligibility */
+    $eligibility = $this->container->get('personal_secretary.preparation_eligibility');
+    $entities = $this->container->get('entity_type.manager');
+    $seriesStorage = $entities->getStorage('personal_sec_activity_series');
+    $preparationStorage = $entities->getStorage('personal_sec_prep_req');
+
+    $now = new DateTimeImmutable('@' . $this->container->get('datetime.time')->getCurrentTime());
+    $oneStart = $now->modify('+2 days')->setTime(10, 0);
+    $weekStart = $now->modify('+3 days')->setTime(14, 0);
+    $person = $domain->createPerson('Synthetic new preparation member');
+    $household = $domain->createHousehold('Synthetic preparation household', [(int) $person->id()]);
+    $one = $domain->createActivitySeries('Synthetic one-off preparation', (int) $household->id(), $oneStart, $oneStart->modify('+1 hour'), 'FREQ=DAILY;COUNT=1');
+    $week = $domain->createActivitySeries('Synthetic weekly preparation', (int) $household->id(), $weekStart, $weekStart->modify('+1 hour'), 'FREQ=WEEKLY;INTERVAL=1');
+    $oneRule = $responsibilities->createResponsibilityRule($one, (int) $person->id(), $oneStart, $oneStart->modify('+1 hour'), 'FREQ=DAILY;COUNT=1');
+    $weekRule = $responsibilities->createResponsibilityRule($week, (int) $person->id(), $weekStart, $weekStart->modify('+1 hour'), 'FREQ=WEEKLY;INTERVAL=1');
+    $existing = $preparations->createPreparationRequirement($week, 'Existing synthetic kit', 600, $now->modify('-1 day'));
+    $existingId = (int) $existing->id();
+    $existingSnapshot = $existing->toArray();
+    $oneId = (int) $one->id();
+    $weekId = (int) $week->id();
+    $before = [
+      $oneId => [$one->uuid(), (string) $one->getRevisionId(), $one->get('recurrence')->getValue(), (int) $one->get('household')->target_id],
+      $weekId => [$week->uuid(), (string) $week->getRevisionId(), $week->get('recurrence')->getValue(), (int) $week->get('household')->target_id],
+    ];
+    $originalKeys = [
+      $oneId => $projection->project($one, $now, $now->modify('+14 days'))[0]->originalOccurrenceKey,
+      $weekId => $projection->project($week, $now, $now->modify('+14 days'))[0]->originalOccurrenceKey,
+    ];
+    $oneUrl = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $oneId])->toString();
+    $weekUrl = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId])->toString();
+
+    $ordinary = $this->drupalCreateUser(['use personal secretary']);
+    $this->drupalLogin($ordinary);
+    $this->drupalGet($oneUrl);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet('/personal-secretary/upcoming/mine');
+    $this->assertSession()->linkNotExists('Add a preparation');
+
+    $admin = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->drupalLogin($admin);
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->linkByHrefExists($oneUrl);
+    $this->assertSession()->linkByHrefExists($weekUrl);
+    $this->drupalGet('/personal-secretary/activities/999999/preparations/add');
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($oneUrl);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Synthetic one-off preparation');
+    $this->assertSession()->fieldExists('preparation_instruction');
+    $this->assertSession()->fieldExists('preparation_lead_minutes');
+    $this->assertSession()->buttonExists('Add preparation');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertCount(1, $preparationStorage->loadMultiple());
+
+    $this->drupalGet($oneUrl);
+    $this->submitForm(['preparation_instruction' => '', 'preparation_lead_minutes' => '0'], 'Add preparation');
+    $this->assertCount(1, $preparationStorage->loadMultiple());
+    $this->drupalGet($oneUrl);
+    $this->submitForm(['preparation_instruction' => str_repeat('x', 256), 'preparation_lead_minutes' => '0'], 'Add preparation');
+    $this->assertCount(1, $preparationStorage->loadMultiple());
+    foreach (['-1', '35791395', '1.5'] as $invalidLead) {
+      $this->drupalGet($oneUrl);
+      $this->submitForm(['preparation_instruction' => 'Must not be added', 'preparation_lead_minutes' => $invalidLead], 'Add preparation');
+      $this->assertCount(1, $preparationStorage->loadMultiple());
+    }
+
+    $this->drupalGet($oneUrl);
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue(str_repeat('f', 32));
+    $this->submitForm(['preparation_instruction' => 'Forged preparation', 'preparation_lead_minutes' => '5'], 'Add preparation');
+    $this->assertCount(1, $preparationStorage->loadMultiple());
+
+    $this->drupalGet($oneUrl);
+    $oneToken = (string) $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->getValue();
+    $this->submitForm(['preparation_instruction' => '  Synthetic appointment notes  ', 'preparation_lead_minutes' => '30'], 'Add preparation');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSession()->pageTextContains('Preparation added to this activity.');
+    $this->assertCount(2, $preparationStorage->loadMultiple());
+    $newOne = array_values(array_filter($preparationStorage->loadMultiple(), static fn($r): bool => (int) $r->get('series')->target_id === $oneId));
+    $this->assertCount(1, $newOne);
+    $this->assertSame('Synthetic appointment notes', (string) $newOne[0]->get('label')->value);
+    $this->assertSame(1800, (int) $newOne[0]->get('lead_time_seconds')->value);
+    $this->assertTrue($newOne[0]->get('effective_until')->isEmpty());
+    $oneEffectiveFrom = new DateTimeImmutable((string) $newOne[0]->get('effective_from')->value, new DateTimeZone('UTC'));
+    $this->assertGreaterThanOrEqual($now->getTimestamp(), $oneEffectiveFrom->getTimestamp());
+    $this->assertLessThanOrEqual($this->container->get('datetime.time')->getCurrentTime(), $oneEffectiveFrom->getTimestamp());
+    $oneEligible = $eligibility->derive($one, $projection->project($one, $now, $now->modify('+14 days'))[0]);
+    $this->assertCount(1, $oneEligible);
+    $this->assertSame((int) $newOne[0]->id(), $oneEligible[0]->requirementId);
+    $this->assertSame($originalKeys[$oneId], $oneEligible[0]->originalOccurrenceKey);
+
+    // Existing requirement is additive: the new weekly one cannot retire it.
+    $boundedRoute = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId], [
+      'query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow'],
+    ]);
+    $returnUrl = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']])->toString();
+    $this->drupalGet($boundedRoute);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->linkByHrefExists($returnUrl);
+    $this->submitForm(['preparation_instruction' => 'Synthetic weekly documents', 'preparation_lead_minutes' => '0'], 'Add preparation');
+    $this->assertSession()->addressEquals($returnUrl);
+    $this->assertCount(3, $preparationStorage->loadMultiple());
+    $preparationStorage->resetCache([$existingId]);
+    $this->assertEquals($existingSnapshot, $preparationStorage->load($existingId)->toArray());
+    $weeklyEligible = $eligibility->derive($week, $projection->project($week, $now, $now->modify('+14 days'))[0]);
+    $this->assertCount(2, $weeklyEligible);
+    $this->assertSame($existingId, $weeklyEligible[0]->requirementId);
+    $this->assertSame($originalKeys[$weekId], $weeklyEligible[1]->originalOccurrenceKey);
+    $this->assertSame(0, $weeklyEligible[1]->leadTimeSeconds);
+
+    // An already-consumed server-held token must never add another requirement.
+    $this->drupalGet($oneUrl);
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue($oneToken);
+    $this->submitForm(['preparation_instruction' => 'Replayed preparation', 'preparation_lead_minutes' => '1'], 'Add preparation');
+    $this->assertCount(3, $preparationStorage->loadMultiple());
+
+    // A series title edit after GET invalidates the trusted snapshot.
+    $this->drupalGet($oneUrl);
+    $seriesStorage->resetCache([$oneId]);
+    $concurrent = $seriesStorage->load($oneId);
+    $concurrent->setNewRevision(FALSE);
+    $concurrent->set('name', 'Concurrent synthetic activity name');
+    $concurrent->save();
+    $this->submitForm(['preparation_instruction' => 'Stale preparation', 'preparation_lead_minutes' => '1'], 'Add preparation');
+    $this->assertCount(3, $preparationStorage->loadMultiple());
+
+    foreach ([$oneId, $weekId] as $id) {
+      $seriesStorage->resetCache([$id]);
+      $current = $seriesStorage->load($id);
+      $this->assertSame($id, (int) $current->id());
+      $this->assertSame($before[$id][0], $current->uuid());
+      $this->assertSame($before[$id][1], (string) $current->getRevisionId());
+      $this->assertSame($before[$id][2], $current->get('recurrence')->getValue());
+      $this->assertSame($before[$id][3], (int) $current->get('household')->target_id);
+      $this->assertSame($originalKeys[$id], $projection->project($current, $now, $now->modify('+14 days'))[0]->originalOccurrenceKey);
+    }
+    $this->assertSame((string) $oneId, (string) $oneRule->get('series')->target_id);
+    $this->assertSame((string) $weekId, (string) $weekRule->get('series')->target_id);
+    $this->assertCount(2, $entities->getStorage('personal_sec_resp_rule')->loadMultiple());
+  }
+
   public function testFirstActivitySetupFlow(): void {
     $this->drupalGet('/personal-secretary/setup');
     $this->assertSession()->statusCodeEquals(403);
