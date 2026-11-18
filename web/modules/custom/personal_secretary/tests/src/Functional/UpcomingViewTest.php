@@ -246,27 +246,13 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSame((int) $newOne[0]->id(), $oneEligible[0]->requirementId);
     $this->assertSame($originalKeys[$oneId], $oneEligible[0]->originalOccurrenceKey);
 
-    // An already-consumed server-held token must never add another requirement.
-    $this->drupalGet($oneUrl);
-    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue($oneToken);
-    $this->submitForm(['preparation_instruction' => 'Replayed preparation', 'preparation_lead_minutes' => '1'], 'Add preparation');
-    $this->assertCount(2, $preparationStorage->loadMultiple());
-
-    // A series title edit after GET invalidates the trusted snapshot.
-    $this->drupalGet($oneUrl);
-    $seriesStorage->resetCache([$oneId]);
-    $concurrent = $seriesStorage->load($oneId);
-    $concurrent->setNewRevision(FALSE);
-    $concurrent->set('name', 'Concurrent synthetic activity name');
-    $concurrent->save();
-    $this->submitForm(['preparation_instruction' => 'Stale preparation', 'preparation_lead_minutes' => '1'], 'Add preparation');
-    $this->assertCount(2, $preparationStorage->loadMultiple());
-
     // Existing requirement is additive: the new weekly one cannot retire it.
     $boundedUrl = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId], [
       'query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow'],
     ])->toString();
     $returnUrl = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']])->toString();
+    $this->drupalGet($weekUrl);
+    $this->assertSession()->statusCodeEquals(200);
     $this->drupalGet($boundedUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($returnUrl);
@@ -280,6 +266,22 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSame($existingId, $weeklyEligible[0]->requirementId);
     $this->assertSame($originalKeys[$weekId], $weeklyEligible[1]->originalOccurrenceKey);
     $this->assertSame(0, $weeklyEligible[1]->leadTimeSeconds);
+
+    // An already-consumed server-held token must never add another requirement.
+    $this->drupalGet($oneUrl);
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue($oneToken);
+    $this->submitForm(['preparation_instruction' => 'Replayed preparation', 'preparation_lead_minutes' => '1'], 'Add preparation');
+    $this->assertCount(3, $preparationStorage->loadMultiple());
+
+    // A series title edit after GET invalidates the trusted snapshot.
+    $this->drupalGet($oneUrl);
+    $seriesStorage->resetCache([$oneId]);
+    $concurrent = $seriesStorage->load($oneId);
+    $concurrent->setNewRevision(FALSE);
+    $concurrent->set('name', 'Concurrent synthetic activity name');
+    $concurrent->save();
+    $this->submitForm(['preparation_instruction' => 'Stale preparation', 'preparation_lead_minutes' => '1'], 'Add preparation');
+    $this->assertCount(3, $preparationStorage->loadMultiple());
 
     foreach ([$oneId, $weekId] as $id) {
       $seriesStorage->resetCache([$id]);
