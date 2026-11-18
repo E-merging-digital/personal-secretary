@@ -9,6 +9,9 @@ msgstr ""
 msgid "Active"
 msgstr "Actif"
 
+msgid "Active preparations"
+msgstr "Préparatifs actifs"
+
 msgid "Activities"
 msgstr "Activités"
 
@@ -1652,3 +1655,6 @@ msgstr "Ce préparatif n’a pas pu être ajouté en toute sécurité. Rechargez
 
 msgid "Preparation added to this activity."
 msgstr "Préparatif ajouté à cette activité."
+
+msgid "No active preparations for this activity."
+msgstr "Aucun préparatif actif pour cette activité."

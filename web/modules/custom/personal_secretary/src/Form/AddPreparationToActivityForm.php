@@ -78,6 +78,19 @@ final class AddPreparationToActivityForm extends FormBase {
       '#title' => $this->t('Activity'),
       '#markup' => $this->t('@activity', ['@activity' => (string) $series->label()]),
     ];
+    // Show existing active requirements before accepting another instruction.
+    $activePreparations = $this->activePreparationInstructions($series);
+    $form['active_preparations'] = $activePreparations === []
+      ? [
+        '#type' => 'item',
+        '#title' => $this->t('Active preparations'),
+        '#markup' => $this->t('No active preparations for this activity.'),
+      ]
+      : [
+        '#theme' => 'item_list',
+        '#title' => $this->t('Active preparations'),
+        '#items' => $activePreparations,
+      ];
     $form['preparation_instruction'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Preparation instruction'),
@@ -154,6 +167,33 @@ final class AddPreparationToActivityForm extends FormBase {
     }
     $this->messenger()->addStatus($this->t('Preparation added to this activity.'));
     $form_state->setRedirect($this->returnRoute(), [], $this->returnOptions());
+  }
+
+  /**
+   * Returns only the currently effective instructions for this activity.
+   *
+   * @return string[]
+   *   Plain strings; Drupal's item_list template escapes their output.
+   */
+  private function activePreparationInstructions(ActivitySeries $series): array {
+    $storage = $this->entities->getStorage('personal_sec_prep_req');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('series', (int) $series->id())
+      ->execute();
+    $requirements = $storage->loadMultiple($ids);
+    ksort($requirements, SORT_NUMERIC);
+    $now = gmdate('Y-m-d\TH:i:s', $this->time->getCurrentTime());
+    $instructions = [];
+    foreach ($requirements as $requirement) {
+      $from = (string) $requirement->get('effective_from')->value;
+      $until = (string) ($requirement->get('effective_until')->value ?? '');
+      if ($from > $now || ($until !== '' && $until <= $now)) {
+        continue;
+      }
+      $instructions[] = (string) $requirement->get('label')->value;
+    }
+    return $instructions;
   }
 
   private function leadMinutes(FormStateInterface $form_state): ?int {
