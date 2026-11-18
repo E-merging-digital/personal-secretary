@@ -1610,3 +1610,27 @@ msgstr "Le nom de l’activité est inchangé."
 
 msgid "This activity name can no longer be updated safely."
 msgstr "Le nom de cette activité ne peut plus être modifié en toute sécurité."
+
+msgid "Rename household"
+msgstr "Renommer le foyer"
+
+msgid "No Household is available to rename."
+msgstr "Aucun foyer n’est disponible pour être renommé."
+
+msgid "Save household name"
+msgstr "Enregistrer le nom du foyer"
+
+msgid "Household name must contain between 1 and 255 characters."
+msgstr "Le nom du foyer doit contenir entre 1 et 255 caractères."
+
+msgid "The Household changed while this form was open. Reload before saving."
+msgstr "Le foyer a été modifié pendant l’ouverture du formulaire. Rechargez la page avant d’enregistrer."
+
+msgid "This Household name can no longer be updated safely."
+msgstr "Le nom de ce foyer ne peut plus être modifié en toute sécurité."
+
+msgid "Household name is unchanged."
+msgstr "Le nom du foyer est inchangé."
+
+msgid "Household name updated."
+msgstr "Le nom du foyer a été modifié."

@@ -63,7 +63,8 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
     $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ p');
-    $this->assertCount(3, $this->getSession()->getPage()->findAll('css', '.ps-action-group--household .ps-action-group__links > a.ps-action-link'));
+    $this->assertCount(4, $this->getSession()->getPage()->findAll('css', '.ps-action-group--household .ps-action-group__links > a.ps-action-link'));
+    $this->assertSession()->elementExists('css', '.ps-action-group--household .ps-action-group__links > a.ps-action-link[href="/personal-secretary/households/rename"]');
 
     $originalStartUtc = $now->modify('+2 days')->setTime(9, 0);
     $originalEndUtc = $originalStartUtc->modify('+1 hour');
@@ -132,7 +133,8 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists('/personal-secretary/activities/add');
     $this->assertCount(1, $this->getSession()->getPage()->findAll('css', 'a.ps-upcoming-actions__add'));
     $this->assertSession()->elementExists('css', '.ps-upcoming-actions ~ .ps-upcoming-list');
-    $this->assertCount(3, $this->getSession()->getPage()->findAll('css', '.ps-action-group--household .ps-action-group__links > a.ps-action-link'));
+    $this->assertCount(4, $this->getSession()->getPage()->findAll('css', '.ps-action-group--household .ps-action-group__links > a.ps-action-link'));
+    $this->assertSession()->elementExists('css', '.ps-action-group--household .ps-action-group__links > a.ps-action-link[href="/personal-secretary/households/rename"]');
     $this->assertSession()->pageTextContains('Parker Browser');
     $this->assertSession()->pageTextContains('Pack synthetic equipment');
     $this->assertSession()->pageTextContains($rescheduledLocalDisplay);

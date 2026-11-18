@@ -355,6 +355,179 @@ final class RenameHouseholdMemberTest extends BrowserTestBase {
     $this->assertCount(1, $personStorage->loadMultiple());
   }
 
+
+  public function testHouseholdRenamePreservesDomainIdentityAndRejectsStaleForm(): void {
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $entities = $this->container->get('entity_type.manager');
+    $households = $entities->getStorage('personal_secretary_household');
+    $people = $entities->getStorage('personal_secretary_person');
+    $seriesStorage = $entities->getStorage('personal_sec_activity_series');
+    $member = $domain->createPerson('Synthetic Household Member');
+    $other = $domain->createPerson('Synthetic Other Member');
+    $first = $domain->createHousehold('Original First Household', [(int) $member->id(), (int) $other->id()]);
+    $second = $domain->createHousehold('Original Second Household', [(int) $other->id()]);
+    $start = new DateTimeImmutable('2032-04-10 10:00:00', new DateTimeZone('Europe/Brussels'));
+    $series = $domain->createActivitySeries('Household identity fixture', (int) $first->id(), $start, $start->modify('+1 hour'), 'FREQ=WEEKLY;INTERVAL=1');
+    $seriesId = (int) $series->id();
+    $seriesUuid = $series->uuid();
+    $seriesRevision = (string) $series->getRevisionId();
+    $seriesRecurrence = $series->get('recurrence')->getValue();
+    $membersBefore = $this->householdState($households);
+    $firstId = (int) $first->id();
+    $secondId = (int) $second->id();
+    $firstUuid = $first->uuid();
+    $secondUuid = $second->uuid();
+    $firstPersonState = $people->load($member->id())->toArray();
+    $otherPersonState = $people->load($other->id())->toArray();
+    $url = Url::fromRoute('personal_secretary.rename_household')->toString();
+
+    $ordinary = $this->drupalCreateUser(['use personal secretary']);
+    $this->drupalLogin($ordinary);
+    $this->drupalGet($url);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->linkNotExists('Rename household');
+
+    $admin = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->drupalLogin($admin);
+    $this->drupalGet('/personal-secretary/upcoming');
+    $this->assertSession()->linkExists('Rename household');
+    $this->assertSession()->linkByHrefExists($url);
+    $this->drupalGet($url);
+    $this->assertSession()->statusCodeEquals(200);
+    $select = $this->assertSession()->fieldExists('household_id');
+    $this->assertCount(1, $select->findAll('css', 'option[value="' . $firstId . '"]'));
+    $this->assertCount(1, $select->findAll('css', 'option[value="' . $secondId . '"]'));
+    $name = $this->assertSession()->fieldExists('new_name');
+    $this->assertSame('255', $name->getAttribute('maxlength'));
+    $this->assertTrue($name->hasAttribute('required'));
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+
+    $this->drupalGet($url);
+    $this->submitForm(['household_id' => (string) $firstId, 'new_name' => ''], 'Save household name');
+    $households->resetCache([$firstId]);
+    $this->assertSame('Original First Household', $households->load($firstId)->label());
+    try {
+      $domain->renameHousehold($firstId, str_repeat('x', 256), [
+        'id' => $firstId,
+        'uuid' => $firstUuid,
+        'name' => 'Original First Household',
+        'members' => $membersBefore[$firstId],
+      ]);
+      $this->fail('Oversize Household names must fail closed.');
+    }
+    catch (InvalidArgumentException) {
+      // The persistence mutation validates length independently of Form API.
+    }
+    try {
+      $domain->renameHousehold(999999, 'Forged', [
+        'id' => 999999,
+        'uuid' => 'forged',
+        'name' => 'Forged',
+        'members' => [],
+      ]);
+      $this->fail('Unpersisted Household identities must fail closed.');
+    }
+    catch (InvalidArgumentException) {
+      // Expected.
+    }
+
+    $this->drupalGet($url);
+    $this->submitForm([
+      'household_id' => (string) $secondId,
+      'new_name' => '  Corrected Second Household  ',
+    ], 'Save household name');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $households->resetCache([$firstId, $secondId]);
+    $this->assertSame('Original First Household', $households->load($firstId)->label());
+    $this->assertSame('Corrected Second Household', $households->load($secondId)->label());
+    $this->assertSame($secondUuid, $households->load($secondId)->uuid());
+
+    $this->drupalGet($url);
+    $this->submitForm([
+      'household_id' => (string) $firstId,
+      'new_name' => '  Corrected First Household  ',
+    ], 'Save household name');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $households->resetCache([$firstId, $secondId]);
+    $this->assertSame('Corrected First Household', $households->load($firstId)->label());
+    $this->assertSame($firstUuid, $households->load($firstId)->uuid());
+    $this->assertSame($membersBefore, $this->householdState($households));
+    $this->assertEquals($firstPersonState, $people->load($member->id())->toArray());
+    $this->assertEquals($otherPersonState, $people->load($other->id())->toArray());
+    $seriesStorage->resetCache([$seriesId]);
+    $persistedSeries = $seriesStorage->load($seriesId);
+    $this->assertSame($seriesId, (int) $persistedSeries->id());
+    $this->assertSame($seriesUuid, $persistedSeries->uuid());
+    $this->assertSame((string) $firstId, (string) $persistedSeries->get('household')->target_id);
+    $this->assertSame($seriesRevision, (string) $persistedSeries->getRevisionId());
+    $this->assertSame($seriesRecurrence, $persistedSeries->get('recurrence')->getValue());
+
+    $this->drupalGet($url);
+    $households->resetCache([$firstId]);
+    $concurrent = $households->load($firstId);
+    $concurrent->set('name', 'Concurrent Household Name');
+    $concurrent->save();
+    $this->submitForm([
+      'household_id' => (string) $firstId,
+      'new_name' => 'Should Not Override Concurrent Rename',
+    ], 'Save household name');
+    $households->resetCache([$firstId]);
+    $this->assertSame('Concurrent Household Name', $households->load($firstId)->label());
+
+    $this->drupalGet($url);
+    $households->resetCache([$firstId]);
+    $concurrent = $households->load($firstId);
+    $concurrent->get('members')->appendItem(['target_id' => (int) $member->id()]);
+    $concurrent->save();
+    $this->submitForm([
+      'household_id' => (string) $firstId,
+      'new_name' => 'Should Not Override Changed Members',
+    ], 'Save household name');
+    $households->resetCache([$firstId]);
+    $this->assertSame('Concurrent Household Name', $households->load($firstId)->label());
+
+    $this->drupalGet($url);
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue(str_repeat('f', 32));
+    $this->submitForm([
+      'household_id' => (string) $secondId,
+      'new_name' => 'Should Not Accept Forged Snapshot',
+    ], 'Save household name');
+    $households->resetCache([$secondId]);
+    $this->assertSame('Corrected Second Household', $households->load($secondId)->label());
+  }
+
+  public function testHouseholdRenameSingleAndEmptyStates(): void {
+    /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
+    $domain = $this->container->get('personal_secretary.domain_mutation');
+    $admin = $this->drupalCreateUser(['administer personal secretary domain']);
+    $this->drupalLogin($admin);
+    $url = Url::fromRoute('personal_secretary.rename_household')->toString();
+    $this->drupalGet($url);
+    $this->assertSession()->pageTextContains('No Household is available to rename.');
+    $this->assertSession()->linkByHrefExists('/personal-secretary/setup');
+    $this->assertSession()->buttonNotExists('Save household name');
+
+    $person = $domain->createPerson('Sole synthetic Person');
+    $household = $domain->createHousehold('Sole synthetic Household', [(int) $person->id()]);
+    $id = (int) $household->id();
+    $uuid = $household->uuid();
+    $this->drupalGet($url);
+    $this->assertSession()->pageTextContains('Sole synthetic Household');
+    $this->assertSession()->fieldNotExists('household_id');
+    $this->submitForm(['new_name' => 'Renamed Sole Household'], 'Save household name');
+    $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $storage = $this->container->get('entity_type.manager')->getStorage('personal_secretary_household');
+    $storage->resetCache([$id]);
+    $current = $storage->load($id);
+    $this->assertSame($id, (int) $current->id());
+    $this->assertSame($uuid, $current->uuid());
+    $this->assertSame('Renamed Sole Household', $current->label());
+    $this->assertCount(1, $current->get('members')->getValue());
+  }
+
   private function assertPersonUnchanged(
     object $storage,
     int $personId,

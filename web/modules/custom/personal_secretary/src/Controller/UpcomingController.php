@@ -772,6 +772,12 @@ final class UpcomingController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['ps-action-group__links']],
         'add_member' => $this->addHouseholdMemberLink(),
+        'rename_household' => [
+          '#type' => 'link',
+          '#title' => $this->t('Rename household'),
+          '#url' => Url::fromRoute('personal_secretary.rename_household'),
+          '#attributes' => ['class' => ['ps-action-link']],
+        ],
         'rename_member' => $this->renameHouseholdMemberLink(),
         'link_current_user' => $this->linkCurrentUserToPersonLink(),
       ],
