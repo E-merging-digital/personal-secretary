@@ -194,7 +194,7 @@ final class AddPreparationToActivityForm extends FormBase {
       $instruction = (string) $requirement->get('label')->value;
       $item = [
         '#type' => 'container',
-        'instruction' => ['#plain_text' => $instruction],
+        'instruction' => ['#markup' => $this->t('@instruction', ['@instruction' => $instruction])],
       ];
       // The accepted lifecycle service can retire only unbounded requirements.
       if ($until === '') {
