@@ -203,6 +203,8 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($oneUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Synthetic one-off preparation');
+    $this->assertSession()->pageTextContains('No active preparations for this activity.');
+    $this->assertSession()->pageTextNotContains('Existing synthetic kit');
     $this->assertSession()->fieldExists('preparation_instruction');
     $this->assertSession()->fieldExists('preparation_lead_minutes');
     $this->assertSession()->buttonExists('Add preparation');
@@ -254,6 +256,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($boundedRoute);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($returnUrl);
+    $this->assertSession()->pageTextContains('Active preparations');
+    $this->assertSession()->pageTextContains('Existing synthetic kit');
+    $this->assertSession()->pageTextNotContains('Synthetic appointment notes');
     $this->submitForm(['preparation_instruction' => 'Synthetic weekly documents', 'preparation_lead_minutes' => '0'], 'Add preparation');
     $this->assertSession()->addressEquals($returnUrl);
     $this->assertCount(3, $preparationStorage->loadMultiple());
@@ -264,6 +269,10 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSame($existingId, $weeklyEligible[0]->requirementId);
     $this->assertSame($originalKeys[$weekId], $weeklyEligible[1]->originalOccurrenceKey);
     $this->assertSame(0, $weeklyEligible[1]->leadTimeSeconds);
+    // Readback shows both active requirements without changing their identities.
+    $this->drupalGet($boundedRoute);
+    $this->assertSession()->pageTextContains('Existing synthetic kit');
+    $this->assertSession()->pageTextContains('Synthetic weekly documents');
 
     // An already-consumed server-held token must never add another requirement.
     $this->drupalGet($oneUrl);
