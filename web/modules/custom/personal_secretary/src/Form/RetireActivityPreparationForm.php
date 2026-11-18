@@ -32,7 +32,7 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   public function __construct(
     private readonly PreparationRequirementMutationService $mutations,
     private readonly EntityTypeManagerInterface $entities,
-    private readonly RouteMatchInterface $routeMatch,
+    private readonly RouteMatchInterface $preparationRouteMatch,
     private readonly RequestStack $requests,
     private readonly PrivateTempStoreFactory $snapshots,
     private readonly TimeInterface $time,
@@ -183,7 +183,7 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   private function currentSeries(): ActivitySeries {
-    $id = $this->routeMatch->getParameter('series');
+    $id = $this->preparationRouteMatch->getParameter('series');
     if (!is_string($id) || !ctype_digit($id) || (int) $id <= 0) {
       throw new NotFoundHttpException('This activity is unavailable.');
     }
@@ -197,7 +197,7 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   private function currentRequirement(): PreparationRequirement {
-    $id = $this->routeMatch->getParameter('preparation_requirement');
+    $id = $this->preparationRouteMatch->getParameter('preparation_requirement');
     if (!is_string($id) || !ctype_digit($id) || (int) $id <= 0) {
       throw new NotFoundHttpException('This preparation is unavailable.');
     }
