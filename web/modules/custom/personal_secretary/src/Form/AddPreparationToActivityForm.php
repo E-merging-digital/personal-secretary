@@ -183,7 +183,7 @@ final class AddPreparationToActivityForm extends FormBase {
       ->execute();
     $requirements = $storage->loadMultiple($ids);
     ksort($requirements, SORT_NUMERIC);
-    $now = gmdate('Y-m-d\\TH:i:s', $this->time->getCurrentTime());
+    $now = gmdate('Y-m-d\TH:i:s', $this->time->getCurrentTime());
     $instructions = [];
     foreach ($requirements as $requirement) {
       $from = (string) $requirement->get('effective_from')->value;
