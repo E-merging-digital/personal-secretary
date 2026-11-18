@@ -291,6 +291,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
     $this->drupalGet('/personal-secretary/activities/' . $weekId . '/preparations/999999/retire');
     $this->assertSession()->statusCodeEquals(404);
+    $trace = $this->container->get('state');
+    $trace->set('personal_secretary.synthetic_retire_535_trace_enabled', TRUE);
+    $trace->set('personal_secretary.synthetic_retire_535_trace_stage', 'not_entered');
     $this->drupalGet($retireFiltered);
     if ($this->getSession()->getStatusCode() === 404) {
       // Targeted synthetic-only diagnostic for the initial confirmation GET.
@@ -307,8 +310,11 @@ final class UpcomingViewTest extends BrowserTestBase {
       catch (\Throwable $e) {
         $routeInfo = 'unmatched=' . get_class($e);
       }
+      $trace->resetCache();
+      $stage = (string) $trace->get('personal_secretary.synthetic_retire_535_trace_stage', 'missing');
       $current = $preparationStorage->load($existingId);
-      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
+      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC stage=%s %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
+        $stage,
         $routeInfo,
         $weekId,
         $existingId,
