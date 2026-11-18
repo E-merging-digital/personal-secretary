@@ -249,7 +249,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     // Existing requirement is additive: the new weekly one cannot retire it.
     $boundedRoute = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId], [
       'query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow'],
-    ])->toString();
+    ]);
     $returnUrl = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']])->toString();
     $this->drupalGet($boundedRoute);
     $this->assertSession()->statusCodeEquals(200);
