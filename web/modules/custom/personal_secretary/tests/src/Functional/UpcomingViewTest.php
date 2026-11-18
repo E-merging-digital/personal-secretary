@@ -185,10 +185,16 @@ final class UpcomingViewTest extends BrowserTestBase {
     ];
     $oneUrl = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $oneId])->toString();
     $weekUrl = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId])->toString();
+    $retireUrl = Url::fromRoute('personal_secretary.retire_activity_preparation', [
+      'series' => $weekId,
+      'preparation_requirement' => $existingId,
+    ])->toString();
 
     $ordinary = $this->drupalCreateUser(['use personal secretary']);
     $this->drupalLogin($ordinary);
     $this->drupalGet($oneUrl);
+    $this->assertSession()->statusCodeEquals(403);
+    $this->drupalGet($retireUrl);
     $this->assertSession()->statusCodeEquals(403);
     $this->drupalGet('/personal-secretary/upcoming/mine');
     $this->assertSession()->linkNotExists('Add a preparation');
@@ -256,6 +262,11 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($boundedRoute);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($returnUrl);
+    $retireFiltered = Url::fromRoute('personal_secretary.retire_activity_preparation', [
+      'series' => $weekId,
+      'preparation_requirement' => $existingId,
+    ], ['query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']])->toString();
+    $this->assertSession()->linkByHrefExists($retireFiltered);
     $this->assertSession()->pageTextContains('Active preparations');
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     $this->assertSession()->pageTextNotContains('Synthetic appointment notes');
@@ -273,6 +284,61 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($boundedRoute);
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     $this->assertSession()->pageTextContains('Synthetic weekly documents');
+
+    // Retiring an existing requirement is explicit and affects future
+    // applicability only. Cancel and mismatched routes cannot mutate it.
+    $this->drupalGet('/personal-secretary/activities/' . $oneId . '/preparations/' . $existingId . '/retire');
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet('/personal-secretary/activities/' . $weekId . '/preparations/999999/retire');
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($retireFiltered);
+    $this->assertSession()->statusCodeEquals(200);
+    $this->assertSession()->pageTextContains('Existing synthetic kit');
+    $this->assertSession()->buttonExists('Retire preparation');
+    $this->clickLink('Cancel');
+    $this->assertSession()->addressEquals($boundedRoute->toString());
+    $preparationStorage->resetCache([$existingId]);
+    $this->assertTrue($preparationStorage->load($existingId)->get('effective_until')->isEmpty());
+    $this->drupalGet($retireFiltered);
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue(str_repeat('f', 32));
+    $this->submitForm([], 'Retire preparation');
+    $preparationStorage->resetCache([$existingId]);
+    $this->assertTrue($preparationStorage->load($existingId)->get('effective_until')->isEmpty());
+
+    $this->drupalGet($retireFiltered);
+    $retirementToken = (string) $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->getValue();
+    $this->submitForm([], 'Retire preparation');
+    $this->assertSession()->addressEquals($boundedRoute->toString());
+    $this->assertSession()->pageTextContains('Preparation retired for future activity occurrences.');
+    $preparationStorage->resetCache([$existingId]);
+    $retired = $preparationStorage->load($existingId);
+    $this->assertSame($existingId, (int) $retired->id());
+    $this->assertSame('Existing synthetic kit', (string) $retired->get('label')->value);
+    $this->assertSame((string) $existingSnapshot['effective_from'][0]['value'], (string) $retired->get('effective_from')->value);
+    $this->assertNotSame((string) $existing->getRevisionId(), (string) $retired->getRevisionId());
+    $this->assertFalse($retired->get('effective_until')->isEmpty());
+    $this->assertCount(3, $preparationStorage->loadMultiple());
+    $this->assertSession()->pageTextNotContains('Existing synthetic kit');
+    $this->assertSession()->pageTextContains('Synthetic weekly documents');
+    $weeklyAfterRetirement = $eligibility->derive($week, $projection->project($week, $now, $now->modify('+14 days'))[0]);
+    $this->assertCount(1, $weeklyAfterRetirement);
+    $this->assertSame(0, $weeklyAfterRetirement[0]->leadTimeSeconds);
+    $this->assertSame($originalKeys[$weekId], $weeklyAfterRetirement[0]->originalOccurrenceKey);
+    $this->drupalGet($retireFiltered);
+    $this->assertSession()->statusCodeEquals(404);
+    $this->drupalGet($boundedRoute);
+    $this->assertSession()->linkByHrefNotExists($retireFiltered);
+    $this->assertSession()->pageTextNotContains('Existing synthetic kit');
+    // Reusing a consumed confirmation cannot retire the remaining requirement.
+    $this->drupalGet(Url::fromRoute('personal_secretary.retire_activity_preparation', [
+      'series' => $weekId,
+      'preparation_requirement' => (int) $weeklyEligible[1]->requirementId,
+    ]));
+    $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue($retirementToken);
+    $this->submitForm([], 'Retire preparation');
+    $this->assertCount(3, $preparationStorage->loadMultiple());
+    $weeklyStillActive = $eligibility->derive($week, $projection->project($week, $now, $now->modify('+14 days'))[0]);
+    $this->assertCount(1, $weeklyStillActive);
 
     // An already-consumed server-held token must never add another requirement.
     $this->drupalGet($oneUrl);
