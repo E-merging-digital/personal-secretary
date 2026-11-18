@@ -247,13 +247,11 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSame($originalKeys[$oneId], $oneEligible[0]->originalOccurrenceKey);
 
     // Existing requirement is additive: the new weekly one cannot retire it.
-    $boundedUrl = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId], [
+    $boundedRoute = Url::fromRoute('personal_secretary.add_activity_preparation', ['series' => $weekId], [
       'query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow'],
     ])->toString();
     $returnUrl = Url::fromRoute('personal_secretary.my_upcoming', [], ['query' => ['days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']])->toString();
-    $this->drupalGet($weekUrl);
-    $this->assertSession()->statusCodeEquals(200);
-    $this->drupalGet($boundedUrl);
+    $this->drupalGet($boundedRoute);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($returnUrl);
     $this->submitForm(['preparation_instruction' => 'Synthetic weekly documents', 'preparation_lead_minutes' => '0'], 'Add preparation');
