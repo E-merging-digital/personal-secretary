@@ -292,6 +292,31 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet('/personal-secretary/activities/' . $weekId . '/preparations/999999/retire');
     $this->assertSession()->statusCodeEquals(404);
     $this->drupalGet($retireFiltered);
+    if ($this->getSession()->getStatusCode() === 404) {
+      // Targeted synthetic-only diagnostic for the initial confirmation GET.
+      // Distinguish an unmatched route from a form-level NotFound response.
+      $routePath = (string) (parse_url($retireFiltered, PHP_URL_PATH) ?: '');
+      try {
+        $routeDetails = $this->container->get('router.no_access_checks')->match($routePath);
+        $routeInfo = sprintf('matched=%s series=%s requirement=%s',
+          (string) ($routeDetails['_route'] ?? 'NONE'),
+          (string) ($routeDetails['series'] ?? 'NONE'),
+          (string) ($routeDetails['preparation_requirement'] ?? 'NONE'),
+        );
+      }
+      catch (\\Throwable $e) {
+        $routeInfo = 'unmatched=' . get_class($e);
+      }
+      $current = $preparationStorage->load($existingId);
+      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
+        $routeInfo,
+        $weekId,
+        $existingId,
+        (int) $current->get('series')->target_id,
+        (string) $current->get('effective_from')->value,
+        $current->get('effective_until')->isEmpty() ? 'YES' : 'NO',
+      ));
+    }
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     $this->assertSession()->buttonExists('Retire preparation');
