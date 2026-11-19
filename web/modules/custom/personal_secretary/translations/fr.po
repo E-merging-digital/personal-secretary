@@ -1682,3 +1682,6 @@ msgstr "Ce préparatif n’a pas pu être retiré en toute sécurité. Rechargez
 
 msgid "Preparation retired for future activity occurrences."
 msgstr "Le préparatif a été retiré pour les prochaines occurrences de l’activité."
+
+msgid "Past preparations"
+msgstr "Anciens préparatifs"

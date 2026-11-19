@@ -78,8 +78,9 @@ final class AddPreparationToActivityForm extends FormBase {
       '#title' => $this->t('Activity'),
       '#markup' => $this->t('@activity', ['@activity' => (string) $series->label()]),
     ];
-    // Show existing active requirements before accepting another instruction.
-    $activePreparations = $this->activePreparationInstructions($series);
+    // Show active and historical requirements of this same activity.
+    $preparationLists = $this->preparationInstructions($series);
+    $activePreparations = $preparationLists['active'];
     $form['active_preparations'] = $activePreparations === []
       ? [
         '#type' => 'item',
@@ -91,6 +92,13 @@ final class AddPreparationToActivityForm extends FormBase {
         '#title' => $this->t('Active preparations'),
         '#items' => $activePreparations,
       ];
+    if ($preparationLists['past'] !== []) {
+      $form['past_preparations'] = [
+        '#theme' => 'item_list',
+        '#title' => $this->t('Past preparations'),
+        '#items' => $preparationLists['past'],
+      ];
+    }
     $form['preparation_instruction'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Preparation instruction'),
@@ -170,12 +178,12 @@ final class AddPreparationToActivityForm extends FormBase {
   }
 
   /**
-   * Returns currently effective instructions and bounded retirement links.
+   * Returns active and ended preparations for the current activity only.
    *
-   * @return array<int, array<string, mixed>>
-   *   Drupal render arrays, with safely escaped instruction text.
+   * @return array{active: array, past: array}
+   *   Drupal render items with escaped instruction labels.
    */
-  private function activePreparationInstructions(ActivitySeries $series): array {
+  private function preparationInstructions(ActivitySeries $series): array {
     $storage = $this->entities->getStorage('personal_sec_prep_req');
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
@@ -183,12 +191,13 @@ final class AddPreparationToActivityForm extends FormBase {
       ->execute();
     $requirements = $storage->loadMultiple($ids);
     ksort($requirements, SORT_NUMERIC);
-    $now = gmdate('Y-m-d\TH:i:s', $this->time->getCurrentTime());
-    $instructions = [];
+    $now = gmdate('Y-m-d\\TH:i:s', $this->time->getCurrentTime());
+    $active = [];
+    $past = [];
     foreach ($requirements as $requirement) {
       $from = (string) $requirement->get('effective_from')->value;
       $until = (string) ($requirement->get('effective_until')->value ?? '');
-      if ($from > $now || ($until !== '' && $until <= $now)) {
+      if ($from > $now) {
         continue;
       }
       $instruction = (string) $requirement->get('label')->value;
@@ -196,7 +205,11 @@ final class AddPreparationToActivityForm extends FormBase {
         '#type' => 'container',
         'instruction' => ['#markup' => $this->t('@instruction', ['@instruction' => $instruction])],
       ];
-      // The accepted lifecycle service can retire only unbounded requirements.
+      if ($until !== '' && $until <= $now) {
+        $past[] = $item;
+        continue;
+      }
+      // Only unbounded current requirements may be retired.
       if ($until === '') {
         $item['retire'] = [
           '#type' => 'link',
@@ -211,9 +224,9 @@ final class AddPreparationToActivityForm extends FormBase {
           ],
         ];
       }
-      $instructions[] = $item;
+      $active[] = $item;
     }
-    return $instructions;
+    return ['active' => $active, 'past' => $past];
   }
 
   private function leadMinutes(FormStateInterface $form_state): ?int {
