@@ -1658,3 +1658,27 @@ msgstr "Préparatif ajouté à cette activité."
 
 msgid "No active preparations for this activity."
 msgstr "Aucun préparatif actif pour cette activité."
+
+msgid "Retire"
+msgstr "Retirer"
+
+msgid "Retire preparation"
+msgstr "Retirer le préparatif"
+
+msgid "Retire preparation: @instruction?"
+msgstr "Retirer le préparatif « @instruction » ?"
+
+msgid "Retire preparation: @instruction"
+msgstr "Retirer le préparatif : @instruction"
+
+msgid "This stops the preparation for future activity occurrences. Its history is kept."
+msgstr "Ce préparatif ne s’appliquera plus aux prochaines occurrences de l’activité. Son historique est conservé."
+
+msgid "The preparation changed while this confirmation was open. Reload before trying again."
+msgstr "Le préparatif a été modifié pendant cette confirmation. Rechargez la page avant de réessayer."
+
+msgid "This preparation could not be retired safely. Reload before trying again."
+msgstr "Ce préparatif n’a pas pu être retiré en toute sécurité. Rechargez la page avant de réessayer."
+
+msgid "Preparation retired for future activity occurrences."
+msgstr "Le préparatif a été retiré pour les prochaines occurrences de l’activité."

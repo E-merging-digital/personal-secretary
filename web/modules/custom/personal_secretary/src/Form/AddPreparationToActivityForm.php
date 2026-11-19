@@ -170,10 +170,10 @@ final class AddPreparationToActivityForm extends FormBase {
   }
 
   /**
-   * Returns only the currently effective instructions for this activity.
+   * Returns currently effective instructions and bounded retirement links.
    *
-   * @return string[]
-   *   Plain strings; Drupal's item_list template escapes their output.
+   * @return array<int, array<string, mixed>>
+   *   Drupal render arrays, with safely escaped instruction text.
    */
   private function activePreparationInstructions(ActivitySeries $series): array {
     $storage = $this->entities->getStorage('personal_sec_prep_req');
@@ -191,7 +191,27 @@ final class AddPreparationToActivityForm extends FormBase {
       if ($from > $now || ($until !== '' && $until <= $now)) {
         continue;
       }
-      $instructions[] = (string) $requirement->get('label')->value;
+      $instruction = (string) $requirement->get('label')->value;
+      $item = [
+        '#type' => 'container',
+        'instruction' => ['#markup' => $this->t('@instruction', ['@instruction' => $instruction])],
+      ];
+      // The accepted lifecycle service can retire only unbounded requirements.
+      if ($until === '') {
+        $item['retire'] = [
+          '#type' => 'link',
+          '#title' => $this->t('Retire'),
+          '#url' => Url::fromRoute('personal_secretary.retire_activity_preparation', [
+            'series' => (int) $series->id(),
+            'preparation_requirement' => (int) $requirement->id(),
+          ], $this->formUrlOptions()),
+          '#prefix' => ' — ',
+          '#attributes' => [
+            'aria-label' => $this->t('Retire preparation: @instruction', ['@instruction' => $instruction]),
+          ],
+        ];
+      }
+      $instructions[] = $item;
     }
     return $instructions;
   }
