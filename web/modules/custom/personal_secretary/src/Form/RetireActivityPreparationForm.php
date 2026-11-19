@@ -39,6 +39,9 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   ) {}
 
   public static function create(ContainerInterface $container): static {
+    if ($container->get('state')->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
+      $container->get('state')->set('personal_secretary.synthetic_retire_535_trace_stage', 'factory_called');
+    }
     return new static(
       $container->get('personal_secretary.preparation_requirement_mutation'),
       $container->get('entity_type.manager'),
@@ -50,6 +53,9 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   public function getFormId(): string {
+    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
+      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'form_id_called');
+    }
     return 'personal_secretary_retire_activity_preparation';
   }
 
