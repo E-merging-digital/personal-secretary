@@ -39,9 +39,6 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    if ($container->get('state')->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      $container->get('state')->set('personal_secretary.synthetic_retire_535_trace_stage', 'factory_called');
-    }
     return new static(
       $container->get('personal_secretary.preparation_requirement_mutation'),
       $container->get('entity_type.manager'),
@@ -53,9 +50,6 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   public function getFormId(): string {
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'form_id_called');
-    }
     return 'personal_secretary_retire_activity_preparation';
   }
 
@@ -80,18 +74,8 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    // Diagnostic enabled only by the synthetic functional test.
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'form_entered');
-    }
     $series = $this->currentSeries();
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'series_loaded');
-    }
     $requirement = $this->currentRequirement();
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'requirement_loaded');
-    }
     $key = '';
     if ($this->requests->getCurrentRequest()?->isMethod('GET')) {
       if (!$this->isRetirable($requirement)) {
@@ -105,21 +89,12 @@ final class RetireActivityPreparationForm extends ConfirmFormBase {
         'requirement_revision' => (string) $requirement->getRevisionId(),
       ]);
     }
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'eligibility_checked');
-    }
     $form = parent::buildForm($form, $form_state);
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'parent_form_built');
-    }
     $form['#action'] = Url::fromRoute('personal_secretary.retire_activity_preparation', [
       'series' => (int) $series->id(),
       'preparation_requirement' => (int) $requirement->id(),
     ], $this->urlOptions())->toString();
     $form['snapshot_id'] = ['#type' => 'hidden', '#default_value' => $key];
-    if (\Drupal::state()->get('personal_secretary.synthetic_retire_535_trace_enabled', FALSE)) {
-      \Drupal::state()->set('personal_secretary.synthetic_retire_535_trace_stage', 'form_returned');
-    }
     return $form;
   }
 

@@ -262,10 +262,11 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($boundedRoute);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->linkByHrefExists($returnUrl);
-    $retireFiltered = Url::fromRoute('personal_secretary.retire_activity_preparation', [
+    $retireFilteredUrl = Url::fromRoute('personal_secretary.retire_activity_preparation', [
       'series' => $weekId,
       'preparation_requirement' => $existingId,
-    ], ['query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']])->toString();
+    ], ['query' => ['from' => 'mine', 'days' => '30', 'q' => 'weekly', 'focus' => 'tomorrow']]);
+    $retireFiltered = $retireFilteredUrl->toString();
     $this->assertSession()->linkByHrefExists($retireFiltered);
     $this->assertSession()->pageTextContains('Active preparations');
     $this->assertSession()->pageTextContains('Existing synthetic kit');
@@ -291,56 +292,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(404);
     $this->drupalGet('/personal-secretary/activities/' . $weekId . '/preparations/999999/retire');
     $this->assertSession()->statusCodeEquals(404);
-    $trace = $this->container->get('state');
-    $trace->set('personal_secretary.synthetic_retire_535_trace_enabled', TRUE);
-    $trace->set('personal_secretary.synthetic_retire_535_trace_stage', 'not_entered');
-    // One synthetic-only discriminator: the same valid admin route without filters.
-    $this->drupalGet($retireUrl);
-    $unfilteredStatus = $this->getSession()->getStatusCode();
-    $this->drupalGet($retireFiltered);
-    if ($this->getSession()->getStatusCode() === 404) {
-      // Targeted synthetic-only diagnostic for the initial confirmation GET.
-      // Distinguish an unmatched route from a form-level NotFound response.
-      $routePath = (string) (parse_url($retireFiltered, PHP_URL_PATH) ?: '');
-      try {
-        $routeDetails = $this->container->get('router.no_access_checks')->match($routePath);
-        $routeInfo = sprintf('matched=%s series=%s requirement=%s',
-          (string) ($routeDetails['_route'] ?? 'NONE'),
-          (string) ($routeDetails['series'] ?? 'NONE'),
-          (string) ($routeDetails['preparation_requirement'] ?? 'NONE'),
-        );
-      }
-      catch (\Throwable $e) {
-        $routeInfo = 'unmatched=' . get_class($e);
-      }
-      $trace->resetCache();
-      $stage = (string) $trace->get('personal_secretary.synthetic_retire_535_trace_stage', 'missing');
-      try {
-        $routeAccess = $this->container->get('access_manager')->checkNamedRoute(
-          'personal_secretary.retire_activity_preparation',
-          ['series' => $weekId, 'preparation_requirement' => $existingId],
-          $admin,
-          TRUE,
-        );
-        $routeAccessInfo = $routeAccess->isAllowed() ? 'YES' : 'NO';
-      }
-      catch (\Throwable $e) {
-        $routeAccessInfo = 'error=' . get_class($e);
-      }
-      $current = $preparationStorage->load($existingId);
-      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC unfiltered_status=%d filtered_status=%d stage=%s named_route_access=%s %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
-        $unfilteredStatus,
-        $this->getSession()->getStatusCode(),
-        $stage,
-        $routeAccessInfo,
-        $routeInfo,
-        $weekId,
-        $existingId,
-        (int) $current->get('series')->target_id,
-        (string) $current->get('effective_from')->value,
-        $current->get('effective_until')->isEmpty() ? 'YES' : 'NO',
-      ));
-    }
+    $this->drupalGet($retireFilteredUrl);
     $this->assertSession()->statusCodeEquals(200);
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     $this->assertSession()->buttonExists('Retire preparation');
@@ -348,13 +300,13 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->addressEquals($boundedRoute->toString());
     $preparationStorage->resetCache([$existingId]);
     $this->assertTrue($preparationStorage->load($existingId)->get('effective_until')->isEmpty());
-    $this->drupalGet($retireFiltered);
+    $this->drupalGet($retireFilteredUrl);
     $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue(str_repeat('f', 32));
     $this->submitForm([], 'Retire preparation');
     $preparationStorage->resetCache([$existingId]);
     $this->assertTrue($preparationStorage->load($existingId)->get('effective_until')->isEmpty());
 
-    $this->drupalGet($retireFiltered);
+    $this->drupalGet($retireFilteredUrl);
     $retirementToken = (string) $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->getValue();
     $this->submitForm([], 'Retire preparation');
     $this->assertSession()->addressEquals($boundedRoute->toString());
@@ -373,7 +325,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertCount(1, $weeklyAfterRetirement);
     $this->assertSame(0, $weeklyAfterRetirement[0]->leadTimeSeconds);
     $this->assertSame($originalKeys[$weekId], $weeklyAfterRetirement[0]->originalOccurrenceKey);
-    $this->drupalGet($retireFiltered);
+    $this->drupalGet($retireFilteredUrl);
     $this->assertSession()->statusCodeEquals(404);
     $this->drupalGet($boundedRoute);
     $this->assertSession()->linkByHrefNotExists($retireFiltered);
