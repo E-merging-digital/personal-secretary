@@ -312,9 +312,22 @@ final class UpcomingViewTest extends BrowserTestBase {
       }
       $trace->resetCache();
       $stage = (string) $trace->get('personal_secretary.synthetic_retire_535_trace_stage', 'missing');
+      try {
+        $routeAccess = $this->container->get('access_manager')->checkNamedRoute(
+          'personal_secretary.retire_activity_preparation',
+          ['series' => $weekId, 'preparation_requirement' => $existingId],
+          $admin,
+          TRUE,
+        );
+        $routeAccessInfo = $routeAccess->isAllowed() ? 'YES' : 'NO';
+      }
+      catch (\Throwable $e) {
+        $routeAccessInfo = 'error=' . get_class($e);
+      }
       $current = $preparationStorage->load($existingId);
-      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC stage=%s %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
+      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC stage=%s named_route_access=%s %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
         $stage,
+        $routeAccessInfo,
         $routeInfo,
         $weekId,
         $existingId,
