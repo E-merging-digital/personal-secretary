@@ -294,6 +294,9 @@ final class UpcomingViewTest extends BrowserTestBase {
     $trace = $this->container->get('state');
     $trace->set('personal_secretary.synthetic_retire_535_trace_enabled', TRUE);
     $trace->set('personal_secretary.synthetic_retire_535_trace_stage', 'not_entered');
+    // One synthetic-only discriminator: the same valid admin route without filters.
+    $this->drupalGet($retireUrl);
+    $unfilteredStatus = $this->getSession()->getStatusCode();
     $this->drupalGet($retireFiltered);
     if ($this->getSession()->getStatusCode() === 404) {
       // Targeted synthetic-only diagnostic for the initial confirmation GET.
@@ -325,7 +328,9 @@ final class UpcomingViewTest extends BrowserTestBase {
         $routeAccessInfo = 'error=' . get_class($e);
       }
       $current = $preparationStorage->load($existingId);
-      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC stage=%s named_route_access=%s %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
+      $this->fail(sprintf('RETIRE_CONFIRMATION_404_DIAGNOSTIC unfiltered_status=%d filtered_status=%d stage=%s named_route_access=%s %s series_id=%d requirement_id=%d reference_series=%d from=%s until_empty=%s',
+        $unfilteredStatus,
+        $this->getSession()->getStatusCode(),
         $stage,
         $routeAccessInfo,
         $routeInfo,
