@@ -237,7 +237,7 @@ final class DomainMutationService {
       || (string) $latestRevisionId !== (string) $series->getRevisionId()
       || (string) $latestRevisionId !== (string) $persisted->getRevisionId()
       || (string) ($persisted->get('location')->value ?? '') !== (string) ($series->get('location')->value ?? '')
-      || $persisted->get('postal_address')->getValue() !== $series->get('postal_address')->getValue()
+      || $this->normalizedPostalAddress($persisted->get('postal_address')->getValue()) !== $this->normalizedPostalAddress($series->get('postal_address')->getValue())
     ) {
       throw new InvalidArgumentException('ActivitySeries location update requires the latest unchanged persisted series.');
     }
@@ -245,7 +245,7 @@ final class DomainMutationService {
     $postalAddress = $this->normalizedPostalAddress($postalAddress);
     if (
       (string) ($persisted->get('location')->value ?? '') === $location
-      && $persisted->get('postal_address')->getValue() === $postalAddress
+      && $this->normalizedPostalAddress($persisted->get('postal_address')->getValue()) === $postalAddress
     ) {
       return $persisted;
     }
