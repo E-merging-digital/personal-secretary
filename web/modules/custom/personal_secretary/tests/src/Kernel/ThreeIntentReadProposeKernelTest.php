@@ -31,7 +31,7 @@ final class ThreeIntentReadProposeKernelTest extends KernelTestBase {
 
   protected static $modules = [
     'system', 'user', 'field', 'datetime', 'datetime_range',
-    'date_recur', 'key', 'phpmailer_smtp', 'personal_secretary',
+    'date_recur', 'key', 'phpmailer_smtp', 'address', 'personal_secretary',
   ];
 
   protected function setUp(): void {

@@ -88,6 +88,7 @@ final class EditActivityLocationForm extends FormBase {
     $form['postal_address'] = [
       '#type' => 'address',
       '#title' => $this->t('Postal address'),
+      '#field_overrides' => \Drupal\personal_secretary\Service\ActivityPostalAddress::formFieldOverrides(),
       '#description' => $this->t('Optional. Leave blank to remove the postal address.'),
       '#required' => FALSE,
       '#default_value' => $series->get('postal_address')->first()?->getValue() ?? [],

@@ -36,7 +36,7 @@ use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 #[RunTestsInSeparateProcesses]
 final class GoogleCalendarExportKernelTest extends KernelTestBase {
 
-  protected static $modules = ['system', 'user', 'field', 'datetime', 'datetime_range', 'date_recur', 'key', 'oauth2_client', 'easy_encryption', 'personal_secretary'];
+  protected static $modules = ['system', 'user', 'field', 'datetime', 'datetime_range', 'date_recur', 'key', 'oauth2_client', 'easy_encryption', 'address', 'personal_secretary'];
 
   private User $account;
   private array $requests = [];

@@ -23,6 +23,7 @@ final class AllDayExistingInstallKernelTest extends KernelTestBase {
     'datetime',
     'datetime_range',
     'date_recur',
+    'address',
     'personal_secretary',
   ];
 

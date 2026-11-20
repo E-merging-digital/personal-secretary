@@ -73,6 +73,7 @@ final class ActivityCaptureBenchmarkV3ProviderKernelTest extends KernelTestBase 
     'datetime_range',
     'date_recur',
     'phpmailer_smtp',
+    'address',
     'personal_secretary',
   ];
 

@@ -194,6 +194,7 @@ final class AddActivityForm extends FormBase {
     $form['postal_address'] = [
       '#type' => 'address',
       '#title' => $this->t('Postal address'),
+      '#field_overrides' => \Drupal\personal_secretary\Service\ActivityPostalAddress::formFieldOverrides(),
       '#description' => $this->t('Optional. Enter an address separately from the place name.'),
       '#required' => FALSE,
       '#default_value' => ($siteCountry = \Drupal::config('system.date')->get('country.default'))

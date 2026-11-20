@@ -88,6 +88,10 @@ final class ActivitySeries extends ContentEntityBase {
 
     $fields['postal_address'] = BaseFieldDefinition::create('address')
       ->setLabel(new TranslatableMarkup('Postal address'))
+      ->setSetting('field_overrides', [
+        'givenName' => ['override' => 'hidden'],
+        'familyName' => ['override' => 'hidden'],
+      ])
       ->setRequired(FALSE)
       ->setRevisionable(FALSE);
 

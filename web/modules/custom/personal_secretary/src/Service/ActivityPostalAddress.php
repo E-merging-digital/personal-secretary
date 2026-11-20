@@ -11,6 +11,29 @@ use Drupal\personal_secretary\Entity\ActivitySeries;
  */
 final class ActivityPostalAddress {
 
+  /**
+   * Keeps postal input optional, including when a country is preselected.
+   *
+   * Address field-format constraints still validate any saved postal address.
+   *
+   * @return array<string, string>
+   */
+  public static function formFieldOverrides(): array {
+    return [
+      'givenName' => 'hidden',
+      'familyName' => 'hidden',
+      'organization' => 'optional',
+      'addressLine1' => 'optional',
+      'addressLine2' => 'optional',
+      'addressLine3' => 'optional',
+      'locality' => 'optional',
+      'dependentLocality' => 'optional',
+      'administrativeArea' => 'optional',
+      'postalCode' => 'optional',
+      'sortingCode' => 'optional',
+    ];
+  }
+
   public static function label(ActivitySeries $series): string {
     $address = $series->get('postal_address')->first()?->getValue() ?? [];
     if (!is_array($address) || empty($address['country_code'])) {

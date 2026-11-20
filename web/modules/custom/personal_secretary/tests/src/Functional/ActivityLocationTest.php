@@ -74,6 +74,9 @@ final class ActivityLocationTest extends BrowserTestBase {
       'preparation_instruction' => '',
       'preparation_lead_minutes' => '0',
     ], 'Add activity');
+    if (parse_url($this->getSession()->getCurrentUrl(), PHP_URL_PATH) !== '/personal-secretary/upcoming') {
+      $this->fail('Activity address form did not save: ' . substr($this->getSession()->getPage()->getText(), 0, 1200));
+    }
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
     $this->assertSession()->pageTextContains('Synthetic location weekly');
     $this->assertSession()->pageTextContains('Synthetic Weekly Hall');

@@ -54,6 +54,7 @@ final class SmtpTransportTlsGateKernelTest extends KernelTestBase {
     'date_recur',
     'key',
     'phpmailer_smtp',
+    'address',
     'personal_secretary',
   ];
 
