@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\personal_secretary\Form;
 
 use DateTimeImmutable;
+use DateTimeZone;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -37,6 +39,7 @@ final class AddPreparationToActivityForm extends FormBase {
     private readonly RequestStack $requests,
     private readonly PrivateTempStoreFactory $snapshots,
     private readonly TimeInterface $time,
+    private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -47,6 +50,7 @@ final class AddPreparationToActivityForm extends FormBase {
       $container->get('request_stack'),
       $container->get('tempstore.private'),
       $container->get('datetime.time'),
+      $container->get('date.formatter'),
     );
   }
 
@@ -206,6 +210,16 @@ final class AddPreparationToActivityForm extends FormBase {
         'instruction' => ['#markup' => $this->t('@instruction', ['@instruction' => $instruction])],
       ];
       if ($until !== '' && $until <= $now) {
+        // The cutoff is canonical UTC; display it in Drupal's user timezone.
+        $cutoff = DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i:s', $until, new DateTimeZone('UTC'));
+        if ($cutoff instanceof DateTimeImmutable && $cutoff->format('Y-m-d\\TH:i:s') === $until) {
+          $item['ended'] = [
+            '#prefix' => ' — ',
+            '#markup' => $this->t('Ended: @date', [
+              '@date' => $this->dateFormatter->format($cutoff->getTimestamp(), 'short'),
+            ]),
+          ];
+        }
         $past[] = $item;
         continue;
       }

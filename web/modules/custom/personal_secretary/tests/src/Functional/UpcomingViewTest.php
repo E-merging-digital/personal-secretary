@@ -270,6 +270,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertSession()->linkByHrefExists($retireFiltered);
     $this->assertSession()->pageTextContains('Active preparations');
     $this->assertSession()->pageTextNotContains('Past preparations');
+    $this->assertSession()->pageTextNotContains('Ended:');
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     $this->assertSession()->pageTextNotContains('Synthetic appointment notes');
     $this->submitForm(['preparation_instruction' => 'Synthetic weekly documents', 'preparation_lead_minutes' => '0'], 'Add preparation');
@@ -321,6 +322,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->assertFalse($retired->get('effective_until')->isEmpty());
     $this->assertCount(3, $preparationStorage->loadMultiple());
     $this->assertSession()->pageTextContains('Past preparations');
+    $this->assertSession()->pageTextContains('Ended:');
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     $this->assertSession()->pageTextContains('Synthetic weekly documents');
     $weeklyAfterRetirement = $eligibility->derive($week, $projection->project($week, $now, $now->modify('+14 days'))[0]);
@@ -332,6 +334,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     $this->drupalGet($boundedRoute);
     $this->assertSession()->linkByHrefNotExists($retireFiltered);
     $this->assertSession()->pageTextContains('Past preparations');
+    $this->assertSession()->pageTextContains('Ended:');
     $this->assertSession()->pageTextContains('Existing synthetic kit');
     // Reusing a consumed confirmation cannot retire the remaining requirement.
     $this->drupalGet(Url::fromRoute('personal_secretary.retire_activity_preparation', [
@@ -347,6 +350,7 @@ final class UpcomingViewTest extends BrowserTestBase {
     // The history is scoped to the original activity, never another series.
     $this->drupalGet($oneUrl);
     $this->assertSession()->pageTextNotContains('Past preparations');
+    $this->assertSession()->pageTextNotContains('Ended:');
     $this->assertSession()->pageTextNotContains('Existing synthetic kit');
     // An already-consumed server-held token must never add another requirement.
     $this->assertSession()->elementExists('css', 'input[name="snapshot_id"][type="hidden"]')->setValue($oneToken);
