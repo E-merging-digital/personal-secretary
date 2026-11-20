@@ -181,9 +181,11 @@ final class DomainMutationService {
     string $location = '',
     array $concernedPersonIds = [],
     string $timeMode = ActivitySeries::TIME_MODE_TIMED,
+    array $postalAddress = [],
   ): ActivitySeries {
     $name = $this->requiredLabel($name, 'Activity series name');
     $location = $this->optionalLocation($location);
+    $postalAddress = $this->normalizedPostalAddress($postalAddress);
     $timeMode = $this->timeMode($timeMode);
     $household = $this->requireHousehold($householdId);
     $concernedPersonIds = $this->normalizeConcernedPersonIds($concernedPersonIds);
@@ -204,8 +206,12 @@ final class DomainMutationService {
       'recurrence' => [$recurrence],
       'effective_from' => $this->toStorage($localStart),
       'location' => $location,
+      'postal_address' => $postalAddress,
       'time_mode' => $timeMode,
     ]);
+    if ($series->get('postal_address')->validate()->count() > 0) {
+      throw new InvalidArgumentException('Activity postal address is invalid.');
+    }
     $series->save();
     return $series;
   }
@@ -215,7 +221,7 @@ final class DomainMutationService {
    *
    * Preserves recurrence/exception target identity and revision chronology.
    */
-  public function updateActivitySeriesLocation(ActivitySeries $series, string $location): ActivitySeries {
+  public function updateActivitySeriesLocation(ActivitySeries $series, string $location, ?array $postalAddress = NULL): ActivitySeries {
     if ($series->isNew() || $series->id() === NULL) {
       throw new InvalidArgumentException('ActivitySeries must be persisted before changing its location.');
     }
@@ -231,14 +237,24 @@ final class DomainMutationService {
       || (string) $latestRevisionId !== (string) $series->getRevisionId()
       || (string) $latestRevisionId !== (string) $persisted->getRevisionId()
       || (string) ($persisted->get('location')->value ?? '') !== (string) ($series->get('location')->value ?? '')
+      || $persisted->get('postal_address')->getValue() !== $series->get('postal_address')->getValue()
     ) {
       throw new InvalidArgumentException('ActivitySeries location update requires the latest unchanged persisted series.');
     }
-    if ((string) ($persisted->get('location')->value ?? '') === $location) {
+    $postalAddress ??= $persisted->get('postal_address')->getValue();
+    $postalAddress = $this->normalizedPostalAddress($postalAddress);
+    if (
+      (string) ($persisted->get('location')->value ?? '') === $location
+      && $persisted->get('postal_address')->getValue() === $postalAddress
+    ) {
       return $persisted;
     }
     $persisted->setNewRevision(FALSE);
     $persisted->set('location', $location);
+    $persisted->set('postal_address', $postalAddress);
+    if ($persisted->get('postal_address')->validate()->count() > 0) {
+      throw new InvalidArgumentException('Activity postal address is invalid.');
+    }
     $persisted->save();
     return $persisted;
   }
@@ -453,6 +469,43 @@ final class DomainMutationService {
       throw new InvalidArgumentException(sprintf('%s must not be empty.', $field));
     }
     return $value;
+  }
+
+  /**
+   * Accepts a single Drupal Address item or an empty optional address.
+   *
+   * A country selected by default does not create an address on its own.
+   * @param array<string, mixed>|array<int, array<string, mixed>> $input
+   * @return array<int, array<string, mixed>>
+   */
+  private function normalizedPostalAddress(array $input): array {
+    if (array_is_list($input)) {
+      if (count($input) > 1) {
+        throw new InvalidArgumentException('Only one activity postal address is supported.');
+      }
+      $input = $input[0] ?? [];
+    }
+    if (!is_array($input)) {
+      throw new InvalidArgumentException('Activity postal address must be a field item.');
+    }
+    $meaningful = FALSE;
+    foreach ([
+      'address_line1', 'address_line2', 'locality', 'dependent_locality',
+      'postal_code', 'administrative_area', 'sorting_code', 'organization',
+      'given_name', 'family_name',
+    ] as $name) {
+      if (isset($input[$name]) && is_string($input[$name]) && trim($input[$name]) !== '') {
+        $meaningful = TRUE;
+        break;
+      }
+    }
+    if (!$meaningful) {
+      return [];
+    }
+    if (!isset($input['country_code']) || !is_string($input['country_code']) || trim($input['country_code']) === '') {
+      throw new InvalidArgumentException('Activity postal address requires a selected country.');
+    }
+    return [$input];
   }
 
   private function optionalLocation(string $value): string {

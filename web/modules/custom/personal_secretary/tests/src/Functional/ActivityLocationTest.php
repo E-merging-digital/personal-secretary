@@ -24,11 +24,12 @@ use InvalidArgumentException;
  */
 final class ActivityLocationTest extends BrowserTestBase {
 
-  protected static $modules = ['block', 'field', 'personal_secretary'];
+  protected static $modules = ['block', 'field', 'address', 'personal_secretary'];
 
   protected $defaultTheme = 'olivero';
 
   public function testLocationCreationAndPresentation(): void {
+    $this->config('system.date')->set('country.default', 'BE')->save();
     $this->installUserPersonFieldViaEntityApi();
 
     /** @var \Drupal\personal_secretary\Service\DomainMutationService $domain */
@@ -52,6 +53,7 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->statusCodeEquals(200);
     $locationField = $this->assertSession()->fieldExists('location');
     $this->assertSame('255', $locationField->getAttribute('maxlength'));
+    $this->assertSession()->fieldExists('postal_address[country_code]');
     $this->assertSession()->fieldNotExists('rrule');
 
     $weeklyStart = $nowLocal->modify('+1 day')->setTime(9, 0);
@@ -61,6 +63,10 @@ final class ActivityLocationTest extends BrowserTestBase {
       'responsible_person_id' => (string) $person->id(),
       'activity_label' => 'Synthetic location weekly',
       'location' => '  Synthetic Weekly Hall  ',
+      'postal_address[country_code]' => 'BE',
+      'postal_address[address_line1]' => 'Synthetic Street 10',
+      'postal_address[postal_code]' => '4000',
+      'postal_address[locality]' => 'Synthetic City',
       'first_occurrence_date' => $weeklyStart->format('Y-m-d'),
       'start_local_time' => '09:00',
       'end_local_time' => '10:00',
@@ -74,6 +80,9 @@ final class ActivityLocationTest extends BrowserTestBase {
 
     $weekly = $this->seriesByLabel('Synthetic location weekly');
     $this->assertSame('Synthetic Weekly Hall', (string) $weekly->get('location')->value);
+    $this->assertSame('BE', (string) $weekly->get('postal_address')->country_code);
+    $this->assertSame('Synthetic Street 10', (string) $weekly->get('postal_address')->address_line1);
+    $this->assertSession()->pageTextContains('Synthetic Street 10');
     $this->assertRecurrence($weekly, 'FREQ=WEEKLY;INTERVAL=1', 'Europe/Brussels');
 
     $oneOffStart = $nowLocal->modify('+2 days')->setTime(11, 0);
@@ -97,6 +106,7 @@ final class ActivityLocationTest extends BrowserTestBase {
 
     $oneOff = $this->seriesByLabel('Synthetic location one-off');
     $this->assertSame('Synthetic Clinic', (string) $oneOff->get('location')->value);
+    $this->assertTrue($oneOff->get('postal_address')->isEmpty());
     $this->assertRecurrence($oneOff, 'FREQ=DAILY;COUNT=1', 'Europe/Brussels');
 
     $emptyStart = $nowLocal->modify('+3 days')->setTime(13, 0);
@@ -187,6 +197,7 @@ final class ActivityLocationTest extends BrowserTestBase {
     // A stale Form API POST must never silently overwrite an intervening edit.
     $this->drupalGet($weeklyEdit);
     $this->assertSession()->fieldValueEquals('location', 'Synthetic New Weekly Hall');
+    $this->assertSession()->fieldValueEquals('postal_address[address_line1]', 'Synthetic Street 10');
     $originalRevision = (string) $this->seriesByLabel('Synthetic location weekly')->getRevisionId();
     $intervening = $domain->updateActivitySeriesLocation(
       $this->seriesByLabel('Synthetic location weekly'), 'Synthetic Concurrent Hall',
@@ -203,6 +214,37 @@ final class ActivityLocationTest extends BrowserTestBase {
     $this->assertSession()->fieldValueEquals('location', 'Synthetic Concurrent Hall');
     $this->submitForm(['location' => 'Synthetic New Weekly Hall'], 'Save location');
     $this->assertSession()->addressEquals('/personal-secretary/upcoming');
+    $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
+
+    // Changing address metadata alone cannot create a new occurrence revision.
+    $this->drupalGet($weeklyEdit);
+    $this->submitForm([
+      'postal_address[country_code]' => 'BE',
+      'postal_address[address_line1]' => 'Synthetic Avenue 12',
+      'postal_address[postal_code]' => '4000',
+      'postal_address[locality]' => 'Synthetic City',
+    ], 'Save location');
+    $edited = $this->seriesByLabel('Synthetic location weekly');
+    $this->assertSame($originalRevision, (string) $edited->getRevisionId());
+    $this->assertSame('Synthetic Avenue 12', (string) $edited->get('postal_address')->address_line1);
+    $this->assertSame('Synthetic New Weekly Hall', (string) $edited->get('location')->value);
+    $this->assertSession()->pageTextContains('Synthetic Avenue 12');
+
+    // An already-open form must not overwrite a concurrent postal-only edit.
+    $this->drupalGet($weeklyEdit);
+    $domain->updateActivitySeriesLocation(
+      $this->seriesByLabel('Synthetic location weekly'),
+      'Synthetic New Weekly Hall',
+      [
+        'country_code' => 'BE',
+        'address_line1' => 'Synthetic Concurrent Road 3',
+        'postal_code' => '4000',
+        'locality' => 'Synthetic City',
+      ],
+    );
+    $this->submitForm(['location' => 'Synthetic Unwanted Hall'], 'Save location');
+    $this->assertSession()->pageTextContains('The activity changed while this form was open. Reload before saving.');
+    $this->assertSame('Synthetic Concurrent Road 3', (string) $this->seriesByLabel('Synthetic location weekly')->get('postal_address')->address_line1);
     $this->assertSame('Synthetic New Weekly Hall', (string) $this->seriesByLabel('Synthetic location weekly')->get('location')->value);
 
     $this->drupalGet($oneOffEdit);

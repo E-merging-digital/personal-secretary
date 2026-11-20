@@ -323,6 +323,7 @@ final class UpcomingActivityService {
         throw new RuntimeException('Upcoming ActivitySeries has no presentation label.');
       }
       $location = trim((string) ($series->get('location')->value ?? ''));
+      $postalAddress = ActivityPostalAddress::label($series);
       $concernedPersonLabels = $this->concernedPersonLabels($series);
       $allDay = $series->timeMode() === ActivitySeries::TIME_MODE_ALL_DAY;
 
@@ -399,6 +400,7 @@ final class UpcomingActivityService {
           'sort_start' => $occurrence->effectiveUtcStart,
           'activity_label' => $activityLabel,
           'location' => $location,
+          'postal_address' => $postalAddress,
           'concerned_person_labels' => $concernedPersonLabels,
           'all_day' => $allDay,
           'all_day_start_date' => $allDayStartDate,

@@ -33,6 +33,12 @@
         <dd>{{ location }}</dd>
       </div>
     {% endif %}
+    {% if postal_address %}
+      <div>
+        <dt>{{ 'Postal address'|t }}</dt>
+        <dd>{{ postal_address }}</dd>
+      </div>
+    {% endif %}
     {% if concerned_person_labels %}
       <div>
         <dt>{{ 'For'|t }}</dt>

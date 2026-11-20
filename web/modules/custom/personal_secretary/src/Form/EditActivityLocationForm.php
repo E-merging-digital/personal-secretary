@@ -60,6 +60,7 @@ final class EditActivityLocationForm extends FormBase {
         'series_id' => (int) $series->id(),
         'revision_id' => (string) $series->getRevisionId(),
         'location' => (string) ($series->get('location')->value ?? ''),
+        'postal_address' => $series->get('postal_address')->getValue(),
       ]);
     }
     $form['snapshot_id'] = [
@@ -83,6 +84,13 @@ final class EditActivityLocationForm extends FormBase {
       '#maxlength' => 255,
       '#required' => FALSE,
       '#default_value' => (string) ($series->get('location')->value ?? ''),
+    ];
+    $form['postal_address'] = [
+      '#type' => 'address',
+      '#title' => $this->t('Postal address'),
+      '#description' => $this->t('Optional. Leave blank to remove the postal address.'),
+      '#required' => FALSE,
+      '#default_value' => $series->get('postal_address')->first()?->getValue() ?? [],
     ];
     $form['revision_id'] = [
       '#type' => 'hidden',
@@ -117,6 +125,7 @@ final class EditActivityLocationForm extends FormBase {
       || (string) $form_state->getValue('revision_id') !== $original['revision_id']
       || (string) $persisted->getRevisionId() !== $original['revision_id']
       || (string) ($persisted->get('location')->value ?? '') !== $original['location']
+      || $persisted->get('postal_address')->getValue() !== $original['postal_address']
     ) {
       $form_state->setErrorByName('location', $this->t('The activity changed while this form was open. Reload before saving.'));
     }
@@ -138,9 +147,11 @@ final class EditActivityLocationForm extends FormBase {
       // The mutation service compares this trusted GET location to persisted
       // state again, catching even changes between validate and submit.
       $series->set('location', $original['location']);
+      $series->set('postal_address', $original['postal_address']);
       $this->locationMutations->updateActivitySeriesLocation(
         $series,
         (string) $form_state->getValue('location'),
+        (array) ($form_state->getValue('postal_address') ?? []),
       );
     }
     catch (InvalidArgumentException | RuntimeException) {
@@ -155,7 +166,7 @@ final class EditActivityLocationForm extends FormBase {
   /**
    * Returns only server-owned initial form data; invalid/expired keys fail closed.
    *
-   * @return array{series_id: int, revision_id: string, location: string}|null
+   * @return array{series_id: int, revision_id: string, location: string, postal_address: array}|null
    */
   private function originalSnapshot(FormStateInterface $form_state): ?array {
     $key = $form_state->getValue('snapshot_id');
@@ -165,10 +176,11 @@ final class EditActivityLocationForm extends FormBase {
     $snapshot = $this->locationSnapshotFactory->get(self::SNAPSHOT_COLLECTION)->get($key);
     if (
       !is_array($snapshot)
-      || !isset($snapshot['series_id'], $snapshot['revision_id'], $snapshot['location'])
+      || !isset($snapshot['series_id'], $snapshot['revision_id'], $snapshot['location'], $snapshot['postal_address'])
       || !is_int($snapshot['series_id'])
       || !is_string($snapshot['revision_id'])
       || !is_string($snapshot['location'])
+      || !is_array($snapshot['postal_address'])
     ) {
       return NULL;
     }

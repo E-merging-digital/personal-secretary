@@ -109,6 +109,7 @@ final class CurrentUserActivityCreationService {
     string $location = '',
     array $concernedPersonIds = [],
     string $timeMode = ActivitySeries::TIME_MODE_TIMED,
+    array $postalAddress = [],
   ): ActivitySeries {
     $context = $this->freshAuthorizedContext(
       $renderedCurrentPersonId,
@@ -127,6 +128,7 @@ final class CurrentUserActivityCreationService {
       $location,
       $context['concerned_person_ids'],
       $timeMode,
+      $postalAddress,
     );
   }
 
@@ -141,6 +143,7 @@ final class CurrentUserActivityCreationService {
     string $location = '',
     array $concernedPersonIds = [],
     string $timeMode = ActivitySeries::TIME_MODE_TIMED,
+    array $postalAddress = [],
   ): ActivitySeries {
     $context = $this->freshAuthorizedContext(
       $renderedCurrentPersonId,
@@ -159,6 +162,7 @@ final class CurrentUserActivityCreationService {
       $location,
       $context['concerned_person_ids'],
       $timeMode,
+      $postalAddress,
     );
   }
 

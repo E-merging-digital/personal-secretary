@@ -191,6 +191,14 @@ final class AddActivityForm extends FormBase {
       '#required' => FALSE,
       '#maxlength' => 255,
     ];
+    $form['postal_address'] = [
+      '#type' => 'address',
+      '#title' => $this->t('Postal address'),
+      '#description' => $this->t('Optional. Enter an address separately from the place name.'),
+      '#required' => FALSE,
+      '#default_value' => ($siteCountry = \Drupal::config('system.date')->get('country.default'))
+        ? ['country_code' => (string) $siteCountry] : [],
+    ];
     $form['first_occurrence_date'] = [
       '#type' => 'date',
       '#title' => $this->t('Activity date'),
@@ -418,6 +426,7 @@ final class AddActivityForm extends FormBase {
       throw new \LogicException('Validated activity time mode is unavailable.');
     }
     $location = (string) $form_state->getValue('location');
+    $postalAddress = (array) ($form_state->getValue('postal_address') ?? []);
     $concernedPersonIds = $this->selectedConcernedPersonIds($form_state);
     $householdId = (int) $form_state->getValue('household_id');
     $isAdministrator = $this->isAdministrator();
@@ -440,6 +449,7 @@ final class AddActivityForm extends FormBase {
             $location,
             $concernedPersonIds,
             $timeMode,
+            $postalAddress,
           );
         }
         elseif ($activityType === self::TYPE_ONE_OFF) {
@@ -454,6 +464,7 @@ final class AddActivityForm extends FormBase {
             $location,
             $concernedPersonIds,
             $timeMode,
+            $postalAddress,
           );
         }
         else {
@@ -478,6 +489,7 @@ final class AddActivityForm extends FormBase {
             $location,
             $concernedPersonIds,
             $timeMode,
+            $postalAddress,
           );
         }
         elseif ($activityType === self::TYPE_ONE_OFF) {
@@ -492,6 +504,7 @@ final class AddActivityForm extends FormBase {
             $location,
             $concernedPersonIds,
             $timeMode,
+            $postalAddress,
           );
         }
         else {

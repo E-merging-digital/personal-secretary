@@ -39,6 +39,7 @@ final class AddActivityService {
     string $location = '',
     array $concernedPersonIds = [],
     string $timeMode = ActivitySeries::TIME_MODE_TIMED,
+    array $postalAddress = [],
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -52,6 +53,7 @@ final class AddActivityService {
         $location,
         $concernedPersonIds,
         $timeMode,
+        $postalAddress,
       );
       $this->responsibilityMutations->createResponsibilityRule(
         $series,
@@ -91,6 +93,7 @@ final class AddActivityService {
     string $location = '',
     array $concernedPersonIds = [],
     string $timeMode = ActivitySeries::TIME_MODE_TIMED,
+    array $postalAddress = [],
   ): ActivitySeries {
     $transaction = $this->database->startTransaction();
 
@@ -104,6 +107,7 @@ final class AddActivityService {
         $location,
         $concernedPersonIds,
         $timeMode,
+        $postalAddress,
       );
 
       if ($responsiblePersonId !== NULL) {

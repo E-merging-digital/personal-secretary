@@ -338,6 +338,7 @@ final class TodayService {
           'original_occurrence_key' => $occurrence->originalOccurrenceKey,
           'activity_label' => $label,
           'location' => trim((string) ($series->get('location')->value ?? '')),
+          'postal_address' => ActivityPostalAddress::label($series),
           'concerned_person_labels' => $this->concernedPersonLabels($series),
           'all_day' => $allDay,
           'all_day_start_date' => $allDayStartDate,
