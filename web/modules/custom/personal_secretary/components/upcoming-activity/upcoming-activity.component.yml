@@ -36,6 +36,9 @@ props:
     location:
       type: string
       title: Optional activity location
+    postal_address:
+      type: string
+      title: Optional structured postal address display
     concerned_person_labels:
       type: array
       title: Concerned Person labels

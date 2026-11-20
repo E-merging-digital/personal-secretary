@@ -1688,3 +1688,12 @@ msgstr "Anciens préparatifs"
 
 msgid "Ended: @date"
 msgstr "Fin d’application : @date"
+
+msgid "Postal address"
+msgstr "Adresse postale"
+
+msgid "Optional. Enter an address separately from the place name."
+msgstr "Facultatif. Indiquez l’adresse séparément du nom du lieu."
+
+msgid "Optional. Leave blank to remove the postal address."
+msgstr "Facultatif. Laissez vide pour supprimer l’adresse postale."

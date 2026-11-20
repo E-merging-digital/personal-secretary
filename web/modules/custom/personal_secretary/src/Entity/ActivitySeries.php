@@ -86,6 +86,15 @@ final class ActivitySeries extends ContentEntityBase {
       ->setRevisionable(FALSE)
       ->setSetting('max_length', 255);
 
+    $fields['postal_address'] = BaseFieldDefinition::create('address')
+      ->setLabel(new TranslatableMarkup('Postal address'))
+      ->setSetting('field_overrides', [
+        'givenName' => ['override' => 'hidden'],
+        'familyName' => ['override' => 'hidden'],
+      ])
+      ->setRequired(FALSE)
+      ->setRevisionable(FALSE);
+
     $fields['time_mode'] = BaseFieldDefinition::create('string')
       ->setLabel(new TranslatableMarkup('Time mode'))
       ->setRequired(TRUE)

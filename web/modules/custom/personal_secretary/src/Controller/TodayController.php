@@ -411,6 +411,7 @@ final class TodayController extends ControllerBase {
                 'original_occurrence_key' => (string) $item['original_occurrence_key'],
               ], ['query' => ['from' => 'today']])->toString(),
               'location' => $item['location'],
+              'postal_address' => $item['postal_address'] ?? '',
               'concerned_person_labels' => $item['concerned_person_labels'],
               'all_day' => $item['all_day'],
               'all_day_start_date' => $item['all_day_start_date'],

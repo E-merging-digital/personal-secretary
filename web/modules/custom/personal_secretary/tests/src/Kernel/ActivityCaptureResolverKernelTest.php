@@ -39,6 +39,7 @@ final class ActivityCaptureResolverKernelTest extends KernelTestBase {
     'date_recur',
     'key',
     'phpmailer_smtp',
+    'address',
     'personal_secretary',
   ];
 

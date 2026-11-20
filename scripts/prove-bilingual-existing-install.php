@@ -205,8 +205,8 @@ foreach ($new231Translations as $source => $expected) {
 }
 
 $schemaVersion = (int) \Drupal::keyValue('system.schema')->get('personal_secretary', 0);
-if ($schemaVersion !== 11013) {
-  throw new RuntimeException("Expected Personal Secretary schema 11013 after repair, got {$schemaVersion}.");
+if ($schemaVersion !== 11015) {
+  throw new RuntimeException("Expected Personal Secretary schema 11015 after repair, got {$schemaVersion}.");
 }
 
 $updateManager = \Drupal::entityDefinitionUpdateManager();

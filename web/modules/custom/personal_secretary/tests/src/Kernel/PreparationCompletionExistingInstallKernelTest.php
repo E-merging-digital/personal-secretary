@@ -24,6 +24,7 @@ final class PreparationCompletionExistingInstallKernelTest extends KernelTestBas
     'datetime',
     'datetime_range',
     'date_recur',
+    'address',
     'personal_secretary',
   ];
 
