@@ -170,6 +170,55 @@ externe; il ne doit pas devenir une boucle de reruns.
 Entre deux processus également sûrs, choisir le plus simple, le plus court et le
 moins coûteux.
 
+## Simplicité obligatoire — anti-sur-ingénierie
+
+La simplicité est une **contrainte de livraison**, pas une préférence esthétique.
+Toute proposition doit d'abord démontrer la valeur utilisateur observable et
+réutiliser le fonctionnement, les composants et les preuves déjà disponibles.
+
+```text
+USER_USABLE_DOD_FIRST = REQUIRED
+ONE_OUTCOME_ONE_BOUNDED_DELIVERY = DEFAULT
+EXISTING_PATH_BEFORE_NEW_ARCHITECTURE = REQUIRED
+SPECULATIVE_COMPLEXITY = PROHIBITED
+MICRO_PHASES_WITHOUT_PRODUCT_VALUE = PROHIBITED
+REPORT_OR_GREEN_CI_AS_BROWSER_ACCEPTANCE = PROHIBITED
+```
+
+- **Résultat avant mécanique :** formuler le plus petit parcours vérifiable
+  par un utilisateur. Un ticket clos, une PR fusionnée, un PASS documentaire
+  ou une CI verte ne prouvent jamais une interface réellement utilisable.
+  Distinguer explicitement source intégrée, runtime opérationnel et recette humaine.
+- **Interdiction par défaut :** pas de nouveau service, environnement,
+  orchestrateur, agent, couche d'abstraction, framework, table, configuration,
+  mécanisme de supervision, outil, dépendance ou refonte large pour une
+  hypothèse future. N'en introduire qu'en présence d'un manque actuel
+  démontré que l'existant ne couvre pas et d'une autorité applicable.
+- **Livraison regroupée :** couvrir dans une seule mission toutes les étapes
+  réversibles déjà autorisées jusqu'au DoD. Ne pas découper artificiellement
+  une fonctionnalité simple en micro-issues, cycles Rxx, PR ou relais
+  Project Lead/Delivery sans responsabilité distincte ou gate obligatoire.
+- **Contrôles minimaux mais suffisants :** réutiliser tests, CI, revue et
+  preuves toujours valides. Ne pas créer de test, rapport, revalidation,
+  documentation ou nouvel accord uniquement pour justifier l'avancement.
+  Conserver intégralement les contrôles imposés par les risques réels.
+- **Blocage précis :** lorsqu'une opération est refusée, arrêter cette
+  opération et ses équivalents interdits ; ne pas extrapoler sans preuve
+  le refus à toutes les autres activités légitimes. Ne pas relancer un
+  développement source-only juste pour produire des PR si la valeur
+  prioritaire exige une recette utilisateur indisponible.
+- **Exception vérifiable :** toute complexité supplémentaire doit répondre
+  brièvement, dans la Task existante, à « quel besoin réel est impossible
+  avec l'existant ? », « pourquoi le chemin simple échoue-t-il ? » et
+  « quel risque/gate rend l'ajout nécessaire ? ». Sans réponse matérielle,
+  choisir l'option simple ou s'arrêter. Pas de dossier d'architecture
+  supplémentaire pour une décision locale.
+
+Ces interdictions **ne suppriment et ne remplacent jamais** les autorisations
+humaines, la protection de `main`, les CI/revues obligatoires, la sécurité,
+la confidentialité, le rollback proportionné et les HOLD actifs. Une
+simplification ne constitue pas une permission de contourner un refus.
+
 ## Clarification proportionnée
 
 Avant toute Task modifiante qui change le comportement produit, Project Lead
